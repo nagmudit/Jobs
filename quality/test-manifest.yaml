@@ -193,6 +193,54 @@ journeys:
     blast_radius: Repeated development runs multiply live traffic
     release_blocking: false
 
+  - id: CJ-018
+    name: Location filter targets real places, not crawl slice tokens
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      User cannot filter by where the job actually is. Shipped as a real bug:
+      the UI offered 3 slice tokens while the data held 700+ places.
+    release_blocking: false
+
+  - id: CJ-019
+    name: Facets recompute per dimension so selections narrow each other
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      Selecting a value erases its own siblings from the list, or facet counts
+      stop matching the result set. Silently misleading.
+    release_blocking: false
+
+  - id: CJ-020
+    name: Each of the three role URL shapes resolves correctly
+    capability: CAP-CRAWL
+    priority: P0
+    facing: system
+    blast_radius: >
+      Wrong shape means the wrong page type and possibly no role filter at all
+      -- an unfiltered corpus, HTTP 200, no error.
+    release_blocking: true
+
+  - id: CJ-021
+    name: job_location re-derives from stored raw JSON without a re-crawl
+    capability: CAP-STORE
+    priority: P1
+    facing: system
+    blast_radius: Stale or missing location facet; worst case a needless re-crawl
+    release_blocking: false
+
+  - id: CJ-022
+    name: UI-triggered crawl refuses unknown slugs and concurrent runs
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: user
+    blast_radius: >
+      Concurrent crawls breach the 1-request-at-a-time rate limit; arbitrary
+      slugs would crawl unvalidated paths.
+    release_blocking: true
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -310,6 +358,54 @@ tests:
     status: implemented
     location: jobsearch/tests/test_derive_store.py
     command: python -m pytest tests/test_derive_store.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-002
+    name: Location filter queries job_location and is qualified against ambiguity
+    journey: CJ-018
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_facets_locations.py
+    command: python -m pytest tests/test_facets_locations.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-003
+    name: Facet exclusion drops only its own dimension, params stay aligned
+    journey: CJ-019
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_facets_locations.py
+    command: python -m pytest tests/test_facets_locations.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CRAWL-004
+    name: anywhere / remote / place URL shapes are distinct and correct
+    journey: CJ-020
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_facets_locations.py
+    command: python -m pytest tests/test_facets_locations.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-003
+    name: rebuild_locations derives onsite and remote places, idempotently
+    journey: CJ-021
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_facets_locations.py
+    command: python -m pytest tests/test_facets_locations.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
@@ -509,6 +605,18 @@ known_gaps:
     first_seen: 2026-09-03
     owner: mudit
 
+  - id: GAP-012
+    journey: CJ-022
+    priority: P0
+    description: >
+      The web crawl endpoint's guards (unknown-slug rejection, 409 on a
+      concurrent run, and the background CrawlJob lock) were verified by hand
+      against a running server on 2026-09-04 but have no automated test. The
+      concurrency guard is a conduct control.
+    status: open
+    first_seen: 2026-09-04
+    owner: mudit
+
   - id: GAP-011
     journey: CJ-003
     priority: P0
@@ -541,8 +649,9 @@ environments:
       fixtures; the suite must never touch Wellfound.
 
 last_audit:
-  date: 2026-09-03
+  date: 2026-09-04
   revision: 0099cae
   report: docs/testing/report.md
-  suite_status: "38 passed in 0.60s (run 2026-09-03)"
+  suite_status: "50 passed in 0.43s (run 2026-09-04)"
   maturity_level: 1
+  delta_since_2026_09_03: "4 tests added (CJ-018..CJ-021 covered), 1 new gap (GAP-012)"

@@ -42,7 +42,7 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `fetch.py` | **The only network egress.** robots, rate limit, disk cache, cf logging | `assertions` |
 | `parse.py` | `__NEXT_DATA__` → Apollo → raw nodes. No normalisation | `assertions` |
 | `assertions.py` | The four corpus-integrity guards | nothing internal |
-| `store.py` | SQLite schema, writers, and the `jobs` view | `derive` |
+| `store.py` | SQLite schema, writers, the `jobs` view, `rebuild_locations` | `derive` |
 | `derive.py` | salary/equity/size parsing, registered as SQLite functions | nothing internal |
 | `crawl.py` | Slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
 | `enrich.py` | Detail pages: JSON-LD + rendered comp | `fetch`, `store` |
@@ -75,6 +75,9 @@ Six probe modules (P1–P6) behind `python -m src.run --probe <id>`, plus `REPOR
 | Rate limiting, robots, cache | `jobsearch/src/fetch.py` |
 | Why a crawl stopped | `slice_stats.ended_reason`, or `src/crawl.py` |
 | A new filterable column | `store.py` `VIEWS` + maybe `derive.py`. **Not** a re-crawl |
+| Real job locations (Pune, SF) | `job_location` table, rebuilt by `store.rebuild_locations` |
+| Which URL shape a slice uses | `fetch.search_url` — `anywhere` / `remote` / a place |
+| Facet options and cascading | `web/app.py::facets`, built on `_clauses` per dimension |
 | Filter SQL | `web/app.py::_where` |
 | UI markup, JS, styling | `web/static/index.html` (single file) |
 | Why we read Wellfound this way | `wellfound-probe/REPORT.md`, ADR-001 |
@@ -108,6 +111,12 @@ Things that will mislead you if nobody says them:
   Handled in `fetch.search_url`.
 - **Slicing widens results, it does not narrow them.** Overlapping slices are
   deliberate; each gets its own page budget. See ADR-004.
+- **`job_provenance.location` is not a place.** It is the slice token we crawled
+  (`anywhere`), not where the job is. Places live in `job_location`. Presenting
+  provenance as location was a real shipped bug; see ADR-005.
+- **Filter clauses carry a dimension name** so `/api/facets` can exclude one and let
+  that dimension's siblings stay selectable. A clause without a dimension silently
+  breaks cascading.
 - **`page_wrap` is a normal, successful slice ending**, not an error, despite being
   raised as an exception. `crawl_slice` catches it and closes the slice cleanly.
 - `wellfound-probe/` and `jobsearch/` both have a `src/` package. Running `python -m

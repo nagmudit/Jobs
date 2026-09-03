@@ -98,7 +98,16 @@ for everyone using it.
   data. Downgrading one to a log line silently corrupts the corpus. See ADR-003.
 - **Nothing about roles or locations is hardcoded.** They live in `targets.yaml`,
   overridable with `--roles` / `--locations`. Adding a literal role slug to `src/` is
-  a bug.
+  a bug. The web API refuses any slug not listed in `targets.yaml`.
+- **Three URL shapes, one function.** `search_url` maps location `anywhere` ->
+  `/role/{slug}` (widest, the default), `remote` -> `/role/r/{slug}`, and any other
+  token -> `/role/l/{slug}/{token}`. All three are verified live and tested.
+- **"Location" means two different things; do not conflate them.** A *slice token*
+  (`anywhere`/`remote`/a city) is what we asked Wellfound to pre-filter on, recorded
+  in `job_provenance.location`. A *place* (Pune, San Francisco) comes from
+  `locationNames` and lives in `job_location`. The UI filters on places. See ADR-005.
+- **`rebuild_locations()` after any crawl.** `job_location` is derived from
+  `job_raw`; the crawl paths call it, and a new derivation never needs a re-crawl.
 - **FastAPI request models stay at module level** in `src/web/app.py`. With
   `from __future__ import annotations`, a model defined inside `create_app()` is
   invisible to FastAPI's hint resolution and the body silently degrades into a

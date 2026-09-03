@@ -1,15 +1,27 @@
 # Everything the crawler targets lives here. Nothing is hardcoded in the source.
-# Override per run with:  --roles a,b  --locations x,y
+# The UI crawls a subset of these on demand; this file is the menu, not a queue.
+#
+# All ten verified against the live site 2026-09-04: each returns
+# /seoLanding/roleSearch with "role" present in the GraphQL args.
 
 roles:
-  - ai-engineer
-  - machine-learning-engineer
-  - data-engineer
+  - software-engineer                 # 4964 claimed
+  - artificial-intelligence-engineer  # 14124
+  - machine-learning-engineer         # 825
+  - product-manager                   # 4435
+  - backend-engineer                  # 2495
+  - mobile-engineer                   # 832
+  - frontend-engineer                 # 1302
+  - full-stack-engineer               # 2014
+  - software-architect                # 995
+  - devops-engineer                   # 822
 
+# "anywhere" -> /role/{slug}, no location filter at all.
+# Location filtering happens locally in the UI against the real locationNames
+# values, so there is no reason to make Wellfound narrow it for us.
+# "remote" and named places still work; see src/fetch.py::search_url.
 locations:
-  - bangalore
-  - remote
-  - india
+  - anywhere
 
 # Safety stop. Real exhaustion is detected via page-wrap, not this number.
 max_pages_per_slice: 20
@@ -19,6 +31,4 @@ delay_range: [3.0, 5.0]
 
 user_agent: "jobsearch-personal/0.1 (+muditnag13@gmail.com)"
 
-# A page yielding fewer than this many jobs, when earlier pages yielded plenty,
-# means the parse broke rather than the results ending.
 yield_floor: 1

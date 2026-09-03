@@ -15,7 +15,8 @@ The repository is the source of truth. Start here, read only what your task touc
 | Area | Read |
 |---|---|
 | Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) |
-| Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), `jobsearch/src/crawl.py` |
+| Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/crawl.py` |
+| Locations, filters, facets | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/web/app.py` |
 | Adding a filter or column | [ADR-002](architecture/decisions/ADR-002-raw-first-storage.md) — it is a view change, **not** a re-crawl |
 | Parsing Wellfound's payload | [ADR-001](architecture/decisions/ADR-001-static-http-over-atsfallback.md), `wellfound-probe/REPORT.md` |
 | Equity, detail pages, enrichment | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), `jobsearch/src/enrich.py` |
@@ -32,6 +33,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-002](architecture/decisions/ADR-002-raw-first-storage.md) | Store raw, derive columns in a SQL view |
 | [ADR-003](architecture/decisions/ADR-003-assertions-raise.md) | Silent-failure guards raise, never warn |
 | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md) | Overlapping slices; breadth vs. depth tiers |
+| [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md) | Crawl by role only; filter location locally |
 
 ## Quality
 
