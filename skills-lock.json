@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "context": {
+      "source": "nagmudit/skills",
+      "sourceType": "github",
+      "skillPath": "skills/context/SKILL.md",
+      "computedHash": "59b99d0a0f30759a45afac5b8a679c0fd98189d9f4e93d2db92fd256432b87d1"
+    },
+    "test-governance": {
+      "source": "nagmudit/skills",
+      "sourceType": "github",
+      "skillPath": "skills/test-governance/SKILL.md",
+      "computedHash": "588eccf2ce1129d63ebee08c0429258d31746659efdfe5ef802d06e707f7084a"
+    }
+  }
+}
