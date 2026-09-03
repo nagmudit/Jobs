@@ -67,6 +67,11 @@ CREATE TABLE IF NOT EXISTS slice_stats (
   role_slug         TEXT, location TEXT,
   total_claimed     INTEGER, companies_claimed INTEGER,
   pages_walked      INTEGER, jobs_recovered INTEGER,
+  -- Jobs the page returned but the age cutoff dropped. Recorded separately so
+  -- recovery_ratio stays readable: a low ratio caused by the cutoff is a
+  -- deliberate filter, one caused by the page cap means the slice needs
+  -- sub-partitioning. Conflating them makes the truncation panel lie.
+  stale_skipped     INTEGER DEFAULT 0,
   ended_reason      TEXT, run_at TEXT,
   PRIMARY KEY (role_slug, location, run_at)
 );
@@ -191,6 +196,29 @@ LEFT JOIN sal           ON sal.source_job_id = j.source_job_id;
 """
 
 
+# Columns added after the first release. CREATE TABLE IF NOT EXISTS does not
+# alter an existing table, so a database created before a column existed would
+# keep working right up until a query names it. Additive-only by design: no
+# renames, no drops, no data movement.
+MIGRATIONS: list[tuple[str, str, str]] = [
+    ("slice_stats", "stale_skipped", "INTEGER DEFAULT 0"),
+]
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    applied: list[str] = []
+    for table, column, decl in MIGRATIONS:
+        cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if not cols:
+            continue  # table not created yet; SCHEMA will make it correctly
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            applied.append(f"{table}.{column}")
+    if applied:
+        conn.commit()
+    return applied
+
+
 def connect(path: Path | str) -> sqlite3.Connection:
     from . import derive
 
@@ -199,6 +227,7 @@ def connect(path: Path | str) -> sqlite3.Connection:
     # Must be registered BEFORE the view is created -- the view calls them.
     derive.register(conn)
     conn.executescript(SCHEMA)
+    migrate(conn)
     conn.executescript(VIEWS)
     conn.commit()
     return conn
@@ -257,12 +286,13 @@ def add_provenance(conn, job_id: str, role: str, location: str, page: int) -> No
 
 def record_slice(conn, role: str, location: str, total_claimed: int | None,
                  companies_claimed: int | None, pages: int, recovered: int,
-                 reason: str, run_at: str) -> None:
+                 reason: str, run_at: str, stale_skipped: int = 0) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO slice_stats (role_slug,location,total_claimed,"
-        "companies_claimed,pages_walked,jobs_recovered,ended_reason,run_at)"
-        " VALUES (?,?,?,?,?,?,?,?)",
-        (role, location, total_claimed, companies_claimed, pages, recovered, reason, run_at))
+        "companies_claimed,pages_walked,jobs_recovered,stale_skipped,ended_reason,run_at)"
+        " VALUES (?,?,?,?,?,?,?,?,?)",
+        (role, location, total_claimed, companies_claimed, pages, recovered,
+         stale_skipped, reason, run_at))
 
 
 def mark_page(conn, slice_key: str, page: int, status: str, n_jobs: int) -> None:
@@ -312,6 +342,35 @@ def rebuild_locations(conn) -> int:
     )
     conn.commit()
     return conn.execute("SELECT COUNT(*) FROM job_location").fetchone()[0]
+
+
+def prune_stale(conn, max_age_days: int, dry_run: bool = True) -> dict[str, Any]:
+    """Remove jobs older than the cutoff from an existing corpus.
+
+    Destructive, so it is dry-run by default and never runs automatically.
+    Recoverable without network: the raw pages are still in cache/, so a
+    `crawl --no-resume` re-ingests whatever a wider cutoff would keep.
+
+    user_state rows are deliberately NOT deleted -- if a job you already marked
+    applied comes back on a later crawl, that mark should still be there.
+    """
+    ids = [r[0] for r in conn.execute(
+        "SELECT source_job_id FROM jobs WHERE days_old > ?", (max_age_days,))]
+    out = {"max_age_days": max_age_days, "would_remove": len(ids),
+           "total": conn.execute("SELECT COUNT(*) FROM job_raw").fetchone()[0],
+           "dry_run": dry_run, "removed": 0}
+    if dry_run or not ids:
+        return out
+    conn.executemany("DELETE FROM job_raw WHERE source_job_id=?", [(i,) for i in ids])
+    conn.executemany("DELETE FROM job_provenance WHERE source_job_id=?", [(i,) for i in ids])
+    conn.executemany("DELETE FROM job_detail WHERE source_job_id=?", [(i,) for i in ids])
+    conn.executemany("DELETE FROM job_location WHERE source_job_id=?", [(i,) for i in ids])
+    # Companies left with no surviving jobs.
+    conn.execute("DELETE FROM company_raw WHERE company_slug NOT IN "
+                 "(SELECT DISTINCT company_slug FROM job_raw)")
+    conn.commit()
+    out["removed"] = len(ids)
+    return out
 
 
 def counts(conn) -> dict[str, Any]:

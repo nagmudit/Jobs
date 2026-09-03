@@ -26,6 +26,9 @@ class Config:
     delay_range: tuple[float, float] = (3.0, 5.0)
     user_agent: str = "jobsearch-personal/0.1"
     yield_floor: int = 1
+    # Jobs older than this are not ingested, not enriched, and not shown.
+    # 0 or null disables the cutoff entirely.
+    max_age_days: int | None = 30
 
     db_path: Path = DB_PATH
     cache_dir: Path = CACHE_DIR
@@ -36,6 +39,7 @@ class Config:
         path: Path | str = TARGETS_PATH,
         roles: str | None = None,
         locations: str | None = None,
+        max_age_days: int | None = None,
     ) -> "Config":
         p = Path(path)
         if not p.exists():
@@ -53,6 +57,10 @@ class Config:
             delay_range=(float(dr[0]), float(dr[1])),
             user_agent=str(raw.get("user_agent") or "jobsearch-personal/0.1"),
             yield_floor=int(raw.get("yield_floor", 1)),
+            # Absent key keeps the 30-day default; an explicit 0/null disables
+            # the cutoff. Those are different intents and must not collapse.
+            max_age_days=((int(raw["max_age_days"]) or None)
+                          if "max_age_days" in raw else 30),
         )
         # CLI overrides win over the file.
         if roles:
@@ -60,12 +68,27 @@ class Config:
         if locations:
             cfg.locations = [l.strip() for l in locations.split(",") if l.strip()]
 
+        if max_age_days is not None:
+            cfg.max_age_days = max_age_days if max_age_days > 0 else None
+
         if cfg.delay_range[0] < 3.0:
             raise ValueError(
                 f"delay_range floor is {cfg.delay_range[0]}s; Wellfound crawling is "
                 "capped at 1 request per 3-5s. Refusing to go faster."
             )
         return cfg
+
+    def cutoff_ts(self) -> int | None:
+        """Unix timestamp before which a job is considered stale, or None.
+
+        Compared against the job's `liveStartAt`. Computed per call rather than
+        cached so a long-running server does not drift.
+        """
+        if not self.max_age_days:
+            return None
+        import time
+
+        return int(time.time()) - self.max_age_days * 86400
 
     def slices(self) -> list[tuple[str, str]]:
         """Every (role, location) pair to crawl. Redundant/overlapping slices are

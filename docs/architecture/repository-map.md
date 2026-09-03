@@ -42,7 +42,7 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `fetch.py` | **The only network egress.** robots, rate limit, disk cache, cf logging | `assertions` |
 | `parse.py` | `__NEXT_DATA__` → Apollo → raw nodes. No normalisation | `assertions` |
 | `assertions.py` | The four corpus-integrity guards | nothing internal |
-| `store.py` | SQLite schema, writers, the `jobs` view, `rebuild_locations` | `derive` |
+| `store.py` | Schema, writers, the `jobs` view, `rebuild_locations`, `migrate`, `prune_stale` | `derive` |
 | `derive.py` | salary/equity/size parsing, registered as SQLite functions | nothing internal |
 | `crawl.py` | Slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
 | `enrich.py` | Detail pages: JSON-LD + rendered comp | `fetch`, `store` |
@@ -114,6 +114,10 @@ Things that will mislead you if nobody says them:
 - **`job_provenance.location` is not a place.** It is the slice token we crawled
   (`anywhere`), not where the job is. Places live in `job_location`. Presenting
   provenance as location was a real shipped bug; see ADR-005.
+- **The age cutoff is an ingest filter, not a stop condition.** Search results are
+  not date-ordered, so paging must continue past all-stale pages. See ADR-006.
+- **`CREATE TABLE IF NOT EXISTS` does not add columns.** New columns go in
+  `store.MIGRATIONS` (additive only) or an existing database breaks on first query.
 - **Filter clauses carry a dimension name** so `/api/facets` can exclude one and let
   that dimension's siblings stay selectable. A clause without a dimension silently
   breaks cascading.

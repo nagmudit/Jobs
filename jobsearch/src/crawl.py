@@ -36,6 +36,7 @@ class SliceResult:
     jobs_new: int = 0
     companies_seen: int = 0
     ended_reason: str = "unknown"
+    jobs_stale_skipped: int = 0
     pages: list[dict] = field(default_factory=list)
 
     @property
@@ -86,7 +87,19 @@ def crawl_slice(
     resume: bool = True,
     run_at: str | None = None,
     on_page: Callable[[dict], None] | None = None,
+    cutoff_ts: int | None = None,
 ) -> SliceResult:
+    """Walk one slice.
+
+    `cutoff_ts` drops jobs whose liveStartAt predates it, at ingest.
+
+    It deliberately does NOT terminate the slice early. Wellfound does not order
+    search results by date -- measured 2026-09-04, page 20 of a 20-page slice
+    still contained a 3-day-old job while page 3 contained a 1721-day-old one.
+    Stopping on a stale page would silently discard fresh jobs sitting deeper in
+    the results, which is exactly the class of failure this crawler exists to
+    prevent. Every page is still fetched; only storage is filtered.
+    """
     run_at = run_at or S.now()
     slice_key = f"{role}|{location}"
     res = SliceResult(role=role, location=location)
@@ -128,18 +141,30 @@ def crawl_slice(
             res.total_claimed = page.total_job_count
             res.companies_claimed = page.total_startup_count
 
+        kept_on_page = 0
         for startup, jobs in page.startups:
             cslug = startup.get("slug")
             if not cslug:
                 continue
+            fresh = [(jid, jraw) for jid, jraw in jobs
+                     if cutoff_ts is None
+                     or not isinstance(jraw.get("liveStartAt"), (int, float))
+                     or jraw["liveStartAt"] >= cutoff_ts]
+            res.jobs_stale_skipped += len(jobs) - len(fresh)
+            if not fresh:
+                continue
+            # Only store a company once one of its jobs survives the cutoff.
             S.upsert_company(conn, cslug, startup)
             seen_companies.add(cslug)
-            for jid, jraw in jobs:
+            for jid, jraw in fresh:
                 if S.upsert_job(conn, jid, cslug, jraw):
                     res.jobs_new += 1
                 S.add_provenance(conn, jid, role, location, page_no)
-                res.jobs_seen += 1
+                kept_on_page += 1
 
+        # mark_page records the parsed count, not the kept count: the page was
+        # fully ingested, and a resumed run must not re-fetch it just because a
+        # later cutoff would keep more of it.
         S.mark_page(conn, slice_key, page_no, "done", n)
         conn.commit()
 
@@ -148,7 +173,9 @@ def crawl_slice(
         prev_yield = n
         if on_page:
             on_page({"role": role, "location": location, "page": page_no,
-                     "jobs": n, "companies": page.n_companies})
+                     "jobs": n, "kept": kept_on_page,
+                     "stale_skipped": n - kept_on_page,
+                     "companies": page.n_companies})
     else:
         res.ended_reason = "max_pages"
 
@@ -177,7 +204,8 @@ def crawl_slice(
             res.companies_claimed = prev["companies_claimed"]
 
     S.record_slice(conn, role, location, res.total_claimed, res.companies_claimed,
-                   res.pages_walked, res.jobs_seen, res.ended_reason, run_at)
+                   res.pages_walked, res.jobs_seen, res.ended_reason, run_at,
+                   res.jobs_stale_skipped)
     conn.commit()
     return res
 
@@ -191,6 +219,7 @@ def crawl(
     resume: bool = True,
     validate: bool = True,
     verbose: bool = True,
+    cutoff_ts: int | None = None,
 ) -> dict[str, Any]:
     """Walk every slice. Halts the whole crawl on the first mitigation."""
     run_at = S.now()
@@ -221,7 +250,9 @@ def crawl(
                             resume, run_at,
                             on_page=(lambda d: print(
                                 f"    p{d['page']:<3} jobs={d['jobs']:<4} "
-                                f"companies={d['companies']}")) if verbose else None)
+                                f"kept={d['kept']:<4} stale={d['stale_skipped']:<4} "
+                                f"companies={d['companies']}")) if verbose else None,
+                            cutoff_ts=cutoff_ts)
         except A.MitigationDetected as e:
             halted = str(e)
             if verbose:
@@ -231,6 +262,7 @@ def crawl(
         results.append(r)
         if verbose:
             print(f"    -> {r.jobs_seen} jobs ({r.jobs_new} new), "
+                  f"{r.jobs_stale_skipped} stale skipped, "
                   f"{r.companies_seen} companies, {r.pages_walked} pages, "
                   f"ended={r.ended_reason}, recovery={r.recovery_ratio}")
 

@@ -107,13 +107,16 @@ def cmd_crawl(args, cfg: Config) -> int:
               "--roles/--locations", file=sys.stderr)
         return 2
 
+    age = (f"keeping jobs <= {cfg.max_age_days}d old"
+           if cfg.max_age_days else "no age cutoff")
     print(f"Crawling {len(slices)} slices "
           f"({len(cfg.roles)} roles x {len(cfg.locations)} locations), "
           f"max {cfg.max_pages_per_slice} pages each, {cfg.delay_range[0]}-"
-          f"{cfg.delay_range[1]}s apart.")
+          f"{cfg.delay_range[1]}s apart, {age}.")
     try:
         out = crawl(f, conn, slices, cfg.max_pages_per_slice, cfg.yield_floor,
-                    resume=not args.no_resume, validate=not args.no_validate)
+                    resume=not args.no_resume, validate=not args.no_validate,
+                    cutoff_ts=cfg.cutoff_ts())
     except A.CorpusIntegrityError as e:
         print(f"\n!! CRAWL ABORTED: {type(e).__name__}: {e}", file=sys.stderr)
         _print_stats(conn)
@@ -170,14 +173,22 @@ def _print_stats(conn) -> None:
         print(f"\n  shortlisted {row['sl'] or 0} | applied {row['ap'] or 0} | hidden {row['hd'] or 0}")
 
     sl = conn.execute(
-        "SELECT role_slug,location,total_claimed,jobs_recovered,pages_walked,ended_reason"
-        " FROM slice_stats ORDER BY run_at DESC, role_slug LIMIT 40").fetchall()
+        "SELECT role_slug,location,total_claimed,jobs_recovered,pages_walked,"
+        "stale_skipped,ended_reason FROM slice_stats ORDER BY run_at DESC, role_slug"
+        " LIMIT 40").fetchall()
     if sl:
-        print("\nSLICE TRUNCATION (low ratio => needs sub-partitioning)")
+        print("\nSLICE TRUNCATION  kept+stale=reached/claimed")
+        print("  low ratio => the page cap truncated it; high stale => the age "
+              "cutoff is doing the work")
         for s in sl:
-            ratio = (s["jobs_recovered"] / s["total_claimed"]) if s["total_claimed"] else None
+            stale = s["stale_skipped"] or 0
+            # Reachability, not keep-rate: stale jobs WERE reached, we chose not
+            # to store them. Mixing the two makes this number unreadable.
+            reached = (s["jobs_recovered"] or 0) + stale
+            ratio = (reached / s["total_claimed"]) if s["total_claimed"] else None
             print(f"  {s['role_slug']:30} {s['location']:10} "
-                  f"{s['jobs_recovered']:>5}/{str(s['total_claimed']):>6} "
+                  f"{s['jobs_recovered']:>4}+{stale:<4}={reached:>5}"
+                  f"/{str(s['total_claimed']):>6} "
                   f"p{s['pages_walked']:<3} {s['ended_reason']:<10} "
                   f"{('%.2f' % ratio) if ratio else '-'}")
 
@@ -185,6 +196,25 @@ def _print_stats(conn) -> None:
         "SELECT COUNT(*) c FROM request_log WHERE cf_mitigated IS NOT NULL "
         "OR status IN (403,429,503)").fetchone()["c"]
     print(f"\n  mitigation events: {ev}")
+
+
+def cmd_prune(args, cfg: Config) -> int:
+    conn, _ = _wire(cfg)
+    if not cfg.max_age_days:
+        print("no age cutoff configured (max_age_days is 0/null); nothing to prune")
+        return 0
+    out = S.prune_stale(conn, cfg.max_age_days, dry_run=not args.apply)
+    if out["dry_run"]:
+        print(f"Would remove {out['would_remove']} of {out['total']} jobs "
+              f"older than {cfg.max_age_days}d.")
+        print("Re-run with --apply to delete. The raw pages stay in cache/, so a "
+              "wider cutoff can be re-ingested with `crawl --no-resume` and no "
+              "network.")
+    else:
+        S.rebuild_locations(conn)
+        print(f"Removed {out['removed']} jobs older than {cfg.max_age_days}d.")
+        _print_stats(conn)
+    return 0
 
 
 def cmd_stats(args, cfg: Config) -> int:
@@ -209,13 +239,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--targets", default=None, help="path to targets.yaml")
     ap.add_argument("--roles", default=None, help="comma-separated, overrides targets.yaml")
     ap.add_argument("--locations", default=None, help="comma-separated, overrides targets.yaml")
+    ap.add_argument("--max-age-days", type=int, default=None, dest="max_age",
+                    help="age cutoff in days; 0 disables it (default from targets.yaml)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def targeted(p):
-        """--roles/--locations accepted after the subcommand too, since that is
-        the natural place to type them."""
+        """--roles/--locations/--max-age-days accepted after the subcommand too,
+        since that is the natural place to type them."""
         p.add_argument("--roles", dest="roles2", default=None)
         p.add_argument("--locations", dest="locations2", default=None)
+        p.add_argument("--max-age-days", type=int, dest="max_age2", default=None)
         return p
 
     p = targeted(sub.add_parser("roles", help="discover + validate role slugs"))
@@ -233,6 +266,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--refresh", action="store_true")
     p.set_defaults(fn=cmd_enrich)
 
+    p = sub.add_parser("prune", help="remove jobs older than the age cutoff")
+    p.add_argument("--apply", action="store_true",
+                   help="actually delete; without this it only reports")
+    p.set_defaults(fn=cmd_prune)
+
     p = sub.add_parser("stats", help="corpus size, fill rates, slice truncation")
     p.set_defaults(fn=cmd_stats)
 
@@ -244,7 +282,10 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     roles = getattr(args, "roles2", None) or args.roles
     locations = getattr(args, "locations2", None) or args.locations
-    cfg = Config.load(args.targets or TARGETS_PATH, roles, locations)
+    max_age = getattr(args, "max_age2", None)
+    if max_age is None:
+        max_age = args.max_age
+    cfg = Config.load(args.targets or TARGETS_PATH, roles, locations, max_age)
 
     try:
         return args.fn(args, cfg)
