@@ -280,6 +280,27 @@ journeys:
       until the first query names the column, then fails on the user's data.
     release_blocking: false
 
+  - id: CJ-027
+    name: robots.txt rules are per origin and never leak between hosts
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      One host's robots.txt governing another lets us fetch a path that site
+      forbids. Silent, external-facing, and the precondition for any
+      multi-source work.
+    release_blocking: true
+
+  - id: CJ-028
+    name: A host whose robots.txt cannot be read is never crawled
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      Crawling blind. naukri.com serves 403 on its own robots.txt; defaulting
+      to permissive would crawl a site that never granted permission.
+    release_blocking: true
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -485,6 +506,30 @@ tests:
     merge_blocking: true
     owner: mudit
 
+  - id: CONDUCT-005
+    name: Per-origin robots caching, order-independent, no cross-host leakage
+    journey: CJ-027
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_robots_multiorigin.py
+    command: python -m pytest tests/test_robots_multiorigin.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-006
+    name: Unreadable robots.txt raises, is not cached, and does not poison other hosts
+    journey: CJ-028
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_robots_multiorigin.py
+    command: python -m pytest tests/test_robots_multiorigin.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   # ---- proposed: the gap closers, sequenced in docs/plans/active/ ----
   - id: CONDUCT-001
     name: Fetcher refuses a robots-disallowed URL before opening a connection
@@ -590,9 +635,9 @@ known_gaps:
     journey: CJ-001
     priority: P0
     description: >
-      src/fetch.py has zero tests. robots enforcement, the rate limiter, the
-      cache, and mitigation halting are all unverified. This is the module
-      whose failure harms a third party and revokes our access.
+      src/fetch.py is partially tested. robots enforcement IS now covered
+      (CONDUCT-005/006, added 2026-09-04 with the per-origin fix). The rate
+      limiter, the disk cache, and the mitigation call path remain unverified.
     status: open
     first_seen: 2026-09-03
     owner: mudit
@@ -739,8 +784,10 @@ last_audit:
   date: 2026-09-04
   revision: 0099cae
   report: docs/testing/report.md
-  suite_status: "64 passed in 0.79s (run 2026-09-04)"
+  suite_status: "72 passed in 0.63s (run 2026-09-04)"
   maturity_level: 1
   delta_since_2026_09_03: >
-    8 tests added (CJ-018..CJ-021, CJ-023..CJ-025 covered);
-    2 new gaps (GAP-012 crawl-endpoint guards, GAP-013 migrations)
+    16 tests added (CJ-018..CJ-021, CJ-023..CJ-025, CJ-027..CJ-028 covered);
+    2 new gaps (GAP-012 crawl-endpoint guards, GAP-013 migrations);
+    GAP-001 narrowed -- robots enforcement now covered, rate limiter and cache
+    still open
