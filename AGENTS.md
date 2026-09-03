@@ -87,6 +87,10 @@ for everyone using it.
   the crawl. Never retry through it, never add a backoff-and-continue path.
 - All network access goes through `Fetcher.get`. Adding a second path out to the
   network bypasses every rule above.
+- **robots.txt is cached per origin.** One `Fetcher` may span hosts; each host is
+  judged by its own rules. Never collapse that cache — doing so lets one site's
+  robots.txt permit a fetch another site forbids. A host whose robots.txt cannot be
+  read raises and is never crawled. See ADR-007.
 
 ## Conventions
 

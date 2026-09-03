@@ -67,7 +67,10 @@ class Fetcher:
         self.user_agent = user_agent
         self.delay_range = delay_range
         self._last_request = 0.0
-        self._robots: dict[str, list[tuple[bool, str]]] | None = None
+        # Keyed by origin. A single shared rule set would apply one site's
+        # robots.txt to another host -- potentially permitting a fetch that host
+        # forbids. Every origin gets its own fetch and its own rules.
+        self._robots: dict[str, list[tuple[bool, str]]] = {}
         # Filled by the caller (crawl/enrich) so every response lands in request_log.
         self.on_response = None
 
@@ -99,27 +102,34 @@ class Fetcher:
     # --- robots --------------------------------------------------------------
 
     def _load_robots(self, origin: str) -> list[tuple[bool, str]]:
-        if self._robots is not None:
-            return self._robots
+        """Rules for ONE origin, cached per origin.
+
+        A failure here is never cached: a host whose robots.txt we could not read
+        must keep raising, not silently become permissive on a later call. That
+        is what stops us crawling a site blind -- naukri.com serves 403 on its
+        own robots.txt, and this is the check that refuses it.
+        """
+        if origin in self._robots:
+            return self._robots[origin]
         resp = self._raw_get(f"{origin}/robots.txt")
-        rules: list[tuple[bool, str]] = []
-        if resp.ok:
-            applies = False
-            for line in resp.text.splitlines():
-                line = line.split("#", 1)[0].strip()
-                if not line or ":" not in line:
-                    continue
-                k, v = line.split(":", 1)
-                k, v = k.strip().lower(), v.strip()
-                if k == "user-agent":
-                    applies = v == "*"
-                elif applies and k in ("disallow", "allow") and v:
-                    rules.append((k == "allow", v))
-        else:
+        if not resp.ok:
             raise RuntimeError(
-                f"could not read robots.txt (HTTP {resp.status}); refusing to crawl blind"
+                f"{origin}: could not read robots.txt (HTTP {resp.status}); "
+                f"refusing to crawl blind"
             )
-        self._robots = rules
+        rules: list[tuple[bool, str]] = []
+        applies = False
+        for line in resp.text.splitlines():
+            line = line.split("#", 1)[0].strip()
+            if not line or ":" not in line:
+                continue
+            k, v = line.split(":", 1)
+            k, v = k.strip().lower(), v.strip()
+            if k == "user-agent":
+                applies = v == "*"
+            elif applies and k in ("disallow", "allow") and v:
+                rules.append((k == "allow", v))
+        self._robots[origin] = rules
         return rules
 
     def allowed(self, url: str) -> tuple[bool, str | None]:
@@ -142,7 +152,9 @@ class Fetcher:
     def assert_allowed(self, url: str) -> None:
         ok, rule = self.allowed(url)
         if not ok:
-            raise RobotsDisallowed(f"robots.txt disallows {url} (Disallow: {rule})")
+            origin = "{0.scheme}://{0.netloc}".format(urlparse(url))
+            raise RobotsDisallowed(
+                f"{origin}/robots.txt disallows {url} (Disallow: {rule})")
 
     # --- transport -----------------------------------------------------------
 

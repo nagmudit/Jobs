@@ -89,7 +89,8 @@ Six probe modules (P1–P6) behind `python -m src.run --probe <id>`, plus `REPOR
 |---|---|
 | All egress via `Fetcher.get` | **Convention only** — no test, no lint |
 | `delay_range` floor ≥ 3.0 s | Enforced in `config.py`, raises at load |
-| robots.txt honoured | Enforced in `fetch.py`, raises `RobotsDisallowed` |
+| robots.txt honoured, per origin | Enforced in `fetch.py`, raises `RobotsDisallowed` |
+| Unreadable robots.txt blocks the host | Enforced in `fetch.py`, raises `RuntimeError` |
 | Halt on mitigation | Enforced in `assertions.check_mitigation` |
 | No role/location literals in `src/` | **Convention only** |
 

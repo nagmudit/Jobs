@@ -15,6 +15,7 @@ The repository is the source of truth. Start here, read only what your task touc
 | Area | Read |
 |---|---|
 | Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) |
+| Adding another job platform | [ADR-007](architecture/decisions/ADR-007-multi-source.md), [research/job-platform-survey.md](research/job-platform-survey.md) |
 | Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/crawl.py` |
 | Locations, filters, facets | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/web/app.py` |
 | Job age, staleness, pruning | [ADR-006](architecture/decisions/ADR-006-age-cutoff.md), `jobsearch/src/config.py` |
@@ -36,6 +37,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md) | Overlapping slices; breadth vs. depth tiers |
 | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md) | Crawl by role only; filter location locally |
 | [ADR-006](architecture/decisions/ADR-006-age-cutoff.md) | 30-day age cutoff at ingest; never an early stop |
+| [ADR-007](architecture/decisions/ADR-007-multi-source.md) | robots is per-origin; what multi-source would cost |
 
 ## Quality
 
@@ -52,6 +54,12 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 
 - [close-conduct-test-gaps.md](plans/active/close-conduct-test-gaps.md) — the conduct
   layer is untested; this closes it and adds CI.
+
+## Research
+
+| Doc | Holds |
+|---|---|
+| [research/job-platform-survey.md](research/job-platform-survey.md) | Which other job platforms are readable without evasion, probed 2026-09-04 |
 
 ## Research archive
 
