@@ -1,0 +1,114 @@
+{
+  "probe": "p3_feeds",
+  "verdict": "DEAD END -- no RSS/Atom/JSON feed declared or discoverable",
+  "declared_feeds": [],
+  "probed_paths": [
+    {
+      "url": "https://wellfound.com/jobs.rss",
+      "status": 403,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes": 11404,
+      "is_feed": false,
+      "reason": "HTTP 403 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-w"
+    },
+    {
+      "url": "https://wellfound.com/jobs.atom",
+      "status": 403,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes": 11404,
+      "is_feed": false,
+      "reason": "HTTP 403 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-w"
+    },
+    {
+      "url": "https://wellfound.com/jobs.json",
+      "status": 403,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes": 11404,
+      "is_feed": false,
+      "reason": "HTTP 403 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-w"
+    },
+    {
+      "url": "https://wellfound.com/feed",
+      "status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 108225,
+      "is_feed": false,
+      "reason": "HTTP 404 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html>\n<html class=\"notranslate no-js scheme-lighter_gray_backdrop ml no-ms no-mm size-standard responsive\" xml"
+    },
+    {
+      "url": "https://wellfound.com/feed.xml",
+      "status": 403,
+      "content_type": "application/xml",
+      "bytes": 263,
+      "is_feed": false,
+      "reason": "HTTP 403 (not a feed; error page)",
+      "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>R9BQAG"
+    },
+    {
+      "url": "https://wellfound.com/rss",
+      "status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 108225,
+      "is_feed": false,
+      "reason": "HTTP 404 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html>\n<html class=\"notranslate no-js scheme-lighter_gray_backdrop ml no-ms no-mm size-standard responsive\" xml"
+    },
+    {
+      "url": "https://wellfound.com/rss.xml",
+      "status": 403,
+      "content_type": "application/xml",
+      "bytes": 263,
+      "is_feed": false,
+      "reason": "HTTP 403 (not a feed; error page)",
+      "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>Q2HG0T"
+    },
+    {
+      "url": "https://wellfound.com/atom.xml",
+      "status": 403,
+      "content_type": "application/xml",
+      "bytes": 243,
+      "is_feed": false,
+      "reason": "HTTP 403 (not a feed; error page)",
+      "body_head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>NDBDPC"
+    },
+    {
+      "url": "https://wellfound.com/jobs/feed",
+      "status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 108221,
+      "is_feed": false,
+      "reason": "HTTP 404 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html>\n<html class=\"notranslate no-js scheme-lighter_gray_backdrop ml no-ms no-mm size-standard responsive\" xml"
+    },
+    {
+      "url": "https://wellfound.com/role/l/artificial-intelligence-engineer/bangalore.rss",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 703471,
+      "is_feed": false,
+      "reason": "not a feed (content-type='text/html; charset=utf-8', body starts '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/>')",
+      "body_head": "<!DOCTYPE html><html lang=\"en\"><head><meta charSet=\"utf-8\"/><script>\n          turnstileLoad = function () {\n           "
+    },
+    {
+      "url": "https://wellfound.com/location/bangalore.rss",
+      "status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 42945,
+      "is_feed": false,
+      "reason": "HTTP 404 (not a feed; error page)",
+      "body_head": "<!DOCTYPE html><html lang=\"en\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><title>4"
+    }
+  ],
+  "n_feed_hits": 0,
+  "n_jobs": 0,
+  "coverage": {
+    "n_jobs": 0,
+    "per_field": {},
+    "mean_fields_filled": 0.0
+  },
+  "jobs": []
+}

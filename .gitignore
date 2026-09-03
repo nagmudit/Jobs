@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local runtime data
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Project-generated data
+jobsearch/cache/
+wellfound-probe/cache/
+wellfound-probe/browser-profile/
+wellfound-probe/results/*.log
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
