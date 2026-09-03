@@ -64,6 +64,7 @@ Run from `jobsearch/` unless noted. Full list in `docs/engineering/commands.md`.
 | Crawl | `python -m src.cli crawl` |
 | Serve | `python -m src.cli serve` |
 | Stats | `python -m src.cli stats` |
+| Prune old jobs | `python -m src.cli prune` (add `--apply` to delete) |
 
 All verified 2026-09-03. There is no lint or typecheck configured — don't claim one ran.
 
@@ -106,6 +107,11 @@ for everyone using it.
   (`anywhere`/`remote`/a city) is what we asked Wellfound to pre-filter on, recorded
   in `job_provenance.location`. A *place* (Pune, San Francisco) comes from
   `locationNames` and lives in `job_location`. The UI filters on places. See ADR-005.
+- **The age cutoff never ends a slice early.** `max_age_days` (default 30) filters
+  jobs at ingest, in enrichment, and in the UI. It must NOT stop paging: Wellfound
+  does not order results by date, so a page of only-stale jobs is followed by pages
+  with fresh ones. Early termination would silently lose them. See ADR-006.
+- **Unknown age is not old.** A job with no `liveStartAt` is kept by the cutoff.
 - **`rebuild_locations()` after any crawl.** `job_location` is derived from
   `job_raw`; the crawl paths call it, and a new derivation never needs a re-crawl.
 - **FastAPI request models stay at module level** in `src/web/app.py`. With

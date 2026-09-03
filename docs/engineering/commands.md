@@ -22,12 +22,21 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Enrich specific jobs | `python -m src.cli enrich --ids 123,456` | ✅ ran, 3 enriched |
 | Enrich next N unenriched | `python -m src.cli enrich --limit 25` | ⚠️ not run |
 | Stats | `python -m src.cli stats` | ✅ ran |
+| Prune stale (dry run) | `python -m src.cli prune` | ✅ ran, reported 1747/2941 |
+| Prune stale (delete) | `python -m src.cli prune --apply` | ⚠️ not run — destructive |
+| Widen the age cutoff | `python -m src.cli crawl --no-resume --max-age-days 90` | ⚠️ not run |
 | Serve UI | `python -m src.cli serve` | ✅ ran on :8013, UI + all API routes |
 
 There is **no lint, formatter, typecheck, or build step** configured. Don't document
 or claim one.
 
-`--roles` / `--locations` work both before and after the subcommand.
+`--roles` / `--locations` / `--max-age-days` work both before and after the subcommand.
+
+**Age cutoff.** `max_age_days` in `targets.yaml` (default 30) drops older jobs at
+ingest, skips them during enrichment, and seeds the UI filter. It saves **no requests**
+— Wellfound does not order results by date, so every page is still fetched (ADR-006).
+Widening it later needs no network: the raw pages stay in `cache/`, so
+`crawl --no-resume --max-age-days 90` re-ingests from disk.
 
 ## Repo hygiene
 

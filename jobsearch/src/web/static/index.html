@@ -127,7 +127,7 @@ td.acts{white-space:nowrap}
   <label class="ck"><span class="lbl"><input type="checkbox" id="has_ats"> has ATS board</span></label>
   <label class="ck"><span class="lbl"><input type="checkbox" id="show_hidden"> show hidden</span></label>
 
-  <h4>Max age (days)</h4>
+  <h4>Max age (days) <button class="linkish" id="age_clear">show all</button></h4>
   <input type="number" id="max_days" placeholder="any">
 
   <h4>Status</h4><div class="multi short" id="f-statuses"></div>
@@ -135,7 +135,7 @@ td.acts{white-space:nowrap}
   <h4>&nbsp;</h4>
   <button id="reset" style="width:100%">Reset filters</button>
 
-  <h4>Slice truncation</h4>
+  <h4>Slice truncation <span style="color:var(--dim);font-weight:400">kept +old</span></h4>
   <table id="trunc"><tbody></tbody></table>
 </aside>
 
@@ -322,7 +322,7 @@ async function pollCrawl() {
   const box = $('#crawl_status');
   if (s.running) {
     box.innerHTML = `<b style="color:var(--accent)">crawling ${esc(s.current || '')}</b>
-      · ${s.pages} pages · ${s.jobs_new} new
+      · ${s.pages} pages · ${s.jobs_new} new · ${s.stale || 0} too old
       · done: ${s.done.map(d => esc(d.role)).join(', ') || '—'}`;
     $('#crawl').disabled = true;
   } else {
@@ -330,7 +330,7 @@ async function pollCrawl() {
     if (s.error) box.innerHTML = `<b style="color:var(--bad)">halted:</b> ${esc(s.error)}`;
     else if (s.done && s.done.length)
       box.innerHTML = s.done.map(d =>
-        `${esc(d.role)}: <b>${d.new}</b> new / ${d.jobs} seen, p${d.pages}, ${esc(d.ended)}`
+        `${esc(d.role)}: <b>${d.new}</b> new / ${d.jobs} kept, ${d.stale || 0} too old, p${d.pages}, ${esc(d.ended)}`
       ).join('<br>');
     if (state.polling) {
       clearInterval(state.polling); state.polling = null;
@@ -369,8 +369,10 @@ $('#next').onclick = () => { state.offset += Number($('#limit').value); loadRows
 document.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => {
   state.sel[b.dataset.clear].clear(); state.offset = 0; refresh();
 });
+$('#age_clear').onclick = () => { $('#max_days').value = ''; state.offset = 0; refresh(); };
 $('#reset').onclick = () => {
-  $('#q').value = ''; $('#salary_min').value = ''; $('#max_days').value = '';
+  $('#q').value = ''; $('#salary_min').value = '';
+  $('#max_days').value = state.meta && state.meta.max_age_days ? state.meta.max_age_days : '';
   $('#loc_search').value = ''; $('#co_search').value = '';
   Object.values(state.sel).forEach(s => s.clear());
   $('#has_equity').checked = $('#has_ats').checked = $('#show_hidden').checked = false;
@@ -411,13 +413,24 @@ async function loadMeta() {
   $('#sort').innerHTML = m.sorts.map(s =>
     `<option ${s === state.sort ? 'selected' : ''}>${s}</option>`).join('');
   $('#c-total').textContent = m.counts.jobs;
+  /* Seed the age filter from the server's configured cutoff on first load, so
+     the default view matches what the crawler actually keeps. */
+  if (state.ageInit !== true) {
+    if (m.max_age_days) $('#max_days').value = m.max_age_days;
+    state.ageInit = true;
+  }
   $('#c-crawl').textContent = m.last_crawl ? m.last_crawl.slice(0, 16).replace('T', ' ') : '–';
   $('#c-mit').innerHTML = m.counts.mitigations
     ? `<strong style="color:var(--bad)">${m.counts.mitigations} mitigations</strong>`
     : '<span style="color:var(--good)">0 mitigations</span>';
+  /* kept + stale = reached. A low ratio means the page cap truncated the slice;
+     a big stale number just means the age cutoff is doing its job. */
   $('#trunc tbody').innerHTML = m.slices.map(s =>
-    `<tr><td>${esc(s.role_slug)}</td><td>${esc(s.location)}</td>
-     <td class="num">${s.jobs_recovered}/${s.total_claimed ?? '?'}</td>
+    `<tr title="${esc(s.role_slug)} @ ${esc(s.location)} — kept ${s.jobs_recovered}, ${s.stale_skipped || 0} too old, reached ${s.reached}/${s.total_claimed ?? '?'}, ended ${esc(s.ended_reason)}">
+     <td>${esc(s.role_slug)}</td>
+     <td class="num">${s.jobs_recovered}</td>
+     <td class="num" style="color:var(--dim)">+${s.stale_skipped || 0}</td>
+     <td class="num">${s.reached}/${s.total_claimed ?? '?'}</td>
      <td class="num" style="color:${s.recovery != null && s.recovery < .5 ? 'var(--warn)' : 'inherit'}">
      ${s.recovery ?? '–'}</td></tr>`).join('');
 }

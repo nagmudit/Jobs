@@ -32,3 +32,14 @@ delay_range: [3.0, 5.0]
 user_agent: "jobsearch-personal/0.1 (+nagmudit@users.noreply.github.com)"
 
 yield_floor: 1
+
+# Age cutoff, in days. Jobs older than this are NOT ingested, NOT enriched, and
+# NOT shown. Set to 0 (or null) to disable and keep everything.
+#
+# This cannot make the crawl cheaper: Wellfound does not order results by date
+# (page 20 of a slice still contains 3-day-old jobs), so every page must still
+# be fetched. The saving is corpus quality, not requests.
+#
+# Raising it later does not require a re-crawl -- the raw pages stay in cache/.
+# Re-ingest with:  python -m src.cli crawl --no-resume --max-age-days 90
+max_age_days: 30

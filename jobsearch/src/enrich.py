@@ -84,17 +84,23 @@ def enrich_ids(
     job_ids: Iterable[str],
     refresh: bool = False,
     on_progress: Callable[[dict], None] | None = None,
+    max_age_days: int | None = None,
 ) -> dict[str, Any]:
     ids = [str(i) for i in job_ids]
-    done, failed, skipped = 0, 0, 0
+    done, failed, skipped, stale = 0, 0, 0, 0
     halted: str | None = None
 
     for jid in ids:
         row = conn.execute(
-            "SELECT source_job_id, apply_url FROM jobs WHERE source_job_id=?", (jid,)
-        ).fetchone()
+            "SELECT source_job_id, apply_url, days_old FROM jobs WHERE source_job_id=?",
+            (jid,)).fetchone()
         if row is None:
             skipped += 1
+            continue
+        # A stale job is never worth a rate-limited request: it is excluded from
+        # the corpus view anyway.
+        if max_age_days and row["days_old"] is not None and row["days_old"] > max_age_days:
+            stale += 1
             continue
         if not refresh and conn.execute(
             "SELECT 1 FROM job_detail WHERE source_job_id=?", (jid,)
@@ -130,5 +136,5 @@ def enrich_ids(
 
     return {
         "requested": len(ids), "enriched": done, "skipped": skipped,
-        "failed": failed, "halted": halted,
+        "stale_skipped": stale, "failed": failed, "halted": halted,
     }

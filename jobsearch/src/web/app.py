@@ -172,13 +172,14 @@ class CrawlJob:
         self.thread: threading.Thread | None = None
         self.state: dict[str, Any] = {"running": False, "roles": [], "done": [],
                                       "current": None, "pages": 0, "jobs_new": 0,
-                                      "error": None, "finished_at": None}
+                                      "stale": 0, "error": None, "finished_at": None}
 
     def start(self, cfg: Config, roles: list[str], location: str, max_pages: int) -> bool:
         if not self.lock.acquire(blocking=False):
             return False
         self.state = {"running": True, "roles": roles, "done": [], "current": None,
-                      "pages": 0, "jobs_new": 0, "error": None, "finished_at": None}
+                      "pages": 0, "jobs_new": 0, "stale": 0, "error": None,
+                      "finished_at": None}
         self.thread = threading.Thread(
             target=self._run, args=(cfg, roles, location, max_pages), daemon=True)
         self.thread.start()
@@ -201,10 +202,14 @@ class CrawlJob:
                 res = crawl_slice(
                     f, conn, role, location, max_pages, cfg.yield_floor,
                     resume=True, run_at=run_at,
-                    on_page=lambda d: self.state.update(pages=self.state["pages"] + 1))
+                    on_page=lambda d: self.state.update(
+                        pages=self.state["pages"] + 1,
+                        stale=self.state["stale"] + d["stale_skipped"]),
+                    cutoff_ts=cfg.cutoff_ts())
                 self.state["jobs_new"] += res.jobs_new
                 self.state["done"].append(
                     {"role": role, "jobs": res.jobs_seen, "new": res.jobs_new,
+                     "stale": res.jobs_stale_skipped,
                      "pages": res.pages_walked, "ended": res.ended_reason,
                      "claimed": res.total_claimed})
             # crawl_slice() is called directly here rather than crawl(), so the
@@ -239,9 +244,14 @@ def create_app(cfg: Config) -> FastAPI:
         last = conn.execute("SELECT MAX(run_at) r FROM slice_stats").fetchone()["r"]
         slices = [dict(r) for r in conn.execute(
             "SELECT role_slug,location,total_claimed,jobs_recovered,pages_walked,"
-            "ended_reason FROM slice_stats ORDER BY run_at DESC LIMIT 60")]
+            "stale_skipped,ended_reason FROM slice_stats ORDER BY run_at DESC LIMIT 60")]
         for s in slices:
-            s["recovery"] = (round(s["jobs_recovered"] / s["total_claimed"], 3)
+            # Reachability, not keep-rate: stale jobs WERE reached, we chose not
+            # to store them. Adding them back is what keeps this comparable to
+            # runs made before the cutoff existed.
+            reached = (s["jobs_recovered"] or 0) + (s["stale_skipped"] or 0)
+            s["reached"] = reached
+            s["recovery"] = (round(reached / s["total_claimed"], 3)
                              if s["total_claimed"] else None)
         crawled = {r[0] for r in conn.execute(
             "SELECT DISTINCT role_slug FROM job_provenance")}
@@ -251,6 +261,7 @@ def create_app(cfg: Config) -> FastAPI:
             "counts": c, "last_crawl": last, "slices": slices,
             "sorts": list(SORTS), "max_pages": cfg.max_pages_per_slice,
             "delay_range": list(cfg.delay_range),
+            "max_age_days": cfg.max_age_days,
         }
 
     @app.post("/api/facets")
@@ -367,7 +378,7 @@ def create_app(cfg: Config) -> FastAPI:
             conn = db()
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
-            return enrich_ids(f, conn, e.ids)
+            return enrich_ids(f, conn, e.ids, max_age_days=cfg.max_age_days)
         finally:
             enrich_lock.release()
 
