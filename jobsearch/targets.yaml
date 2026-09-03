@@ -1,0 +1,24 @@
+# Everything the crawler targets lives here. Nothing is hardcoded in the source.
+# Override per run with:  --roles a,b  --locations x,y
+
+roles:
+  - ai-engineer
+  - machine-learning-engineer
+  - data-engineer
+
+locations:
+  - bangalore
+  - remote
+  - india
+
+# Safety stop. Real exhaustion is detected via page-wrap, not this number.
+max_pages_per_slice: 20
+
+# Seconds between requests to Wellfound. Concurrency is always 1.
+delay_range: [3.0, 5.0]
+
+user_agent: "jobsearch-personal/0.1 (+muditnag13@gmail.com)"
+
+# A page yielding fewer than this many jobs, when earlier pages yielded plenty,
+# means the parse broke rather than the results ending.
+yield_floor: 1

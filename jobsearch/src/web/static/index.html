@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>jobsearch</title>
+<style>
+:root{
+  --bg:#11131a; --panel:#171a23; --panel2:#1d212c; --line:#2a2f3d;
+  --fg:#e6e8ef; --dim:#8b93a7; --accent:#5b9dff; --good:#3fb950; --warn:#d29922;
+  --bad:#f85149; --chip:#232838;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dfe3ea;
+    --fg:#12141a; --dim:#5c6478; --chip:#e9edf5; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:13px/1.45 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:20;background:var(--panel);
+  border-bottom:1px solid var(--line);padding:8px 12px;display:flex;gap:14px;
+  align-items:center;flex-wrap:wrap}
+header b{font-size:14px}
+.stat{color:var(--dim)}
+.stat strong{color:var(--fg)}
+main{display:grid;grid-template-columns:250px 1fr;gap:0;align-items:start}
+aside{position:sticky;top:41px;max-height:calc(100vh - 41px);overflow:auto;
+  padding:10px;border-right:1px solid var(--line);background:var(--panel)}
+aside h4{margin:12px 0 5px;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dim)}
+aside h4:first-child{margin-top:0}
+input,select,button{font:inherit;color:var(--fg);background:var(--panel2);
+  border:1px solid var(--line);border-radius:5px;padding:5px 7px}
+input[type=text],input[type=number],select{width:100%}
+button{cursor:pointer;background:var(--chip)}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+label.ck{display:flex;gap:6px;align-items:center;padding:2px 0;cursor:pointer}
+.multi{max-height:132px;overflow:auto;border:1px solid var(--line);
+  border-radius:5px;padding:4px 6px;background:var(--panel2)}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);
+  vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th{position:sticky;top:41px;background:var(--panel);z-index:10;
+  font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);
+  cursor:pointer;user-select:none}
+th:hover{color:var(--fg)}
+tbody tr:hover{background:var(--panel2)}
+tr.applied{opacity:.55}
+tr.shortlisted td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+.desc{white-space:pre-wrap;font-size:12px;color:var(--dim);max-height:340px;
+  overflow:auto;padding:8px 10px;background:var(--panel2);border-radius:6px;
+  border:1px solid var(--line)}
+a{color:var(--accent)}
+.pill{display:inline-block;padding:1px 6px;border-radius:9px;background:var(--chip);
+  font-size:11px;color:var(--dim)}
+.bar{display:flex;gap:6px;align-items:center;padding:6px 12px;
+  border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.msg{color:var(--warn)}
+.sbtn{padding:2px 5px;font-size:11px;border-radius:4px}
+td.acts{white-space:nowrap}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+#trunc td{font-size:11px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <b>jobsearch</b>
+  <span class="stat">corpus <strong id="c-total">–</strong></span>
+  <span class="stat">matching <strong id="c-match">–</strong></span>
+  <span class="stat">enriched <strong id="c-enr">–</strong></span>
+  <span class="stat">last crawl <strong id="c-crawl">–</strong></span>
+  <span class="stat" id="c-mit"></span>
+  <span style="flex:1"></span>
+  <span id="msg" class="msg"></span>
+</header>
+
+<main>
+<aside>
+  <h4>Search</h4>
+  <input type="text" id="q" placeholder="title, description, company">
+
+  <h4>Role slug</h4><div class="multi" id="f-roles"></div>
+  <h4>Location</h4><div class="multi" id="f-locations"></div>
+  <h4>Remote</h4><div class="multi" id="f-remote"></div>
+  <h4>Company size</h4><div class="multi" id="f-sizes"></div>
+  <h4>Job type</h4><div class="multi" id="f-job_types"></div>
+
+  <h4>Salary min</h4>
+  <input type="number" id="salary_min" placeholder="e.g. 1500000" step="100000">
+  <label class="ck"><input type="checkbox" id="incl_unlisted" checked>
+    include unlisted salary</label>
+
+  <h4>Other</h4>
+  <label class="ck"><input type="checkbox" id="has_equity"> has equity (needs enrich)</label>
+  <label class="ck"><input type="checkbox" id="has_ats"> has ATS board</label>
+  <label class="ck"><input type="checkbox" id="show_hidden"> show hidden</label>
+
+  <h4>Max age (days)</h4>
+  <input type="number" id="max_days" placeholder="any">
+
+  <h4>Status</h4><div class="multi" id="f-statuses"></div>
+
+  <h4>&nbsp;</h4>
+  <button id="reset" style="width:100%">Reset filters</button>
+
+  <h4>Slice truncation</h4>
+  <table id="trunc"><tbody></tbody></table>
+</aside>
+
+<section>
+  <div class="bar">
+    <label>Sort <select id="sort"></select></label>
+    <label>Rows <select id="limit">
+      <option>50</option><option selected>100</option><option>200</option>
+      <option>500</option></select></label>
+    <button id="prev">‹ Prev</button>
+    <span id="page" class="pill">–</span>
+    <button id="next">Next ›</button>
+    <span style="flex:1"></span>
+    <button id="enrich" class="primary">Enrich filtered results</button>
+  </div>
+
+  <table id="grid">
+    <colgroup>
+      <col style="width:26%"><col style="width:14%"><col style="width:7%">
+      <col style="width:13%"><col style="width:8%"><col style="width:11%">
+      <col style="width:6%"><col style="width:5%"><col style="width:10%">
+    </colgroup>
+    <thead><tr>
+      <th data-s="title">Title</th><th data-s="company">Company</th>
+      <th data-s="size">Size</th><th>Location</th><th>Remote</th>
+      <th data-s="salary">Salary</th><th data-s="equity">Equity</th>
+      <th data-s="posted">Age</th><th>Actions</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { offset: 0, sort: 'posted', meta: null, rows: [] };
+
+function chips(id, values, checked = []) {
+  const el = $(id);
+  el.innerHTML = values.map(v =>
+    `<label class="ck"><input type="checkbox" value="${esc(v)}"
+      ${checked.includes(v) ? 'checked' : ''}>${esc(v)}</label>`).join('') ||
+    '<span class="pill">none</span>';
+  el.querySelectorAll('input').forEach(i => i.onchange = () => { state.offset = 0; load(); });
+}
+const picked = id => [...$(id).querySelectorAll('input:checked')].map(i => i.value);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function filters() {
+  const n = id => { const v = $(id).value.trim(); return v === '' ? null : Number(v); };
+  return {
+    q: $('#q').value.trim() || null,
+    roles: picked('#f-roles'), locations: picked('#f-locations'),
+    remote: picked('#f-remote'), sizes: picked('#f-sizes'),
+    job_types: picked('#f-job_types'), statuses: picked('#f-statuses'),
+    salary_min: n('#salary_min'),
+    include_unlisted_salary: $('#incl_unlisted').checked,
+    has_equity: $('#has_equity').checked,
+    has_ats: $('#has_ats').checked,
+    show_hidden: $('#show_hidden').checked,
+    max_days_old: n('#max_days'),
+    sort: state.sort, limit: Number($('#limit').value), offset: state.offset,
+  };
+}
+
+const money = v => v == null ? '' : '₹$'.includes('₹') && v >= 100000 && v % 1000 === 0
+  ? v.toLocaleString() : v.toLocaleString();
+
+function rowHtml(r) {
+  const sal = r.salary_raw ? esc(r.salary_raw)
+    : (r.salary_min ? money(r.salary_min) : '<span class="pill">—</span>');
+  return `<tr class="${esc(r.status)}" data-id="${esc(r.source_job_id)}">
+    <td title="${esc(r.title)}"><a href="#" class="exp">${esc(r.title)}</a></td>
+    <td title="${esc(r.high_concept || '')}">${esc(r.company || r.company_slug)}</td>
+    <td>${esc(r.company_size || '')}</td>
+    <td title="${esc(r.location_raw || '')}">${esc(r.location_raw || '')}</td>
+    <td>${esc(r.remote_label || '')}</td>
+    <td>${sal}</td>
+    <td>${esc(r.equity_raw || '')}</td>
+    <td class="num">${r.days_old ?? ''}d</td>
+    <td class="acts">
+      <a class="sbtn" href="${esc(r.apply_url)}" target="_blank" rel="noopener">Apply</a>
+      <button class="sbtn" data-st="shortlisted">★</button>
+      <button class="sbtn" data-st="applied">✓</button>
+      <button class="sbtn" data-st="hidden">✕</button>
+    </td></tr>`;
+}
+
+async function load() {
+  const f = filters();
+  const res = await fetch('/api/jobs', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(f)
+  }).then(r => r.json());
+  state.rows = res.rows;
+  $('#grid tbody').innerHTML = res.rows.map(rowHtml).join('') ||
+    '<tr><td colspan="9" style="padding:20px;color:var(--dim)">No rows match.</td></tr>';
+  $('#c-match').textContent = res.total;
+  $('#c-enr').textContent = res.enriched;
+  const from = res.total ? state.offset + 1 : 0;
+  $('#page').textContent = `${from}–${Math.min(state.offset + f.limit, res.total)} of ${res.total}`;
+  $('#prev').disabled = state.offset === 0;
+  $('#next').disabled = state.offset + f.limit >= res.total;
+  wire();
+}
+
+function wire() {
+  document.querySelectorAll('#grid tbody tr').forEach(tr => {
+    const id = tr.dataset.id;
+    tr.querySelector('.exp').onclick = e => {
+      e.preventDefault();
+      const nx = tr.nextElementSibling;
+      if (nx && nx.classList.contains('drawer')) { nx.remove(); return; }
+      const r = state.rows.find(x => x.source_job_id === id);
+      const d = document.createElement('tr');
+      d.className = 'drawer';
+      d.innerHTML = `<td colspan="9"><div class="desc">${esc(r.description || '(no description)')}</div>
+        <div style="padding:6px 2px;color:var(--dim);font-size:11px">
+        found via <b>${esc(r.found_via_roles || '')}</b> @ <b>${esc(r.found_via_locations || '')}</b>
+        · ${esc(r.job_type || '')} · ${esc(r.primary_role_title || '')}
+        · ats: ${esc(r.ats_source || 'none')} · id ${esc(r.source_job_id)}
+        · ${r.enriched ? 'enriched' : 'not enriched'}</div></td>`;
+      tr.after(d);
+    };
+    tr.querySelectorAll('button[data-st]').forEach(b => b.onclick = async () => {
+      const cur = tr.className;
+      const next = cur === b.dataset.st ? 'new' : b.dataset.st;
+      await fetch('/api/status', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({job_id: id, status: next})
+      });
+      const r = state.rows.find(x => x.source_job_id === id);
+      if (r) r.status = next;
+      tr.className = next;
+      if (next === 'hidden' && !$('#show_hidden').checked) load();
+    });
+  });
+}
+
+async function loadMeta() {
+  const m = await fetch('/api/meta').then(r => r.json());
+  state.meta = m;
+  chips('#f-roles', m.roles); chips('#f-locations', m.locations);
+  chips('#f-remote', m.remote); chips('#f-sizes', m.sizes);
+  chips('#f-job_types', m.job_types);
+  chips('#f-statuses', ['new', 'shortlisted', 'applied', 'hidden']);
+  $('#sort').innerHTML = m.sorts.map(s =>
+    `<option ${s === state.sort ? 'selected' : ''}>${s}</option>`).join('');
+  $('#c-total').textContent = m.counts.jobs;
+  $('#c-crawl').textContent = m.last_crawl ? m.last_crawl.slice(0, 16).replace('T', ' ') : '–';
+  $('#c-mit').innerHTML = m.counts.mitigations
+    ? `<strong style="color:var(--bad)">${m.counts.mitigations} mitigations</strong>`
+    : '<span style="color:var(--good)">0 mitigations</span>';
+  $('#trunc tbody').innerHTML = m.slices.map(s =>
+    `<tr><td>${esc(s.role_slug)}</td><td>${esc(s.location)}</td>
+     <td class="num">${s.jobs_recovered}/${s.total_claimed ?? '?'}</td>
+     <td class="num" style="color:${s.recovery != null && s.recovery < .5 ? 'var(--warn)' : 'inherit'}">
+     ${s.recovery ?? '–'}</td></tr>`).join('');
+}
+
+$('#q').oninput = debounce(() => { state.offset = 0; load(); }, 250);
+['#salary_min', '#max_days'].forEach(s => $(s).oninput = debounce(() => { state.offset = 0; load(); }, 300));
+['#incl_unlisted', '#has_equity', '#has_ats', '#show_hidden'].forEach(s =>
+  $(s).onchange = () => { state.offset = 0; load(); });
+$('#limit').onchange = () => { state.offset = 0; load(); };
+$('#sort').onchange = e => { state.sort = e.target.value; state.offset = 0; load(); };
+$('#prev').onclick = () => { state.offset = Math.max(0, state.offset - Number($('#limit').value)); load(); };
+$('#next').onclick = () => { state.offset += Number($('#limit').value); load(); };
+$('#reset').onclick = () => {
+  $('#q').value = ''; $('#salary_min').value = ''; $('#max_days').value = '';
+  document.querySelectorAll('.multi input:checked').forEach(i => i.checked = false);
+  $('#has_equity').checked = $('#has_ats').checked = $('#show_hidden').checked = false;
+  $('#incl_unlisted').checked = true;
+  state.offset = 0; load();
+};
+
+document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => {
+  const s = th.dataset.s;
+  state.sort = (s === 'salary' && state.sort === 'salary') ? 'salary_asc'
+             : (s === 'posted' && state.sort === 'posted') ? 'oldest' : s;
+  $('#sort').value = state.sort; state.offset = 0; load();
+});
+
+$('#enrich').onclick = async () => {
+  const ids = (await fetch('/api/ids', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(filters())
+  }).then(r => r.json())).ids;
+  const todo = ids.filter(id => {
+    const r = state.rows.find(x => x.source_job_id === id);
+    return !r || !r.enriched;
+  });
+  if (!ids.length) return msg('Nothing matches the current filters.');
+  const est = await fetch('/api/estimate?n=' + ids.length).then(r => r.json());
+  if (ids.length > 100 && !confirm(
+      `${ids.length} jobs match. Detail fetch is 1 request each at 3–5s, so this ` +
+      `will take about ${est.minutes} minutes and cannot be sped up.\n\n` +
+      `Narrow the filters first, or continue?`)) return;
+  $('#enrich').disabled = true;
+  msg(`Enriching ${ids.length} jobs (~${est.minutes} min)…`);
+  try {
+    const out = await fetch('/api/enrich', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ids})
+    }).then(r => r.json());
+    msg(out.halted ? `HALTED: ${out.halted}`
+      : `Enriched ${out.enriched}, skipped ${out.skipped}, failed ${out.failed}.`);
+  } catch (e) { msg('Enrich failed: ' + e); }
+  $('#enrich').disabled = false;
+  loadMeta(); load();
+};
+
+function msg(t) { $('#msg').textContent = t; if (t) setTimeout(() => {
+  if ($('#msg').textContent === t) $('#msg').textContent = ''; }, 12000); }
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+loadMeta().then(load);
+</script>
+</body>
+</html>

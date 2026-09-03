@@ -1,0 +1,7 @@
+{
+  "p1": "WORKS",
+  "p2": "PARTIAL -- JobPosting JSON-LD exists on JOB DETAIL pages only; search/listing pages carry no JobPosting, so JSON-LD cannot enumerate results (1 extra request per job)",
+  "p3": "DEAD END -- no RSS/Atom/JSON feed declared or discoverable",
+  "p4": "WORKS -- 2 navigations, 83 jobs, no challenge; but recovers the same __NEXT_DATA__ P1 already gets over plain HTTP",
+  "p6": "HIT RATE 31.6% high-confidence (12/38); 18.4% with live postings"
+}

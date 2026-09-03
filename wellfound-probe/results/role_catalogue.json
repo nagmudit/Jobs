@@ -1,0 +1,2470 @@
+{
+  "stage": "a_catalogue",
+  "seeds": [
+    "ai-engineer",
+    "artificial-intelligence-engineer"
+  ],
+  "locations": [
+    "bangalore",
+    "remote",
+    "india"
+  ],
+  "n_candidates": 52,
+  "n_valid_pairs": 105,
+  "n_invalid_pairs": 51,
+  "valid": [
+    {
+      "role_slug": "artificial-intelligence-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/artificial-intelligence-engineer",
+      "valid": true,
+      "total_job_count": 6624,
+      "page_count": 115,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "artificial-intelligence-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "artificial-intelligence-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/artificial-intelligence-engineer/india",
+      "valid": true,
+      "total_job_count": 2401,
+      "page_count": 52,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "artificial-intelligence-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "ai-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/ai-engineer",
+      "valid": true,
+      "total_job_count": 1954,
+      "page_count": 51,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "ai-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "systems-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/systems-engineer",
+      "valid": true,
+      "total_job_count": 1932,
+      "page_count": 52,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "systems-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "software-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/software-engineer",
+      "valid": true,
+      "total_job_count": 1905,
+      "page_count": 47,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "software-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/data-engineer",
+      "valid": true,
+      "total_job_count": 1848,
+      "page_count": 50,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "data-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/product-manager",
+      "valid": true,
+      "total_job_count": 1642,
+      "page_count": 38,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "product-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "backend-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/backend-engineer",
+      "valid": true,
+      "total_job_count": 1099,
+      "page_count": 37,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "backend-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "design-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/design-manager",
+      "valid": true,
+      "total_job_count": 1051,
+      "page_count": 29,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "design-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "engineering-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/engineering-manager",
+      "valid": true,
+      "total_job_count": 1027,
+      "page_count": 26,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "engineering-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "sales-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/sales-manager",
+      "valid": true,
+      "total_job_count": 1019,
+      "page_count": 28,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "sales-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "marketing-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/marketing-manager",
+      "valid": true,
+      "total_job_count": 954,
+      "page_count": 29,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "full-stack-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/full-stack-engineer",
+      "valid": true,
+      "total_job_count": 890,
+      "page_count": 32,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "full-stack-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "operations-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/operations-manager",
+      "valid": true,
+      "total_job_count": 876,
+      "page_count": 23,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "operations-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "account-executive",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/account-executive",
+      "valid": true,
+      "total_job_count": 868,
+      "page_count": 24,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "account-executive"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "systems-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/systems-engineer/india",
+      "valid": true,
+      "total_job_count": 799,
+      "page_count": 24,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "systems-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/data-engineer/india",
+      "valid": true,
+      "total_job_count": 739,
+      "page_count": 22,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "data-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "account-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/account-manager",
+      "valid": true,
+      "total_job_count": 725,
+      "page_count": 20,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "account-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "ai-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/ai-engineer/india",
+      "valid": true,
+      "total_job_count": 677,
+      "page_count": 21,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "ai-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-marketing-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/product-marketing-manager",
+      "valid": true,
+      "total_job_count": 662,
+      "page_count": 20,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "product-marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "software-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/software-engineer/india",
+      "valid": true,
+      "total_job_count": 624,
+      "page_count": 20,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "software-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "project-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/project-manager",
+      "valid": true,
+      "total_job_count": 621,
+      "page_count": 18,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "project-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "artificial-intelligence-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/artificial-intelligence-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 596,
+      "page_count": 14,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "artificial-intelligence-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "frontend-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/frontend-engineer",
+      "valid": true,
+      "total_job_count": 591,
+      "page_count": 22,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "frontend-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/product-manager/india",
+      "valid": true,
+      "total_job_count": 514,
+      "page_count": 17,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "product-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "designer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/designer",
+      "valid": true,
+      "total_job_count": 491,
+      "page_count": 19,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "backend-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/backend-engineer/india",
+      "valid": true,
+      "total_job_count": 456,
+      "page_count": 18,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "backend-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "design-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/design-manager/india",
+      "valid": true,
+      "total_job_count": 423,
+      "page_count": 13,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "design-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "sales-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/sales-manager/india",
+      "valid": true,
+      "total_job_count": 380,
+      "page_count": 13,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "sales-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "software-architect",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/software-architect",
+      "valid": true,
+      "total_job_count": 370,
+      "page_count": 14,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "software-architect"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-designer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/product-designer",
+      "valid": true,
+      "total_job_count": 361,
+      "page_count": 14,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "product-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "marketing-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/marketing-manager/india",
+      "valid": true,
+      "total_job_count": 338,
+      "page_count": 13,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "engineering-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/engineering-manager/india",
+      "valid": true,
+      "total_job_count": 335,
+      "page_count": 11,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "engineering-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "digital-marketing-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/digital-marketing-manager",
+      "valid": true,
+      "total_job_count": 298,
+      "page_count": 11,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "digital-marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "designer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/designer/india",
+      "valid": true,
+      "total_job_count": 291,
+      "page_count": 12,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "machine-learning-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/machine-learning-engineer",
+      "valid": true,
+      "total_job_count": 288,
+      "page_count": 10,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "machine-learning-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "operations-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/operations-manager/india",
+      "valid": true,
+      "total_job_count": 280,
+      "page_count": 10,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "operations-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-analyst",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/data-analyst",
+      "valid": true,
+      "total_job_count": 275,
+      "page_count": 10,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "data-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "social-media-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/social-media-manager",
+      "valid": true,
+      "total_job_count": 269,
+      "page_count": 10,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "social-media-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "systems-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/systems-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 265,
+      "page_count": 8,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "systems-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "full-stack-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/full-stack-engineer/india",
+      "valid": true,
+      "total_job_count": 257,
+      "page_count": 11,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "full-stack-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "qa-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/qa-engineer",
+      "valid": true,
+      "total_job_count": 239,
+      "page_count": 9,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "qa-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/data-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 230,
+      "page_count": 7,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "data-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "project-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/project-manager/india",
+      "valid": true,
+      "total_job_count": 230,
+      "page_count": 8,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "project-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "business-analyst",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/business-analyst",
+      "valid": true,
+      "total_job_count": 222,
+      "page_count": 8,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "business-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "frontend-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/frontend-engineer/india",
+      "valid": true,
+      "total_job_count": 219,
+      "page_count": 10,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "frontend-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "ai-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/ai-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 215,
+      "page_count": 7,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "ai-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-designer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/product-designer/india",
+      "valid": true,
+      "total_job_count": 200,
+      "page_count": 8,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "product-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "software-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/software-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 191,
+      "page_count": 7,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "software-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-marketing-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/product-marketing-manager/india",
+      "valid": true,
+      "total_job_count": 174,
+      "page_count": 7,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "product-marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "hr-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/hr-manager",
+      "valid": true,
+      "total_job_count": 168,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "hr-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "account-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/account-manager/india",
+      "valid": true,
+      "total_job_count": 166,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "account-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "software-architect",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/software-architect/india",
+      "valid": true,
+      "total_job_count": 164,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "software-architect"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "ui-ux-designer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/ui-ux-designer",
+      "valid": true,
+      "total_job_count": 159,
+      "page_count": 7,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "ui-ux-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-scientist",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/data-scientist",
+      "valid": true,
+      "total_job_count": 157,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "data-scientist"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "growth-marketer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/growth-marketer",
+      "valid": true,
+      "total_job_count": 152,
+      "page_count": 7,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "growth-marketer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "backend-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/backend-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 148,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "backend-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/product-manager/bangalore",
+      "valid": true,
+      "total_job_count": 148,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "product-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "digital-marketing-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/digital-marketing-manager/india",
+      "valid": true,
+      "total_job_count": 146,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "digital-marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "account-executive",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/account-executive/india",
+      "valid": true,
+      "total_job_count": 142,
+      "page_count": 6,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "account-executive"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "qa-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/qa-engineer/india",
+      "valid": true,
+      "total_job_count": 135,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "qa-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-analyst",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/data-analyst/india",
+      "valid": true,
+      "total_job_count": 127,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "data-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "business-analyst",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/business-analyst/india",
+      "valid": true,
+      "total_job_count": 125,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "business-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "cfo",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/cfo",
+      "valid": true,
+      "total_job_count": 121,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "cfo"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "machine-learning-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/machine-learning-engineer/india",
+      "valid": true,
+      "total_job_count": 116,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "machine-learning-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "design-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/design-manager/bangalore",
+      "valid": true,
+      "total_job_count": 113,
+      "page_count": 4,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "design-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "ui-ux-designer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/ui-ux-designer/india",
+      "valid": true,
+      "total_job_count": 108,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "ui-ux-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "social-media-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/social-media-manager/india",
+      "valid": true,
+      "total_job_count": 107,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "social-media-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "engineering-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/engineering-manager/bangalore",
+      "valid": true,
+      "total_job_count": 105,
+      "page_count": 4,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "engineering-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "financial-analyst",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/financial-analyst",
+      "valid": true,
+      "total_job_count": 104,
+      "page_count": 4,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "financial-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "graphic-designer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/graphic-designer",
+      "valid": true,
+      "total_job_count": 102,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "graphic-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "graphic-designer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/graphic-designer/india",
+      "valid": true,
+      "total_job_count": 95,
+      "page_count": 5,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "graphic-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "sales-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/sales-manager/bangalore",
+      "valid": true,
+      "total_job_count": 89,
+      "page_count": 4,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "sales-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "marketing-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/marketing-manager/bangalore",
+      "valid": true,
+      "total_job_count": 77,
+      "page_count": 4,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "full-stack-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/full-stack-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 76,
+      "page_count": 4,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "full-stack-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "hr-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/hr-manager/india",
+      "valid": true,
+      "total_job_count": 75,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "hr-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "operations-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/operations-manager/bangalore",
+      "valid": true,
+      "total_job_count": 69,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "operations-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "designer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/designer/bangalore",
+      "valid": true,
+      "total_job_count": 68,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "frontend-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/frontend-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 66,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "frontend-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "software-architect",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/software-architect/bangalore",
+      "valid": true,
+      "total_job_count": 63,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "software-architect"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-designer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/product-designer/bangalore",
+      "valid": true,
+      "total_job_count": 58,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "product-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "project-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/project-manager/bangalore",
+      "valid": true,
+      "total_job_count": 58,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "project-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-scientist",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/data-scientist/india",
+      "valid": true,
+      "total_job_count": 55,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "data-scientist"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "growth-marketer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/growth-marketer/india",
+      "valid": true,
+      "total_job_count": 55,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "growth-marketer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "account-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/account-manager/bangalore",
+      "valid": true,
+      "total_job_count": 48,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "account-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "qa-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/qa-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 47,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "qa-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product-marketing-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/product-marketing-manager/bangalore",
+      "valid": true,
+      "total_job_count": 46,
+      "page_count": 3,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "product-marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "account-executive",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/account-executive/bangalore",
+      "valid": true,
+      "total_job_count": 43,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "account-executive"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "business-analyst",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/business-analyst/bangalore",
+      "valid": true,
+      "total_job_count": 42,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "business-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "growth-hacker",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/growth-hacker",
+      "valid": true,
+      "total_job_count": 42,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleRemoteSearch",
+      "reason": null,
+      "gql_args": {
+        "page": 1,
+        "remote": true,
+        "role": "growth-hacker"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-analyst",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/data-analyst/bangalore",
+      "valid": true,
+      "total_job_count": 40,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "data-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "financial-analyst",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/financial-analyst/india",
+      "valid": true,
+      "total_job_count": 36,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "financial-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "machine-learning-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/machine-learning-engineer/bangalore",
+      "valid": true,
+      "total_job_count": 32,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "machine-learning-engineer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "cfo",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/cfo/india",
+      "valid": true,
+      "total_job_count": 31,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "cfo"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "digital-marketing-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/digital-marketing-manager/bangalore",
+      "valid": true,
+      "total_job_count": 31,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "digital-marketing-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "growth-hacker",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/growth-hacker/india",
+      "valid": true,
+      "total_job_count": 30,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "india",
+        "page": 1,
+        "role": "growth-hacker"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "ui-ux-designer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/ui-ux-designer/bangalore",
+      "valid": true,
+      "total_job_count": 23,
+      "page_count": 2,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "ui-ux-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "growth-marketer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/growth-marketer/bangalore",
+      "valid": true,
+      "total_job_count": 20,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "growth-marketer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "social-media-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/social-media-manager/bangalore",
+      "valid": true,
+      "total_job_count": 18,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "social-media-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "graphic-designer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/graphic-designer/bangalore",
+      "valid": true,
+      "total_job_count": 15,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "graphic-designer"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "hr-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/hr-manager/bangalore",
+      "valid": true,
+      "total_job_count": 14,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "hr-manager"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "cfo",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/cfo/bangalore",
+      "valid": true,
+      "total_job_count": 11,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "cfo"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "financial-analyst",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/financial-analyst/bangalore",
+      "valid": true,
+      "total_job_count": 11,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "financial-analyst"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "data-scientist",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/data-scientist/bangalore",
+      "valid": true,
+      "total_job_count": 10,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "data-scientist"
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "growth-hacker",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/growth-hacker/bangalore",
+      "valid": true,
+      "total_job_count": 6,
+      "page_count": 1,
+      "page_type": "/seoLanding/roleLocationSearch",
+      "reason": null,
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1,
+        "role": "growth-hacker"
+      },
+      "per_page": 20
+    }
+  ],
+  "invalid": [
+    {
+      "role_slug": "bd-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/bd-manager/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "bd-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/bd-manager",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "bd-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/bd-manager/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "business-development",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/business-development/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "business-development",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/business-development",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "business-development",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/business-development/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "cmo",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/cmo/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "cmo",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/cmo",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "cmo",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/cmo/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "content-creator",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/content-creator/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "content-creator",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/content-creator",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "content-creator",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/content-creator/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "customer-service",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/customer-service/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "customer-service",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/customer-service",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "customer-service",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/customer-service/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "customer-success-manager",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/customer-success-manager/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "customer-success-manager",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/customer-success-manager",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "customer-success-manager",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/customer-success-manager/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "devops",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/devops/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "devops",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/devops",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "devops",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/devops/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "finance-accounting",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/finance-accounting/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "finance-accounting",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/finance-accounting",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "finance-accounting",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/finance-accounting/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "h-r",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/h-r/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "h-r",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/h-r",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "h-r",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/h-r/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "investor",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/investor/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "investor",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/investor",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "investor",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/investor/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "management",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/management/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "management",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/management",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "management",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/management/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "mechanical-engineer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/mechanical-engineer/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "mechanical-engineer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/mechanical-engineer",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "mechanical-engineer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/mechanical-engineer/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "mobile-developer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/mobile-developer/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "mobile-developer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/mobile-developer",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "mobile-developer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/mobile-developer/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "other-engineering",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/other-engineering/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "other-engineering",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/other-engineering",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "other-engineering",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/other-engineering/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/product/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/product",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "product",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/product/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "sales-development-representative",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/sales-development-representative/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "sales-development-representative",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/sales-development-representative",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "sales-development-representative",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/sales-development-representative/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "visual-designer",
+      "location_slug": "bangalore",
+      "url": "https://wellfound.com/role/l/visual-designer/bangalore",
+      "valid": false,
+      "total_job_count": 1150,
+      "page_count": 26,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'bangalore', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "bangalore",
+        "page": 1
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "visual-designer",
+      "location_slug": "remote",
+      "url": "https://wellfound.com/role/r/visual-designer",
+      "valid": false,
+      "total_job_count": 11426,
+      "page_count": 202,
+      "page_type": "/seoLanding/remoteSearch",
+      "reason": "SILENT FALLBACK -- server args {'page': 1, 'remote': True} carry no 'role'; page rendered as '/seoLanding/remoteSearch'. Results would be location-wide.",
+      "gql_args": {
+        "page": 1,
+        "remote": true
+      },
+      "per_page": 20
+    },
+    {
+      "role_slug": "visual-designer",
+      "location_slug": "india",
+      "url": "https://wellfound.com/role/l/visual-designer/india",
+      "valid": false,
+      "total_job_count": 4978,
+      "page_count": 97,
+      "page_type": "/seoLanding/locationSearch",
+      "reason": "SILENT FALLBACK -- server args {'location': 'india', 'page': 1} carry no 'role'; page rendered as '/seoLanding/locationSearch'. Results would be location-wide.",
+      "gql_args": {
+        "location": "india",
+        "page": 1
+      },
+      "per_page": 20
+    }
+  ],
+  "addressable_job_count_by_location": {
+    "bangalore": 3092,
+    "remote": 30106,
+    "india": 11050
+  },
+  "addressable_job_count_total_with_overlap": 44248
+}

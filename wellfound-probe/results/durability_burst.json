@@ -1,0 +1,226 @@
+{
+  "probe": "durability_burst",
+  "elapsed_s": 80.8,
+  "requests": [
+    {
+      "n": 1,
+      "status": 200,
+      "bytes": 570871,
+      "ms": 1192,
+      "cf_ray": "a34ab0277c0c6cb3-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 45,
+      "page_returned": 1
+    },
+    {
+      "n": 2,
+      "status": 200,
+      "bytes": 531212,
+      "ms": 468,
+      "cf_ray": "a34ab03d7dfe3fed-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 42,
+      "page_returned": 2
+    },
+    {
+      "n": 3,
+      "status": 200,
+      "bytes": 519708,
+      "ms": 1206,
+      "cf_ray": "a34ab0580bc2465e-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 40,
+      "page_returned": 3
+    },
+    {
+      "n": 4,
+      "status": 200,
+      "bytes": 528429,
+      "ms": 1277,
+      "cf_ray": "a34ab076ee8baed9-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 39,
+      "page_returned": 4
+    },
+    {
+      "n": 5,
+      "status": 200,
+      "bytes": 629800,
+      "ms": 2462,
+      "cf_ray": "a34ab08bed3a1daf-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 46,
+      "page_returned": 5
+    },
+    {
+      "n": 6,
+      "status": 200,
+      "bytes": 469796,
+      "ms": 1195,
+      "cf_ray": "a34ab0a7ac9aa55b-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 33,
+      "page_returned": 6
+    },
+    {
+      "n": 7,
+      "status": 200,
+      "bytes": 472972,
+      "ms": 1996,
+      "cf_ray": "a34ab0bf38428730-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 30,
+      "page_returned": 7
+    },
+    {
+      "n": 8,
+      "status": 200,
+      "bytes": 460917,
+      "ms": 1173,
+      "cf_ray": "a34ab0db8eed46bf-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 37,
+      "page_returned": 8
+    },
+    {
+      "n": 9,
+      "status": 200,
+      "bytes": 362661,
+      "ms": 1173,
+      "cf_ray": "a34ab0f04e3b3b67-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 27,
+      "page_returned": 9
+    },
+    {
+      "n": 10,
+      "status": 200,
+      "bytes": 390675,
+      "ms": 2088,
+      "cf_ray": "a34ab10c0be419bc-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 26,
+      "page_returned": 10
+    },
+    {
+      "n": 11,
+      "status": 200,
+      "bytes": 379970,
+      "ms": 2118,
+      "cf_ray": "a34ab1293be53e3a-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 24,
+      "page_returned": 11
+    },
+    {
+      "n": 12,
+      "status": 200,
+      "bytes": 401765,
+      "ms": 3331,
+      "cf_ray": "a34ab145582fd7d2-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 27,
+      "page_returned": 12
+    },
+    {
+      "n": 13,
+      "status": 200,
+      "bytes": 373776,
+      "ms": 1752,
+      "cf_ray": "a34ab15f7918ffab-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 26,
+      "page_returned": 13
+    },
+    {
+      "n": 14,
+      "status": 200,
+      "bytes": 299998,
+      "ms": 1090,
+      "cf_ray": "a34ab17a1a0a7b2f-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 21,
+      "page_returned": 14
+    },
+    {
+      "n": 15,
+      "status": 200,
+      "bytes": 97429,
+      "ms": 1054,
+      "cf_ray": "a34ab1950e18dc08-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 2,
+      "page_returned": 15
+    },
+    {
+      "n": 16,
+      "status": 200,
+      "bytes": 531694,
+      "ms": 927,
+      "cf_ray": "a34ab1abc9643de0-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 41,
+      "page_returned": 1
+    },
+    {
+      "n": 17,
+      "status": 200,
+      "bytes": 531694,
+      "ms": 1065,
+      "cf_ray": "a34ab1c7cce5ff9d-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 41,
+      "page_returned": 1
+    },
+    {
+      "n": 18,
+      "status": 200,
+      "bytes": 531694,
+      "ms": 1382,
+      "cf_ray": "a34ab1e20b62ff6c-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 41,
+      "page_returned": 1
+    },
+    {
+      "n": 19,
+      "status": 200,
+      "bytes": 531694,
+      "ms": 1495,
+      "cf_ray": "a34ab1fd9a06490d-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 41,
+      "page_returned": 1
+    },
+    {
+      "n": 20,
+      "status": 200,
+      "bytes": 531694,
+      "ms": 1637,
+      "cf_ray": "a34ab21d9932aed9-BOM",
+      "cf_mitigated": null,
+      "next_data": true,
+      "jobs": 41,
+      "page_returned": 1
+    }
+  ]
+}

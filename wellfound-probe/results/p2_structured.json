@@ -1,0 +1,374 @@
+{
+  "probe": "p2_structured",
+  "verdict": "PARTIAL -- JobPosting JSON-LD exists on JOB DETAIL pages only; search/listing pages carry no JobPosting, so JSON-LD cannot enumerate results (1 extra request per job)",
+  "search_page": {
+    "url": "https://wellfound.com/role/l/artificial-intelligence-engineer/bangalore",
+    "status": 200,
+    "n_ld_blocks": 0,
+    "ld_types": [],
+    "has_jobposting": false
+  },
+  "detail_pages": [
+    {
+      "url": "https://wellfound.com/jobs/4235671-ai-engineer",
+      "status": 200,
+      "bytes": 71722,
+      "has_next_data": false,
+      "n_ld_blocks": 1,
+      "ld_types": [
+        "JobPosting"
+      ],
+      "n_jobpostings": 1,
+      "jobposting_keys": [
+        "@context",
+        "@type",
+        "applicantLocationRequirements",
+        "baseSalary",
+        "datePosted",
+        "description",
+        "directApply",
+        "employmentType",
+        "experienceRequirements",
+        "hiringOrganization",
+        "identifier",
+        "image",
+        "industry",
+        "jobBenefits",
+        "jobLocation",
+        "jobLocationType",
+        "title"
+      ],
+      "html_recovered": {
+        "equity_raw": "0.0% \u2013 1.0%",
+        "salary_raw": "$25k \u2013 $50k"
+      }
+    },
+    {
+      "url": "https://wellfound.com/jobs/4628490-ai-engineer",
+      "status": 200,
+      "bytes": 54622,
+      "has_next_data": false,
+      "n_ld_blocks": 1,
+      "ld_types": [
+        "JobPosting"
+      ],
+      "n_jobpostings": 1,
+      "jobposting_keys": [
+        "@context",
+        "@type",
+        "datePosted",
+        "description",
+        "directApply",
+        "employmentType",
+        "hiringOrganization",
+        "identifier",
+        "image",
+        "industry",
+        "jobLocation",
+        "title"
+      ],
+      "html_recovered": {
+        "equity_raw": "0.05% \u2013 0.2%",
+        "salary_raw": "$40k \u2013 $100k"
+      }
+    },
+    {
+      "url": "https://wellfound.com/jobs/4544682-ai-engineer",
+      "status": 200,
+      "bytes": 54575,
+      "has_next_data": false,
+      "n_ld_blocks": 1,
+      "ld_types": [
+        "JobPosting"
+      ],
+      "n_jobpostings": 1,
+      "jobposting_keys": [
+        "@context",
+        "@type",
+        "datePosted",
+        "description",
+        "directApply",
+        "employmentType",
+        "hiringOrganization",
+        "identifier",
+        "image",
+        "industry",
+        "jobLocation",
+        "title"
+      ],
+      "html_recovered": {
+        "equity_raw": "0.1% \u2013 0.2%",
+        "salary_raw": "$40k \u2013 $100k"
+      }
+    },
+    {
+      "url": "https://wellfound.com/jobs/4546045-sr-ai-scientist",
+      "status": 200,
+      "bytes": 42015,
+      "has_next_data": false,
+      "n_ld_blocks": 1,
+      "ld_types": [
+        "JobPosting"
+      ],
+      "n_jobpostings": 1,
+      "jobposting_keys": [
+        "@context",
+        "@type",
+        "datePosted",
+        "description",
+        "directApply",
+        "employmentType",
+        "hiringOrganization",
+        "identifier",
+        "image",
+        "industry",
+        "jobLocation",
+        "title"
+      ],
+      "html_recovered": {}
+    },
+    {
+      "url": "https://wellfound.com/jobs/4535651-ui-engineer-ai",
+      "status": 200,
+      "bytes": 97158,
+      "has_next_data": false,
+      "n_ld_blocks": 1,
+      "ld_types": [
+        "JobPosting"
+      ],
+      "n_jobpostings": 1,
+      "jobposting_keys": [
+        "@context",
+        "@type",
+        "datePosted",
+        "description",
+        "directApply",
+        "employmentType",
+        "hiringOrganization",
+        "identifier",
+        "image",
+        "industry",
+        "jobBenefits",
+        "jobLocation",
+        "title"
+      ],
+      "html_recovered": {
+        "equity_raw": "0.1% \u2013 0.2%"
+      }
+    }
+  ],
+  "sitemaps": {
+    "robots_sitemaps": [
+      "https://wellfound.com/sitemap.xml.gz",
+      "https://wellfound.com/blog-index.xml.gz"
+    ],
+    "fetched": [
+      {
+        "url": "https://wellfound.com/sitemap.xml.gz",
+        "status": 200,
+        "bytes": 405,
+        "gunzip_error": "BadGzipFile: Not a gzipped file (b'<?')",
+        "note": "cached text is a lossy decode of gzip bytes; see raw_gz probe below",
+        "n_locs": 1,
+        "sample": [
+          "https://wellfound.com/basics.xml.gz"
+        ],
+        "is_index": true,
+        "url_families": {
+          "basics.xml.gz": 1
+        }
+      },
+      {
+        "url": "https://wellfound.com/blog-index.xml.gz",
+        "status": 200,
+        "bytes": 403,
+        "gunzip_error": "BadGzipFile: Not a gzipped file (b'<?')",
+        "note": "cached text is a lossy decode of gzip bytes; see raw_gz probe below",
+        "n_locs": 1,
+        "sample": [
+          "https://wellfound.com/blog.xml.gz"
+        ],
+        "is_index": true,
+        "url_families": {
+          "blog.xml.gz": 1
+        }
+      },
+      {
+        "url": "https://wellfound.com/sitemap.xml",
+        "status": 403,
+        "bytes": 243
+      }
+    ],
+    "robots_status": 200
+  },
+  "sitemaps_binary": [
+    {
+      "url": "https://wellfound.com/sitemap.xml.gz",
+      "status": 200,
+      "bytes": 405,
+      "is_index": true,
+      "n_locs": 1,
+      "sample": [
+        "https://wellfound.com/basics.xml.gz"
+      ],
+      "url_families": {
+        "basics.xml.gz": 1
+      }
+    },
+    {
+      "url": "https://wellfound.com/blog-index.xml.gz",
+      "status": 200,
+      "bytes": 403,
+      "is_index": true,
+      "n_locs": 1,
+      "sample": [
+        "https://wellfound.com/blog.xml.gz"
+      ],
+      "url_families": {
+        "blog.xml.gz": 1
+      }
+    }
+  ],
+  "n_jobs": 5,
+  "coverage": {
+    "n_jobs": 5,
+    "per_field": {
+      "source": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "source_job_id": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "company": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "title": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "location_raw": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "remote": {
+        "n": 1,
+        "pct": 20.0
+      },
+      "description": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "salary_raw": {
+        "n": 3,
+        "pct": 60.0
+      },
+      "equity_raw": {
+        "n": 4,
+        "pct": 80.0
+      },
+      "posted_at": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "apply_url": {
+        "n": 5,
+        "pct": 100.0
+      },
+      "fetched_at": {
+        "n": 5,
+        "pct": 100.0
+      }
+    },
+    "mean_fields_filled": 10.6,
+    "fields_ever_filled": [
+      "apply_url",
+      "company",
+      "description",
+      "equity_raw",
+      "fetched_at",
+      "location_raw",
+      "posted_at",
+      "remote",
+      "salary_raw",
+      "source",
+      "source_job_id",
+      "title"
+    ],
+    "fields_never_filled": []
+  },
+  "jobs": [
+    {
+      "source": "p2_jsonld",
+      "source_job_id": "4235671",
+      "company": "Smart Audit",
+      "title": "AI Engineer",
+      "location_raw": "Bengaluru, Karnataka, India, Hyderabad, Telangana, India, Mumbai, Maharashtra, India, Tamil Nadu, India",
+      "remote": true,
+      "description": "<p>We are looking for a highly technical AI Engineer with strong full-stack capabilities to architect and build the foundational AI infrastructure and core application layers for our next-generation Smart Audit platform. In this role, you will hold end-to-end ownership of the AI lifecycle moving beyond third-party API orchestration to design, train, and deploy proprietary machine learning models natively, while ensuring they are seamlessly integrated into a robust, scalable enterprise web application.</p>\n\n<p>You will transform how the enterprise analyzes financial records, contracts, and operational data, turning manual, error-prone sampling into automated, 100% population risk scanning. If you are passionate about custom architecture, enterprise scalability, and deploying high-performance systems and full-stack applications to production, this role is for you.</p>\n<h3>Key Responsibilities</h3>\n<ul>\n<li><strong>Proprietary Model Architecture and Training:</strong> Design, train, and fine-tune domain-specific LLMs and deep learning models for anomaly detection, fraud identification, and automated compliance checking.</li>\n<li><strong>Full-Stack Application Integration (MERN):</strong> Architect and develop the core platform features using the MERN stack (MongoDB, Express.js, React, Node.js), ensuring smooth, low-latency communication between the AI backend services and the user-facing dashboard.</li>\n<li><strong>Custom GenAI and Retrieval Infrastructure:</strong> Engineer advanced, low-latency retrieval systems, custom embedding models, and multi-agent workflows optimized for massive volumes of unstructured legal and financial data, independent of high-level orchestration frameworks.</li>\n<li><strong>Enterprise Production and MLOps:</strong> Establish automated, end-to-end MLOps pipelines covering data labeling, continuous training, version control, and high-throughput/low-latency model serving in production environments.</li>\n<li><strong>Data Architecture Engineering:</strong> Architect custom ETL and data ingestion pipelines using Node.js/Express capable of parsing and structuring complex, multi-format enterprise data (unstructured PDFs, massive Excel sheets, ERP system dumps) into MongoDB and vector databases.</li>\n<li><strong>Evaluation and Robustness Frameworks:</strong> Implement deterministic evaluation frameworks to strictly benchmark model accuracy, mitigate hallucinations, and minimize false positives/negatives in a high-stakes auditing environment.</li>\n<li><strong>Security, Privacy and Explainability:</strong> Architect systems to comply with strict enterprise data isolation and privacy standards (e.g., GDPR, SOC2). Ensure the React interface provides clear, intuitive, and explainable lineage so human auditors can verify the AI\u2019s logical reasoning.</li>\n</ul>\n<h3>Technical Skills and Qualifications</h3><h3>Required</h3>\n<ul>\n<li><strong>Experience:</strong> Demonstrated track record of building, scaling, and maintaining both machine learning models and production-grade full-stack web applications.</li>\n<li><strong>MERN Stack Proficiency:</strong> Production-grade development experience with MongoDB (aggregation pipelines, indexing, schema design), Express.js, React.js (state management, hooks), and Node.js (asynchronous programming, API development).</li>\n<li><strong>Deep Learning and Frameworks:</strong> Professional proficiency with Python and deep learning frameworks (such as PyTorch or TensorFlow) along with a strong understanding of neural network architectures.</li>\n</ul>\n<h3>Preferred (Nice-to-Have)</h3>\n<ul>\n<li>Experience building, fine-tuning, or aligning open-source LLMs (e.g., Llama, Mistral) using PEFT, LoRA/QLoRA, or DPO.</li>\n<li>Experience designing and optimizing distributed Vector Databases (e.g., Qdrant, Milvus, pgvector) alongside traditional document stores like MongoDB.</li>\n<li>Expertise in customized NLP, Named Entity Recognition (NER), or building custom OCR/Document parsing pipelines.</li>\n<li>Experience building and scaling AI-driven full-stack solutions or multi-agent orchestrations within Enterprise SaaS, Fintech, or Legaltech.</li>\n<li>Experience with real-time data streaming (e.g., WebSockets, Kafka) to push live AI inference results to a frontend dashboard.</li>\n</ul>\n<h3>Soft Skills and Culture Fit</h3>\n<ul>\n<li><strong>First-Principles Thinker:</strong> You look past black-box solutions; you understand how a model behaves at the architectural level and how the application layer interacts with it.</li>\n<li><strong>System Ownership:</strong> Comfortable owning the technical roadmaps\u2014from the database layout and backend APIs to the AI models and the final user interface.</li>\n<li><strong>Pragmatic Innovator:</strong> Ability to balance cutting-edge AI agent research with the practical realities of enterprise engineering constraints (cost, latency, UI/UX clarity, and security).</li>\n</ul>",
+      "salary_raw": "USD 25000.0-50000.0 YEAR",
+      "equity_raw": "0.0% \u2013 1.0%",
+      "posted_at": "2026-08-21T16:31:01Z",
+      "apply_url": "https://wellfound.com/jobs/4235671-ai-engineer",
+      "fetched_at": "2026-09-02T07:27:32.371190+00:00"
+    },
+    {
+      "source": "p2_jsonld",
+      "source_job_id": "4628490",
+      "company": "Evam Labs",
+      "title": "AI Engineer",
+      "location_raw": "Bengaluru, Karnataka, India",
+      "remote": null,
+      "description": "<p><strong>About Us</strong><br>\nThe best way to predict the future is to invent it. And the best way to invent the future is to<br>\nget the best minds to work on an idea whose time has come.<br>\nEvam Labs (<a href=\"http://www.evamlabs.ai\" target=\"_blank\" rel=\"nofollow\">www.evamlabs.ai</a>) is a Singapore headquartered holding company with<br>\noffices in Bangalore and San Jose, building the next generation of high impact AI<br>\npowered Enterprise Solutions. From Asia, for the World.</p>\n\n<p>The first two companies being built by Evam Labs are:<br>\n\u25cf Propheus is on a mission to build the most comprehensive knowledge<br>\nrepresentation of every place on the Planet. The company\u2019s solutions are powering<br>\nvarious use cases across industries such as Retail, CPG, Real Estate and Government.<br>\n\u25cf Poiro is building the next generation of AI Agents for Marketers to bring Brands<br>\ncloser to their customers.</p>\n\n<p>Our thesis is simple: How Enterprises leverage data to get insights and make decisions<br>\nwill get massively disrupted with AI creating a $1T+ opportunity. Evam Labs is at the<br>\nforefront of this disruption.</p>\n\n<p>Evam Labs was founded by ex-founders, academics and investors with over a decade of<br>\nexperience in building data &amp; AI products and scaling companies from 0 to IPO. The<br>\nfounders are IIT/IIM/CMU alumni and have cumulatively raised over $500M+, invested in 30+<br>\nstartups and hold 20+ patents. The rest of the Evam team comprises alumni of IITs, IIMs,<br>\nCMU, IISc, NUS with rich experience across multiple industries.</p>\n\n<p><strong>Role Overview - AI Engineer</strong><br>\nThe AI Engineer is a hands-on role, positioned at the intersection of AI innovation,<br>\nengineering excellence, and customer impact. You won&#39;t just build systems; you&#39;ll<br>\ntransform complex business challenges into simple, elegant, and scalable AI<br>\nsolutions. You will be instrumental in transforming nascent ideas into<br>\nproduction-ready artifacts, leading the development cycle from initial concept to<br>\nlive deployment.<br>\nThese are full-time onsite roles at our office located in Bengaluru.<br>\nResponsibilities<br>\n\u25cf Work to design secure, scalable, and resilient AI systems, ensuring solutions are<br>\nrobust and future-proof<br>\n\u25cf Build and improve backend services (APIs, data pipelines, and deployment setup)<br>\nfor AI applications<br>\n\u25cf Learn from seniors and gradually help junior teammates or interns</p>\n\n<p><strong>What we look for in Candidates</strong><br>\n\u25cf 1 to 3 years of professional experience in Data Engineering, or Machine Learning<br>\nEngineering.<br>\n\u25cf Any working experience with vision models like SAM, YOLO etc is a plus<br>\n\u25cf Minimum 6 months of hands-on experience specifically designing, developing, and<br>\ndeploying solutions utilizing Generative AI models (GenAI).<br>\n\u25cf Expert proficiency in Python for AI/ML development,<br>\n\u25cf Experience with cloud computing platforms (e.g., AWS, GCP, Azure),<br>\n\u25cf Demonstrated history of being a highly effective team player with excellent coding<br>\nskills<br>\n\u25cf Any working experience with image processing or computer vision (e.g., OpenCV,<br>\nPIL, CNNs, diffusion models, etc.) is a strong plus</p>\n\n<p><strong>Why Join Us?</strong><br>\n\u25cf Competitive salary and benefits<br>\n\u25cf Be in an early stage company - grow with the company and shape our trajectory, in<br>\nturn creating inorganic growth opportunities for yourself<br>\n\u25cf Be in the right field at the right time - opportunity to grow and advance your career<br>\nin the burgeoning field of AI<br>\n\u25cf Be part of a fast-paced, ambitious research organization that is pushing the<br>\nboundaries of AI across industries</p>",
+      "salary_raw": "$40k \u2013 $100k",
+      "equity_raw": "0.05% \u2013 0.2%",
+      "posted_at": "2026-08-25T06:08:27Z",
+      "apply_url": "https://wellfound.com/jobs/4628490-ai-engineer",
+      "fetched_at": "2026-09-02T07:27:32.387361+00:00"
+    },
+    {
+      "source": "p2_jsonld",
+      "source_job_id": "4544682",
+      "company": "Evam Labs",
+      "title": "AI Engineer",
+      "location_raw": "Bengaluru, Karnataka, India",
+      "remote": null,
+      "description": "<p><strong>About Us</strong><br>\nThe best way to predict the future is to invent it. And the best way to invent the future is to<br>\nget the best minds to work on an idea whose time has come.<br>\nEvam Labs (<a href=\"http://www.evamlabs.ai\" target=\"_blank\" rel=\"nofollow\">www.evamlabs.ai</a>) is a Singapore headquartered holding company with<br>\noffices in Bangalore and San Jose, building the next generation of high impact AI<br>\npowered Enterprise Solutions. From Asia, for the World.<br>\nThe first two companies being built by Evam Labs are:<br>\n\u25cf Propheus is on a mission to build the most comprehensive knowledge<br>\nrepresentation of every place on the Planet. The company\u2019s solutions are powering<br>\nvarious use cases across industries such as Retail, CPG, Real Estate and Government.<br>\n\u25cf Poiro is building the next generation of AI Agents for Marketers to bring Brands<br>\ncloser to their customers.<br>\n<strong>Our thesis is simple: How Enterprises leverage data to get insights and make decisions<br>\nwill get massively disrupted with AI creating a $1T+ opportunity. Evam Labs is at the<br>\nforefront of this disruption.</strong><br>\nEvam Labs was founded by ex-founders, academics and investors with over a decade of<br>\nexperience in building data &amp; AI products and scaling companies from 0 to IPO. The<br>\nfounders are IIT/IIM/CMU alumni and have cumulatively raised over $500M+, invested in 30+<br>\nstartups and hold 20+ patents. The rest of the Evam team comprises alumni of IITs, IIMs,<br>\nCMU, IISc, NUS with rich experience across multiple industries.<br>\n<strong>Role Overview - AI Engineer</strong><br>\nThe <strong>AI Engineer</strong> is a hands-on role, positioned at the intersection of AI innovation,<br>\nengineering excellence, and customer impact. You won&#39;t just build systems; you&#39;ll<br>\ntransform complex business challenges into simple, elegant, and scalable AI<br>\nsolutions. You will be instrumental in transforming nascent ideas into<br>\nproduction-ready artifacts, leading the development cycle from initial concept to<br>\nlive deployment.<br>\nThese are full-time onsite roles at our office located in Bengaluru.<br>\n<strong>Responsibilities</strong><br>\n\u25cf Work to design secure, scalable, and resilient AI systems, ensuring solutions are<br>\nrobust and future-proof<br>\n\u25cf Build and improve backend services (APIs, data pipelines, and deployment setup)<br>\nfor AI applications<br>\n\u25cf Learn from seniors and gradually help junior teammates or interns<br>\n<strong>What we look for in Candidates</strong><br>\n\u25cf 1 to 3 years of professional experience in Data Engineering, or Machine Learning<br>\nEngineering.<br>\n\u25cf Minimum 6 months of hands-on experience specifically designing, developing, and<br>\ndeploying solutions utilizing Generative AI models (GenAI).<br>\n\u25cf Expert proficiency in Python for AI/ML development,<br>\n\u25cf Experience with cloud computing platforms (e.g., AWS, GCP, Azure),<br>\n\u25cf Demonstrated history of being a highly effective team player with excellent coding<br>\nskills<br>\n\u25cf Any working experience with image processing or computer vision (e.g., OpenCV,<br>\nPIL, CNNs, diffusion models, etc.) is a strong plus<br>\n<strong>Why Join Us?</strong><br>\n\u25cf Competitive salary and benefits<br>\n\u25cf Be in an early stage company - grow with the company and shape our trajectory, in<br>\nturn creating inorganic growth opportunities for yourself<br>\n\u25cf Be in the right field at the right time - opportunity to grow and advance your career<br>\nin the burgeoning field of AI<br>\n\u25cf Be part of a fast-paced, ambitious research organization that is pushing the<br>\nboundaries of AI across industries</p>",
+      "salary_raw": "$40k \u2013 $100k",
+      "equity_raw": "0.1% \u2013 0.2%",
+      "posted_at": "2026-08-03T07:05:42Z",
+      "apply_url": "https://wellfound.com/jobs/4544682-ai-engineer",
+      "fetched_at": "2026-09-02T07:27:32.400546+00:00"
+    },
+    {
+      "source": "p2_jsonld",
+      "source_job_id": "4546045",
+      "company": "Evam Labs",
+      "title": "Sr. AI Scientist",
+      "location_raw": "Bengaluru, Karnataka, India",
+      "remote": null,
+      "description": "<p><strong>About Us</strong><br>\nThe best way to predict the future is to invent it. And the best way to invent the future is to<br>\nget the best minds to work on an idea whose time has come.<br>\nEvam Labs (<a href=\"http://www.evamlabs.ai\" target=\"_blank\" rel=\"nofollow\">www.evamlabs.ai</a>) is a Singapore headquartered holding company with<br>\noffices in Bangalore and San Jose, building the next generation of high impact AI<br>\npowered Enterprise Solutions. From Asia, for the World.<br>\nThe first two companies being built by Evam Labs are:<br>\n\u25cf<strong>Propheus</strong> is on a mission to build the most comprehensive knowledge<br>\nrepresentation of every place on the Planet. The company\u2019s solutions are powering<br>\nvarious use cases across industries such as Retail, CPG, Real Estate and Government.<br>\n\u25cf<strong>Poiro</strong> is building the next generation of AI Agents for Marketers to bring Brands<br>\ncloser to their customers.<br>\nOur thesis is simple: How Enterprises leverage data to get insights and make decisions<br>\nwill get massively disrupted with AI creating a $1T+ opportunity. Evam Labs is at the<br>\nforefront of this disruption.<br>\nEvam Labs was founded by ex-founders, academics and investors with over a decade of<br>\nexperience in building data &amp; AI products and scaling companies from 0 to IPO. The<br>\nfounders are IIT/IIM/CMU alumni and have cumulatively raised over $500M+<br>\n, invested in 30+<br>\nstartups and hold 20+ patents. The rest of the Evam team comprises alumni of IITs, IIMs,<br>\nCMU, IISc, NUS with rich experience across multiple industries</p>\n\n<p><strong>Role Overview - Senior AI Scientist</strong><br>\nThe Sr. AI Scientist is a hands-on role positioned at the intersection of AI research,<br>\nengineering excellence, and customer impact. You won&#39;t just build systems \u2014 you&#39;ll<br>\ntransform complex business challenges into simple, elegant, and scalable AI solutions. You<br>\nwill be instrumental in taking nascent ideas from initial concept to production-ready<br>\ndeployment, working closely with R&amp;D, product, and client delivery teams to build AI<br>\nsystems that work in the real world.<br>\nIf you&#39;re someone who finds equal satisfaction in reading a new paper on agentic reasoning<br>\nand shipping a feature that a customer uses the next day, this role is for you.<br>\nThese are full-time onsite roles at our office located in Bengaluru.</p>\n\n<p><strong>Responsibilities</strong><br>\n\u25cfDesign, build, and deploy AI systems across agentic frameworks, ML pipelines, and<br>\ndata intelligence layers<br>\n\u25cfTranslate foundational research into production-ready product features<br>\n\u25cfWork alongside Architects to design secure, scalable, and resilient AI system<br>\narchitectures, ensuring solutions are robust and future-proof<br>\n\u25cfDesign, develop, and deploy backend services \u2014 APIs, data processing pipelines,<br>\nand deployment infrastructure \u2014 necessary to serve high-performance AI<br>\napplications to customers<br>\n\u25cfCollaborate with product and client delivery teams to ensure AI systems deliver<br>\nmeasurable customer value<br>\n\u25cfEvaluate and integrate emerging AI models, tools, and frameworks as the landscape<br>\nevolves<br>\n\u25cfBring rigour to how we measure, evaluate, and improve AI system performance in<br>\nproduction<br>\n\u25cfProvide technical guidance and code reviews to junior engineers, uplifting team<br>\ncapabilities and maintaining high standards for code quality</p>\n\n<p><strong>What are we looking for in Candidates</strong><br>\n\u25cf6\u20138 years of experience in software or data engineering with meaningful exposure to<br>\nAI/ML systems<br>\n\u25cfStrong fundamentals in machine learning, data science, and analytical thinking \u2014<br>\nyou understand the why behind the models, not just the tools<br>\n\u25cfA proven track record of building and shipping products that involve AI, ML, or data at<br>\ntheir core<br>\n\u25cfComfortable working across the full lifecycle \u2014 from data pipelines and model<br>\ndevelopment to deployment and production monitoring<br>\n\u25cfA product mindset \u2014 you care about solving real problems for real users, not just<br>\ntechnical elegance<br>\n\u25cfCollaborative by nature \u2014 able to work fluidly across R&amp;D, product, and client-facing<br>\nteams<br>\n\u25cfSpecific tools and frameworks matter less to us than the ability to learn fast and apply<br>\nthe right approach to the problem at hand</p>\n\n<p><strong>Why Join Us?</strong><br>\n\u25cfOpportunity to work on foundational research problems related to the field of<br>\nPhysical AI<br>\n\u25cfBe in an early stage company - grow with the company and shape our trajectory, in<br>\nturn creating inorganic growth opportunities for yourself<br>\n\u25cfBe in the right field at the right time - opportunity to grow and advance your career<br>\nin the burgeoning field of AI<br>\n\u25cfBe part of a fast-paced, ambitious research organization that is pushing the<br>\nboundaries of AI across industries<br>\n\u25cfCompetitive salary and benefits</p>",
+      "salary_raw": null,
+      "equity_raw": null,
+      "posted_at": "2026-08-04T04:59:48Z",
+      "apply_url": "https://wellfound.com/jobs/4546045-sr-ai-scientist",
+      "fetched_at": "2026-09-02T07:27:32.413629+00:00"
+    },
+    {
+      "source": "p2_jsonld",
+      "source_job_id": "4535651",
+      "company": "LogicMonitor",
+      "title": "UI Engineer, AI",
+      "location_raw": "Bengaluru, Karnataka, India",
+      "remote": null,
+      "description": "<p><strong>About Us:</strong>  </p>\n\n<p>We love going to work and think you should too. Our team is dedicated to trust, customer obsession, agility, and striving to be better everyday. These values serve as the foundation of our culture, guiding our actions and driving us towards excellence. We foster a culture of performance and recognition, allowing us to transform growth as we enable our employees to do the best work of their careers.</p>\n\n<p><strong>This position is located in Bangalore.</strong> You&#39;ll be working in a major tech center of Bangalore, India. Across the globe, our Centers of Energy serve as hubs where we accelerate productivity and collaboration, inspire creativity, and cultivate a culture of connection and celebration. Our teams coordinate their time in Centers of Energy to reflect how they work best.</p>\n\n<p>To learn more about life at LogicMonitor, check out our <a href=\"https://www.logicmonitor.com/careers\" target=\"_blank\" rel=\"nofollow\">Careers Page</a>.</p>\n\n<p><strong>What You&#39;ll Do:</strong></p>\n\n<p>LogicMonitor\u00ae is the AI-first hybrid observability platform powering the next generation of digital infrastructure. LogicMonitor delivers complete visibility and actionable intelligence across on-premises, cloud, and edge environments. By anticipating issues before they strike, optimizing resources in real time, and enabling faster, smarter decisions, LogicMonitor helps IT and business leaders protect margins, accelerate innovation, and deliver exceptional digital experiences without compromise.</p>\n\n<p>Our customers love LogicMonitor&#39;s ability to bring cloud and traditional IT together into one view, as seen in minimal churn rates, expansion business, and exciting new customer references. In fact, LogicMonitor has received the highest Net Promoter Score of any IT Infrastructure Management provider. LogicMonitor also boasts high employee satisfaction. We have been certified as a Great Place To Work\u00ae, and named one of BuiltIn&#39;s Best Places to Work for the seventh year in a row! </p>\n\n<p>We\u2019re looking for a UI Engineer to build intuitive, responsive, and performant frontend experiences for Edwin AI. You will work with Product, Design, AI Platform, Backend, AIOps, and SRE teams to make complex observability data and AI-generated insights easy to understand and act on.</p>\n\n<p>This is a hands-on role for an engineer who can independently deliver frontend features and contribute to technical design, testing, and production quality.</p>\n\n<p><strong>Here&#39;s a closer look at this key role:</strong></p>\n\n<ul>\n<li>Build frontend experiences for AI-assisted incident investigation, root-cause analysis, alert correlation, recommendations, and remediation.</li>\n<li>Develop production web applications using React, TypeScript, JavaScript, HTML, and CSS.</li>\n<li>Implement interactive views for metrics, logs, traces, alerts, events, topology, incidents, and AI-generated insights.</li>\n<li>Build streaming and real-time experiences using SSE, WebSockets, GraphQL subscriptions, or similar technologies.</li>\n<li>Create reusable components and contribute to design systems using Storybook, Tailwind CSS, CSS Modules, Radix UI, or similar tools.</li>\n<li>Implement data fetching, caching, and state management using TanStack Query, Zustand, Redux Toolkit, Jotai, GraphQL, or REST.</li>\n<li>Build dashboards, charts, timelines, tables, topology views, and investigation workflows.</li>\n<li>Implement AI UX patterns such as streamed responses, citations, source attribution, confidence indicators, feedback capture, and human-in-the-loop approvals.</li>\n<li>Improve frontend performance, accessibility, responsiveness, and cross-browser compatibility.</li>\n<li>Write unit, integration, component, and end-to-end tests.</li>\n<li>Instrument applications using browser monitoring, OpenTelemetry, structured logging, and product analytics.</li>\n<li>Participate in technical design, code reviews, production debugging, and feature delivery.\n<strong>What You&#39;ll Need:</strong></li>\n<li>Bachelor\u2019s degree in Computer Science, Software Engineering, Human-Computer Interaction, or equivalent practical experience.</li>\n<li>3\u20135 years of experience building modern web applications, SaaS products, analytics platforms, developer tools, or workflow-driven applications.</li>\n<li>Strong experience with React, TypeScript, JavaScript, HTML, and CSS.</li>\n<li>Experience with modern frontend frameworks and tooling such as Next.js, Vite, Webpack, or similar technologies.</li>\n<li>Strong understanding of component design, state management, API integration, caching, error handling, and asynchronous workflows.</li>\n<li>Experience consuming REST, GraphQL, WebSocket, SSE, or other real-time APIs.</li>\n<li>Experience building responsive, accessible, and performant interfaces.</li>\n<li>Experience with design systems, component libraries, Storybook, and Product Design collaboration.</li>\n<li>Experience building dashboards, charts, tables, or data-rich interfaces.</li>\n<li>Experience with automated testing, CI/CD, feature flags, and production debugging.</li>\n<li>Ability to independently deliver well-defined frontend features and communicate technical tradeoffs clearly.</li>\n</ul>\n\n<p><em>Click <a href=\"https://www.logicmonitor.com/careers/eea-recruitment-privacy\" target=\"_blank\" rel=\"nofollow\">here </a>to read our International Applicant Privacy Notice.</em></p>\n\n<p><em>**LogicMonitor is an Equal Opportunity Employer</em>*<br><br>\nAt LogicMonitor, we believe that innovation thrives when every voice is heard and each individual is empowered to bring their unique perspective. We\u2019re committed to creating a workplace where diversity is celebrated, and all employees feel inspired and supported to contribute their best.*</p>\n\n<p><em>For us, equal opportunity means fostering a truly inclusive culture where everyone has the chance to grow and succeed. We don\u2019t just open doors; we invite you to step through and be part of something bigger. All qualified applicants will receive consideration for employment without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, disability, or status as a protected veteran.</em></p>\n\n<p><strong><em>Notice Regarding Use of AI in Hiring</em></strong></p>\n\n<p><em>We use artificial intelligence tools to assist with reviewing job applications, such as matching skills and experience to job requirements. These tools support, but do not replace, human review. All hiring decisions are made by our recruiting and hiring teams.</em> *You may opt out of AI processing at any time, and your application will still be reviewed. To opt out, please contact us at <a href=\"mailto:opt.out@logicmonitor.com\" target=\"_blank\" rel=\"nofollow\">opt.out@logicmonitor.com</a>. *</p>\n\n<p><em>By submitting your application, you acknowledge this notice.</em></p>",
+      "salary_raw": null,
+      "equity_raw": "0.1% \u2013 0.2%",
+      "posted_at": "2026-07-31T08:14:44Z",
+      "apply_url": "https://wellfound.com/jobs/4535651-ui-engineer-ai",
+      "fetched_at": "2026-09-02T07:27:32.434150+00:00"
+    }
+  ]
+}
