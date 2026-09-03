@@ -101,6 +101,20 @@ CREATE TABLE IF NOT EXISTS request_log (
   fetched_at   TEXT NOT NULL
 );
 
+-- Derived from job_raw, never crawled. locationNames is a JSON array, and the
+-- UI needs to filter and facet on the individual places inside it (Pune, San
+-- Francisco, ...), not on the crawl slice token. Materialised rather than a
+-- view because faceting hits it on every keystroke; rebuild_locations() is a
+-- single pass over job_raw and needs no network.
+CREATE TABLE IF NOT EXISTS job_location (
+  source_job_id TEXT NOT NULL,
+  location      TEXT NOT NULL,
+  kind          TEXT NOT NULL,   -- 'onsite' | 'remote'
+  PRIMARY KEY (source_job_id, location, kind)
+);
+
+CREATE INDEX IF NOT EXISTS ix_jobloc_loc ON job_location(location);
+CREATE INDEX IF NOT EXISTS ix_jobloc_job ON job_location(source_job_id);
 CREATE INDEX IF NOT EXISTS ix_job_company ON job_raw(company_slug);
 CREATE INDEX IF NOT EXISTS ix_prov_job    ON job_provenance(source_job_id);
 CREATE INDEX IF NOT EXISTS ix_prov_role   ON job_provenance(role_slug);
@@ -271,6 +285,33 @@ def set_status(conn, job_id: str, status: str, note: str | None = None) -> None:
         " ON CONFLICT(source_job_id) DO UPDATE SET status=excluded.status,"
         " note=COALESCE(excluded.note,user_state.note), updated_at=excluded.updated_at",
         (job_id, status, note, now()))
+
+
+def rebuild_locations(conn) -> int:
+    """Re-derive job_location from job_raw. Idempotent, offline, one pass.
+
+    This is the ADR-002 promise in practice: a new filter dimension is a
+    re-derivation, not a re-crawl. Safe to run any time.
+    """
+    conn.execute("DELETE FROM job_location")
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO job_location (source_job_id, location, kind)
+        SELECT j.source_job_id, TRIM(je.value), 'onsite'
+        FROM job_raw j, json_each(j.raw_json, '$.locationNames') je
+        WHERE TRIM(je.value) <> ''
+        """
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO job_location (source_job_id, location, kind)
+        SELECT j.source_job_id, TRIM(je.value), 'remote'
+        FROM job_raw j, json_each(j.raw_json, '$.acceptedRemoteLocationNames') je
+        WHERE TRIM(je.value) <> ''
+        """
+    )
+    conn.commit()
+    return conn.execute("SELECT COUNT(*) FROM job_location").fetchone()[0]
 
 
 def counts(conn) -> dict[str, Any]:

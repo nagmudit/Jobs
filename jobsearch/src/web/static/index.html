@@ -23,22 +23,27 @@ header{position:sticky;top:0;z-index:20;background:var(--panel);
 header b{font-size:14px}
 .stat{color:var(--dim)}
 .stat strong{color:var(--fg)}
-main{display:grid;grid-template-columns:250px 1fr;gap:0;align-items:start}
+main{display:grid;grid-template-columns:270px 1fr}
 aside{position:sticky;top:41px;max-height:calc(100vh - 41px);overflow:auto;
   padding:10px;border-right:1px solid var(--line);background:var(--panel)}
-aside h4{margin:12px 0 5px;font-size:11px;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--dim)}
+aside h4{margin:14px 0 5px;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between}
 aside h4:first-child{margin-top:0}
 input,select,button{font:inherit;color:var(--fg);background:var(--panel2);
   border:1px solid var(--line);border-radius:5px;padding:5px 7px}
-input[type=text],input[type=number],select{width:100%}
+input[type=text],input[type=number],input[type=search],select{width:100%}
 button{cursor:pointer;background:var(--chip)}
 button:hover{border-color:var(--accent)}
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button:disabled{opacity:.5;cursor:not-allowed}
-label.ck{display:flex;gap:6px;align-items:center;padding:2px 0;cursor:pointer}
-.multi{max-height:132px;overflow:auto;border:1px solid var(--line);
+label.ck{display:flex;gap:6px;align-items:center;padding:2px 0;cursor:pointer;
+  justify-content:space-between}
+label.ck span.n{color:var(--dim);font-variant-numeric:tabular-nums;font-size:11px}
+label.ck .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:flex;gap:6px;align-items:center;min-width:0}
+.multi{max-height:190px;overflow:auto;border:1px solid var(--line);
   border-radius:5px;padding:4px 6px;background:var(--panel2)}
+.multi.short{max-height:130px}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);
   vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -61,7 +66,12 @@ a{color:var(--accent)}
 .sbtn{padding:2px 5px;font-size:11px;border-radius:4px}
 td.acts{white-space:nowrap}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-#trunc td{font-size:11px;color:var(--dim)}
+#trunc td{font-size:11px;color:var(--dim);padding:2px 4px}
+.crawlbox{border:1px solid var(--line);border-radius:6px;padding:8px;
+  background:var(--panel2)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+.dot.on{background:var(--good)} .dot.off{background:var(--line)}
+.linkish{background:none;border:none;color:var(--accent);padding:0;font-size:11px}
 </style>
 </head>
 <body>
@@ -78,29 +88,49 @@ td.acts{white-space:nowrap}
 
 <main>
 <aside>
+  <h4>Roles — pick, then crawl</h4>
+  <div class="crawlbox">
+    <div class="multi short" id="f-crawlroles"></div>
+    <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+      <label style="flex:1;color:var(--dim);font-size:11px">pages
+        <input type="number" id="crawl_pages" min="1" max="200" style="width:100%">
+      </label>
+      <button id="crawl" class="primary" style="flex:2">Crawl selected</button>
+    </div>
+    <div id="crawl_status" style="margin-top:6px;color:var(--dim);font-size:11px"></div>
+  </div>
+
   <h4>Search</h4>
   <input type="text" id="q" placeholder="title, description, company">
 
-  <h4>Role slug</h4><div class="multi" id="f-roles"></div>
-  <h4>Location</h4><div class="multi" id="f-locations"></div>
-  <h4>Remote</h4><div class="multi" id="f-remote"></div>
-  <h4>Company size</h4><div class="multi" id="f-sizes"></div>
-  <h4>Job type</h4><div class="multi" id="f-job_types"></div>
+  <h4>Location <button class="linkish" data-clear="locations">clear</button></h4>
+  <input type="search" id="loc_search" placeholder="filter this list…" style="margin-bottom:4px">
+  <div class="multi" id="f-locations"></div>
+
+  <h4>Found via role <button class="linkish" data-clear="roles">clear</button></h4>
+  <div class="multi short" id="f-roles"></div>
+
+  <h4>Remote</h4><div class="multi short" id="f-remote"></div>
+  <h4>Company size</h4><div class="multi short" id="f-sizes"></div>
+  <h4>Job type</h4><div class="multi short" id="f-job_types"></div>
+  <h4>Company <button class="linkish" data-clear="companies">clear</button></h4>
+  <input type="search" id="co_search" placeholder="filter this list…" style="margin-bottom:4px">
+  <div class="multi short" id="f-companies"></div>
 
   <h4>Salary min</h4>
   <input type="number" id="salary_min" placeholder="e.g. 1500000" step="100000">
-  <label class="ck"><input type="checkbox" id="incl_unlisted" checked>
-    include unlisted salary</label>
+  <label class="ck"><span class="lbl"><input type="checkbox" id="incl_unlisted" checked>
+    include unlisted salary</span></label>
 
   <h4>Other</h4>
-  <label class="ck"><input type="checkbox" id="has_equity"> has equity (needs enrich)</label>
-  <label class="ck"><input type="checkbox" id="has_ats"> has ATS board</label>
-  <label class="ck"><input type="checkbox" id="show_hidden"> show hidden</label>
+  <label class="ck"><span class="lbl"><input type="checkbox" id="has_equity"> has equity (needs enrich)</span></label>
+  <label class="ck"><span class="lbl"><input type="checkbox" id="has_ats"> has ATS board</span></label>
+  <label class="ck"><span class="lbl"><input type="checkbox" id="show_hidden"> show hidden</span></label>
 
   <h4>Max age (days)</h4>
   <input type="number" id="max_days" placeholder="any">
 
-  <h4>Status</h4><div class="multi" id="f-statuses"></div>
+  <h4>Status</h4><div class="multi short" id="f-statuses"></div>
 
   <h4>&nbsp;</h4>
   <button id="reset" style="width:100%">Reset filters</button>
@@ -124,9 +154,9 @@ td.acts{white-space:nowrap}
 
   <table id="grid">
     <colgroup>
-      <col style="width:26%"><col style="width:14%"><col style="width:7%">
-      <col style="width:13%"><col style="width:8%"><col style="width:11%">
-      <col style="width:6%"><col style="width:5%"><col style="width:10%">
+      <col style="width:25%"><col style="width:13%"><col style="width:7%">
+      <col style="width:14%"><col style="width:8%"><col style="width:11%">
+      <col style="width:6%"><col style="width:6%"><col style="width:10%">
     </colgroup>
     <thead><tr>
       <th data-s="title">Title</th><th data-s="company">Company</th>
@@ -141,17 +171,12 @@ td.acts{white-space:nowrap}
 
 <script>
 const $ = s => document.querySelector(s);
-const state = { offset: 0, sort: 'posted', meta: null, rows: [] };
-
-function chips(id, values, checked = []) {
-  const el = $(id);
-  el.innerHTML = values.map(v =>
-    `<label class="ck"><input type="checkbox" value="${esc(v)}"
-      ${checked.includes(v) ? 'checked' : ''}>${esc(v)}</label>`).join('') ||
-    '<span class="pill">none</span>';
-  el.querySelectorAll('input').forEach(i => i.onchange = () => { state.offset = 0; load(); });
-}
-const picked = id => [...$(id).querySelectorAll('input:checked')].map(i => i.value);
+const state = {
+  offset: 0, sort: 'posted', meta: null, rows: [],
+  sel: {locations:new Set(), roles:new Set(), remote:new Set(), sizes:new Set(),
+        job_types:new Set(), companies:new Set(), statuses:new Set()},
+  facets: {}, crawlSel: new Set(), polling: null,
+};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -159,9 +184,10 @@ function filters() {
   const n = id => { const v = $(id).value.trim(); return v === '' ? null : Number(v); };
   return {
     q: $('#q').value.trim() || null,
-    roles: picked('#f-roles'), locations: picked('#f-locations'),
-    remote: picked('#f-remote'), sizes: picked('#f-sizes'),
-    job_types: picked('#f-job_types'), statuses: picked('#f-statuses'),
+    locations: [...state.sel.locations], roles: [...state.sel.roles],
+    remote: [...state.sel.remote], sizes: [...state.sel.sizes],
+    job_types: [...state.sel.job_types], companies: [...state.sel.companies],
+    statuses: [...state.sel.statuses],
     salary_min: n('#salary_min'),
     include_unlisted_salary: $('#incl_unlisted').checked,
     has_equity: $('#has_equity').checked,
@@ -171,18 +197,55 @@ function filters() {
     sort: state.sort, limit: Number($('#limit').value), offset: state.offset,
   };
 }
+const post = (p, b) => fetch(p, {method:'POST', headers:{'Content-Type':'application/json'},
+  body: JSON.stringify(b)}).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)));
 
-const money = v => v == null ? '' : '₹$'.includes('₹') && v >= 100000 && v % 1000 === 0
-  ? v.toLocaleString() : v.toLocaleString();
+/* Facet lists are rebuilt from the server on every change. A value that is
+   selected but no longer returned is kept visible with count 0, so you can
+   always see and undo your own selection. */
+function renderFacet(id, dim, items, search) {
+  const el = $(id), sel = state.sel[dim];
+  const seen = new Set(items.map(i => i.value));
+  /* Selected values are pinned to the top. With 480+ locations a checked box
+     otherwise sits hundreds of rows down and looks like it did not register.
+     A selection the server no longer returns is kept with count 0 so it stays
+     visible and undoable. */
+  const chosen = items.filter(i => sel.has(i.value));
+  const rest = items.filter(i => !sel.has(i.value));
+  const missing = [...sel].filter(v => !seen.has(v)).map(v => ({value:v, count:0}));
+  const rows = [...missing, ...chosen, ...rest];
+  const q = (search && $(search).value.trim().toLowerCase()) || '';
+  const shown = q ? rows.filter(r => String(r.value).toLowerCase().includes(q)) : rows;
+  el.innerHTML = shown.map(r => `<label class="ck" title="${esc(r.value)}">
+      <span class="lbl"><input type="checkbox" value="${esc(r.value)}"
+        ${sel.has(r.value) ? 'checked' : ''}>${esc(r.value)}</span>
+      <span class="n">${r.count}</span></label>`).join('')
+    || '<span class="pill">no matches</span>';
+  el.querySelectorAll('input').forEach(i => i.onchange = () => {
+    i.checked ? sel.add(i.value) : sel.delete(i.value);
+    state.offset = 0; refresh();
+  });
+}
+
+async function loadFacets() {
+  const f = await post('/api/facets', filters());
+  state.facets = f;
+  renderFacet('#f-locations', 'locations', f.locations, '#loc_search');
+  renderFacet('#f-roles', 'roles', f.roles);
+  renderFacet('#f-remote', 'remote', f.remote);
+  renderFacet('#f-sizes', 'sizes', f.sizes);
+  renderFacet('#f-job_types', 'job_types', f.job_types);
+  renderFacet('#f-companies', 'companies', f.companies, '#co_search');
+  renderFacet('#f-statuses', 'statuses', f.statuses);
+}
 
 function rowHtml(r) {
-  const sal = r.salary_raw ? esc(r.salary_raw)
-    : (r.salary_min ? money(r.salary_min) : '<span class="pill">—</span>');
+  const sal = r.salary_raw ? esc(r.salary_raw) : '<span class="pill">—</span>';
   return `<tr class="${esc(r.status)}" data-id="${esc(r.source_job_id)}">
     <td title="${esc(r.title)}"><a href="#" class="exp">${esc(r.title)}</a></td>
     <td title="${esc(r.high_concept || '')}">${esc(r.company || r.company_slug)}</td>
     <td>${esc(r.company_size || '')}</td>
-    <td title="${esc(r.location_raw || '')}">${esc(r.location_raw || '')}</td>
+    <td title="${esc(r.location_raw || '')}">${esc(r.location_raw || r.remote_locations || '')}</td>
     <td>${esc(r.remote_label || '')}</td>
     <td>${sal}</td>
     <td>${esc(r.equity_raw || '')}</td>
@@ -195,12 +258,9 @@ function rowHtml(r) {
     </td></tr>`;
 }
 
-async function load() {
+async function loadRows() {
   const f = filters();
-  const res = await fetch('/api/jobs', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(f)
-  }).then(r => r.json());
+  const res = await post('/api/jobs', f);
   state.rows = res.rows;
   $('#grid tbody').innerHTML = res.rows.map(rowHtml).join('') ||
     '<tr><td colspan="9" style="padding:20px;color:var(--dim)">No rows match.</td></tr>';
@@ -210,10 +270,12 @@ async function load() {
   $('#page').textContent = `${from}–${Math.min(state.offset + f.limit, res.total)} of ${res.total}`;
   $('#prev').disabled = state.offset === 0;
   $('#next').disabled = state.offset + f.limit >= res.total;
-  wire();
+  wireRows();
 }
 
-function wire() {
+const refresh = debounce(() => { loadRows(); loadFacets(); }, 60);
+
+function wireRows() {
   document.querySelectorAll('#grid tbody tr').forEach(tr => {
     const id = tr.dataset.id;
     tr.querySelector('.exp').onclick = e => {
@@ -225,34 +287,127 @@ function wire() {
       d.className = 'drawer';
       d.innerHTML = `<td colspan="9"><div class="desc">${esc(r.description || '(no description)')}</div>
         <div style="padding:6px 2px;color:var(--dim);font-size:11px">
-        found via <b>${esc(r.found_via_roles || '')}</b> @ <b>${esc(r.found_via_locations || '')}</b>
-        · ${esc(r.job_type || '')} · ${esc(r.primary_role_title || '')}
+        found via <b>${esc(r.found_via_roles || '')}</b> · ${esc(r.job_type || '')}
+        · ${esc(r.primary_role_title || '')} · locations: ${esc(r.location_raw || '—')}
+        · remote-ok: ${esc(r.remote_locations || '—')}
         · ats: ${esc(r.ats_source || 'none')} · id ${esc(r.source_job_id)}
         · ${r.enriched ? 'enriched' : 'not enriched'}</div></td>`;
       tr.after(d);
     };
     tr.querySelectorAll('button[data-st]').forEach(b => b.onclick = async () => {
-      const cur = tr.className;
-      const next = cur === b.dataset.st ? 'new' : b.dataset.st;
-      await fetch('/api/status', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({job_id: id, status: next})
-      });
+      const next = tr.className === b.dataset.st ? 'new' : b.dataset.st;
+      await post('/api/status', {job_id: id, status: next});
       const r = state.rows.find(x => x.source_job_id === id);
       if (r) r.status = next;
       tr.className = next;
-      if (next === 'hidden' && !$('#show_hidden').checked) load();
+      if (next === 'hidden' && !$('#show_hidden').checked) refresh();
     });
   });
 }
 
+/* ---------- crawl ---------- */
+
+function renderCrawlRoles() {
+  $('#f-crawlroles').innerHTML = state.meta.roles.map(r => `
+    <label class="ck" title="${esc(r.slug)}">
+      <span class="lbl"><input type="checkbox" value="${esc(r.slug)}"
+        ${state.crawlSel.has(r.slug) ? 'checked' : ''}>
+      <i class="dot ${r.crawled ? 'on' : 'off'}"></i>${esc(r.slug)}</span></label>`).join('');
+  $('#f-crawlroles').querySelectorAll('input').forEach(i => i.onchange = () =>
+    i.checked ? state.crawlSel.add(i.value) : state.crawlSel.delete(i.value));
+}
+
+async function pollCrawl() {
+  const s = await fetch('/api/crawl/status').then(r => r.json());
+  const box = $('#crawl_status');
+  if (s.running) {
+    box.innerHTML = `<b style="color:var(--accent)">crawling ${esc(s.current || '')}</b>
+      · ${s.pages} pages · ${s.jobs_new} new
+      · done: ${s.done.map(d => esc(d.role)).join(', ') || '—'}`;
+    $('#crawl').disabled = true;
+  } else {
+    $('#crawl').disabled = false;
+    if (s.error) box.innerHTML = `<b style="color:var(--bad)">halted:</b> ${esc(s.error)}`;
+    else if (s.done && s.done.length)
+      box.innerHTML = s.done.map(d =>
+        `${esc(d.role)}: <b>${d.new}</b> new / ${d.jobs} seen, p${d.pages}, ${esc(d.ended)}`
+      ).join('<br>');
+    if (state.polling) {
+      clearInterval(state.polling); state.polling = null;
+      await loadMeta(); refresh();
+    }
+  }
+}
+
+$('#crawl').onclick = async () => {
+  const roles = [...state.crawlSel];
+  if (!roles.length) return msg('Select at least one role to crawl.');
+  const pages = Number($('#crawl_pages').value) || state.meta.max_pages;
+  try {
+    const r = await post('/api/crawl', {roles, location: 'anywhere', max_pages: pages});
+    msg(`Crawling ${roles.length} role(s), ~${r.est_minutes} min. Rate limit is 3–5s per request and cannot be sped up.`);
+    state.polling = setInterval(pollCrawl, 2000);
+    pollCrawl();
+  } catch (e) { msg('Crawl refused: ' + (e.detail || JSON.stringify(e))); }
+};
+
+/* ---------- wiring ---------- */
+
+$('#q').oninput = debounce(() => { state.offset = 0; refresh(); }, 250);
+['#salary_min', '#max_days'].forEach(s =>
+  $(s).oninput = debounce(() => { state.offset = 0; refresh(); }, 300));
+['#incl_unlisted', '#has_equity', '#has_ats', '#show_hidden'].forEach(s =>
+  $(s).onchange = () => { state.offset = 0; refresh(); });
+$('#loc_search').oninput = () =>
+  renderFacet('#f-locations', 'locations', state.facets.locations || [], '#loc_search');
+$('#co_search').oninput = () =>
+  renderFacet('#f-companies', 'companies', state.facets.companies || [], '#co_search');
+$('#limit').onchange = () => { state.offset = 0; refresh(); };
+$('#sort').onchange = e => { state.sort = e.target.value; state.offset = 0; loadRows(); };
+$('#prev').onclick = () => { state.offset = Math.max(0, state.offset - Number($('#limit').value)); loadRows(); };
+$('#next').onclick = () => { state.offset += Number($('#limit').value); loadRows(); };
+document.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => {
+  state.sel[b.dataset.clear].clear(); state.offset = 0; refresh();
+});
+$('#reset').onclick = () => {
+  $('#q').value = ''; $('#salary_min').value = ''; $('#max_days').value = '';
+  $('#loc_search').value = ''; $('#co_search').value = '';
+  Object.values(state.sel).forEach(s => s.clear());
+  $('#has_equity').checked = $('#has_ats').checked = $('#show_hidden').checked = false;
+  $('#incl_unlisted').checked = true;
+  state.offset = 0; refresh();
+};
+document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => {
+  const s = th.dataset.s;
+  state.sort = (s === 'salary' && state.sort === 'salary') ? 'salary_asc'
+             : (s === 'posted' && state.sort === 'posted') ? 'oldest' : s;
+  $('#sort').value = state.sort; state.offset = 0; loadRows();
+});
+
+$('#enrich').onclick = async () => {
+  const ids = (await post('/api/ids', filters())).ids;
+  if (!ids.length) return msg('Nothing matches the current filters.');
+  const est = await fetch('/api/estimate?n=' + ids.length).then(r => r.json());
+  if (ids.length > 100 && !confirm(
+      `${ids.length} jobs match. Detail fetch is 1 request each at 3–5s, so this ` +
+      `will take about ${est.minutes} minutes and cannot be sped up.\n\n` +
+      `Narrow the filters first, or continue?`)) return;
+  $('#enrich').disabled = true;
+  msg(`Enriching ${ids.length} jobs (~${est.minutes} min)…`);
+  try {
+    const out = await post('/api/enrich', {ids});
+    msg(out.halted ? `HALTED: ${out.halted}`
+      : `Enriched ${out.enriched}, skipped ${out.skipped}, failed ${out.failed}.`);
+  } catch (e) { msg('Enrich failed: ' + (e.detail || e)); }
+  $('#enrich').disabled = false;
+  loadMeta(); refresh();
+};
+
 async function loadMeta() {
   const m = await fetch('/api/meta').then(r => r.json());
   state.meta = m;
-  chips('#f-roles', m.roles); chips('#f-locations', m.locations);
-  chips('#f-remote', m.remote); chips('#f-sizes', m.sizes);
-  chips('#f-job_types', m.job_types);
-  chips('#f-statuses', ['new', 'shortlisted', 'applied', 'hidden']);
+  renderCrawlRoles();
+  if (!$('#crawl_pages').value) $('#crawl_pages').value = m.max_pages;
   $('#sort').innerHTML = m.sorts.map(s =>
     `<option ${s === state.sort ? 'selected' : ''}>${s}</option>`).join('');
   $('#c-total').textContent = m.counts.jobs;
@@ -267,63 +422,11 @@ async function loadMeta() {
      ${s.recovery ?? '–'}</td></tr>`).join('');
 }
 
-$('#q').oninput = debounce(() => { state.offset = 0; load(); }, 250);
-['#salary_min', '#max_days'].forEach(s => $(s).oninput = debounce(() => { state.offset = 0; load(); }, 300));
-['#incl_unlisted', '#has_equity', '#has_ats', '#show_hidden'].forEach(s =>
-  $(s).onchange = () => { state.offset = 0; load(); });
-$('#limit').onchange = () => { state.offset = 0; load(); };
-$('#sort').onchange = e => { state.sort = e.target.value; state.offset = 0; load(); };
-$('#prev').onclick = () => { state.offset = Math.max(0, state.offset - Number($('#limit').value)); load(); };
-$('#next').onclick = () => { state.offset += Number($('#limit').value); load(); };
-$('#reset').onclick = () => {
-  $('#q').value = ''; $('#salary_min').value = ''; $('#max_days').value = '';
-  document.querySelectorAll('.multi input:checked').forEach(i => i.checked = false);
-  $('#has_equity').checked = $('#has_ats').checked = $('#show_hidden').checked = false;
-  $('#incl_unlisted').checked = true;
-  state.offset = 0; load();
-};
-
-document.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => {
-  const s = th.dataset.s;
-  state.sort = (s === 'salary' && state.sort === 'salary') ? 'salary_asc'
-             : (s === 'posted' && state.sort === 'posted') ? 'oldest' : s;
-  $('#sort').value = state.sort; state.offset = 0; load();
-});
-
-$('#enrich').onclick = async () => {
-  const ids = (await fetch('/api/ids', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(filters())
-  }).then(r => r.json())).ids;
-  const todo = ids.filter(id => {
-    const r = state.rows.find(x => x.source_job_id === id);
-    return !r || !r.enriched;
-  });
-  if (!ids.length) return msg('Nothing matches the current filters.');
-  const est = await fetch('/api/estimate?n=' + ids.length).then(r => r.json());
-  if (ids.length > 100 && !confirm(
-      `${ids.length} jobs match. Detail fetch is 1 request each at 3–5s, so this ` +
-      `will take about ${est.minutes} minutes and cannot be sped up.\n\n` +
-      `Narrow the filters first, or continue?`)) return;
-  $('#enrich').disabled = true;
-  msg(`Enriching ${ids.length} jobs (~${est.minutes} min)…`);
-  try {
-    const out = await fetch('/api/enrich', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ids})
-    }).then(r => r.json());
-    msg(out.halted ? `HALTED: ${out.halted}`
-      : `Enriched ${out.enriched}, skipped ${out.skipped}, failed ${out.failed}.`);
-  } catch (e) { msg('Enrich failed: ' + e); }
-  $('#enrich').disabled = false;
-  loadMeta(); load();
-};
-
 function msg(t) { $('#msg').textContent = t; if (t) setTimeout(() => {
-  if ($('#msg').textContent === t) $('#msg').textContent = ''; }, 12000); }
+  if ($('#msg').textContent === t) $('#msg').textContent = ''; }, 15000); }
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
-loadMeta().then(load);
+loadMeta().then(() => { loadRows(); loadFacets(); pollCrawl(); });
 </script>
 </body>
 </html>

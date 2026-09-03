@@ -207,14 +207,29 @@ class Fetcher:
 # --- URL builders -------------------------------------------------------------
 
 
-def search_url(role: str, location: str, page: int = 1) -> str:
-    """Wellfound's SEO landing shapes.
+# Location tokens that are not places. Both map to their own page type with
+# their own GraphQL arg shape, verified against the live site 2026-09-04.
+ANYWHERE = "anywhere"
+REMOTE = "remote"
 
-    'remote' is not a location -- it maps to /role/r/{role}, a different page
-    type whose GraphQL args carry remote:true instead of a location member.
+
+def search_url(role: str, location: str, page: int = 1) -> str:
+    """Wellfound's three SEO landing shapes.
+
+    | location    | URL                        | page type            | args              |
+    |-------------|----------------------------|----------------------|-------------------|
+    | "anywhere"  | /role/{role}               | roleSearch           | role              |
+    | "remote"    | /role/r/{role}             | roleRemoteSearch     | role, remote:true |
+    | <a place>   | /role/l/{role}/{location}  | roleLocationSearch   | role, location    |
+
+    "anywhere" is the widest: no location filter at all. It is what the UI
+    crawls by default, because location filtering happens locally against the
+    real `locationNames` values rather than by asking Wellfound to pre-filter.
     """
     q = f"?page={page}" if page > 1 else ""
-    if location == "remote":
+    if location == ANYWHERE:
+        return f"{BASE}/role/{role}{q}"
+    if location == REMOTE:
         return f"{BASE}/role/r/{role}{q}"
     return f"{BASE}/role/l/{role}/{location}{q}"
 

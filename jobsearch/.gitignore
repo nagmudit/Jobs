@@ -6,3 +6,5 @@ jobs.db
 jobs.db-wal
 jobs.db-shm
 *.log
+
+ui-*.png

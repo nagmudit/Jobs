@@ -234,6 +234,11 @@ def crawl(
                   f"{r.companies_seen} companies, {r.pages_walked} pages, "
                   f"ended={r.ended_reason}, recovery={r.recovery_ratio}")
 
+    # Re-derive the location dimension from the raw JSON we just stored. Cheap,
+    # offline, idempotent -- and forgetting it leaves the UI's location facet
+    # stale. Both crawl paths (CLI and web) end here, so it happens once.
+    S.rebuild_locations(conn)
+
     return {
         "run_at": run_at,
         "slices": [vars(r) | {"recovery_ratio": r.recovery_ratio} for r in results],

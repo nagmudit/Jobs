@@ -3,12 +3,25 @@
 All filtering happens in SQL against the `jobs` view -- the browser never holds
 the corpus. The page asks for a window of rows and a total count; that keeps it
 responsive at 20k rows without a virtualiser.
+
+Two things here are load-bearing and easy to get wrong:
+
+* **Filters are built per dimension**, so `/api/facets` can compute each
+  dimension's options with that dimension's own selection removed. That is what
+  makes facets narrow each other without a selected value erasing its own
+  siblings from the list.
+
+* **Location means the real place** (`job_location`, derived from
+  `locationNames`), not the crawl slice token. Those are different things:
+  slices are `anywhere` / `remote` / a city we asked Wellfound to pre-filter on;
+  locations are Pune, San Francisco, Bengaluru -- 700+ of them.
 """
 
 from __future__ import annotations
 
 import sqlite3
 import threading
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +37,7 @@ from ..fetch import Fetcher
 STATIC = Path(__file__).resolve().parent / "static"
 
 SORTS = {
-    "posted": "posted_ts DESC",
+    "posted": "posted_ts DESC",           # newest first -- the default
     "oldest": "posted_ts ASC",
     "salary": "salary_max DESC NULLS LAST, salary_min DESC",
     "salary_asc": "salary_min ASC NULLS LAST",
@@ -38,11 +51,12 @@ SORTS = {
 
 class Filters(BaseModel):
     q: str | None = None
-    roles: list[str] = []
-    locations: list[str] = []
+    roles: list[str] = []          # role slugs the job was found via
+    locations: list[str] = []      # REAL places, from job_location
     remote: list[str] = []
     sizes: list[str] = []
     job_types: list[str] = []
+    companies: list[str] = []
     salary_min: int | None = None
     include_unlisted_salary: bool = True
     has_equity: bool = False
@@ -65,69 +79,151 @@ class EnrichIn(BaseModel):
     ids: list[str]
 
 
+class CrawlIn(BaseModel):
+    roles: list[str]
+    location: str = "anywhere"
+    max_pages: int | None = None
+
+
 # NOTE: these models MUST stay at module level. With `from __future__ import
 # annotations` every annotation is a string, and FastAPI resolves them against
 # module globals -- a model defined inside create_app() is invisible there, so
 # the body parameter silently degrades into a required query param (HTTP 422).
 
 
-def _where(f: Filters) -> tuple[str, list[Any]]:
-    """Build the WHERE clause. Everything is parameterised -- no string
-    interpolation of user input anywhere."""
-    w: list[str] = []
-    p: list[Any] = []
+def _clauses(f: Filters) -> list[tuple[str, str, list[Any]]]:
+    """(dimension, sql, params) per active filter.
+
+    Kept as a list rather than a single string so facet queries can drop one
+    dimension. Everything is parameterised; no user input is interpolated.
+    """
+    out: list[tuple[str, str, list[Any]]] = []
 
     if f.q:
-        w.append("(title LIKE ? OR description LIKE ? OR company LIKE ?)")
         like = f"%{f.q}%"
-        p += [like, like, like]
+        out.append(("q", "(title LIKE ? OR description LIKE ? OR company LIKE ?)",
+                    [like, like, like]))
 
-    # found_via_roles is a comma-joined group_concat, so match on membership.
-    for col, vals in (("found_via_roles", f.roles), ("found_via_locations", f.locations)):
+    if f.roles:
+        # found_via_roles is a comma-joined group_concat; match on membership.
+        sql = "(" + " OR ".join(["(',' || found_via_roles || ',') LIKE ?"] * len(f.roles)) + ")"
+        out.append(("roles", sql, [f"%,{v},%" for v in f.roles]))
+
+    if f.locations:
+        ph = ",".join("?" * len(f.locations))
+        # Qualified as j.* because facet queries JOIN jobs against
+        # job_provenance / job_location, and all three carry source_job_id.
+        # Every query below therefore aliases the view as `j`.
+        out.append(("locations",
+                    f"j.source_job_id IN (SELECT source_job_id FROM job_location "
+                    f"WHERE location IN ({ph}))", list(f.locations)))
+
+    for dim, col, vals in (("remote", "remote_label", f.remote),
+                           ("sizes", "company_size", f.sizes),
+                           ("job_types", "job_type", f.job_types),
+                           ("companies", "company", f.companies)):
         if vals:
-            w.append("(" + " OR ".join([f"(',' || {col} || ',') LIKE ?"] * len(vals)) + ")")
-            p += [f"%,{v},%" for v in vals]
-
-    if f.remote:
-        w.append("(" + " OR ".join(["remote_label = ?"] * len(f.remote)) + ")")
-        p += f.remote
-    if f.sizes:
-        w.append("(" + " OR ".join(["company_size = ?"] * len(f.sizes)) + ")")
-        p += f.sizes
-    if f.job_types:
-        w.append("(" + " OR ".join(["job_type = ?"] * len(f.job_types)) + ")")
-        p += f.job_types
+            out.append((dim, f"({' OR '.join([f'{col} = ?'] * len(vals))})", list(vals)))
 
     if f.salary_min is not None:
-        # "include unlisted" matters: 48% of rows have no salary at all, and
+        # "include unlisted" matters: ~47% of rows have no salary at all, and
         # dropping them silently would hide most of the corpus.
         if f.include_unlisted_salary:
-            w.append("(salary_max >= ? OR salary_min >= ? OR salary_raw IS NULL)")
-            p += [f.salary_min, f.salary_min]
+            out.append(("salary",
+                        "(salary_max >= ? OR salary_min >= ? OR salary_raw IS NULL)",
+                        [f.salary_min, f.salary_min]))
         else:
-            w.append("(salary_max >= ? OR salary_min >= ?)")
-            p += [f.salary_min, f.salary_min]
+            out.append(("salary", "(salary_max >= ? OR salary_min >= ?)",
+                        [f.salary_min, f.salary_min]))
 
     if f.has_equity:
-        w.append("equity_raw IS NOT NULL")
+        out.append(("has_equity", "equity_raw IS NOT NULL", []))
     if f.has_ats:
-        w.append("ats_source IS NOT NULL")
+        out.append(("has_ats", "ats_source IS NOT NULL", []))
     if f.max_days_old is not None:
-        w.append("days_old <= ?")
-        p.append(f.max_days_old)
+        out.append(("max_days_old", "days_old <= ?", [f.max_days_old]))
 
     if f.statuses:
-        w.append("(" + " OR ".join(["status = ?"] * len(f.statuses)) + ")")
-        p += f.statuses
+        out.append(("statuses", "(" + " OR ".join(["status = ?"] * len(f.statuses)) + ")",
+                    list(f.statuses)))
     elif not f.show_hidden:
-        w.append("status != 'hidden'")
+        out.append(("statuses", "status != 'hidden'", []))
 
-    return (" WHERE " + " AND ".join(w)) if w else "", p
+    return out
+
+
+def _where(f: Filters, exclude: str | None = None) -> tuple[str, list[Any]]:
+    parts = [(sql, p) for dim, sql, p in _clauses(f) if dim != exclude]
+    if not parts:
+        return "", []
+    return " WHERE " + " AND ".join(s for s, _ in parts), [x for _, p in parts for x in p]
+
+
+class CrawlJob:
+    """One crawl at a time, in a background thread.
+
+    Serialised deliberately: concurrency 1 to Wellfound is a conduct rule, and
+    two overlapping crawls would break the rate limit no matter how polite each
+    one is on its own.
+    """
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.thread: threading.Thread | None = None
+        self.state: dict[str, Any] = {"running": False, "roles": [], "done": [],
+                                      "current": None, "pages": 0, "jobs_new": 0,
+                                      "error": None, "finished_at": None}
+
+    def start(self, cfg: Config, roles: list[str], location: str, max_pages: int) -> bool:
+        if not self.lock.acquire(blocking=False):
+            return False
+        self.state = {"running": True, "roles": roles, "done": [], "current": None,
+                      "pages": 0, "jobs_new": 0, "error": None, "finished_at": None}
+        self.thread = threading.Thread(
+            target=self._run, args=(cfg, roles, location, max_pages), daemon=True)
+        self.thread.start()
+        return True
+
+    def _run(self, cfg: Config, roles: list[str], location: str, max_pages: int) -> None:
+        from ..crawl import crawl_slice, validate_role
+
+        try:
+            conn = S.connect(cfg.db_path)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
+            run_at = S.now()
+            for role in roles:
+                self.state["current"] = role
+                v = validate_role(f, conn, role, location)
+                if not v["valid"]:
+                    # Never silently fall back to an unfiltered search.
+                    raise RuntimeError(f"{role}: {v['reason']}")
+                res = crawl_slice(
+                    f, conn, role, location, max_pages, cfg.yield_floor,
+                    resume=True, run_at=run_at,
+                    on_page=lambda d: self.state.update(pages=self.state["pages"] + 1))
+                self.state["jobs_new"] += res.jobs_new
+                self.state["done"].append(
+                    {"role": role, "jobs": res.jobs_seen, "new": res.jobs_new,
+                     "pages": res.pages_walked, "ended": res.ended_reason,
+                     "claimed": res.total_claimed})
+            # crawl_slice() is called directly here rather than crawl(), so the
+            # re-derivation that crawl() performs must happen explicitly.
+            S.rebuild_locations(conn)
+        except Exception as e:
+            self.state["error"] = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+        finally:
+            self.state["running"] = False
+            self.state["current"] = None
+            self.state["finished_at"] = S.now()
+            self.lock.release()
 
 
 def create_app(cfg: Config) -> FastAPI:
     app = FastAPI(title="jobsearch")
-    lock = threading.Lock()
+    enrich_lock = threading.Lock()
+    job = CrawlJob()
 
     def db() -> sqlite3.Connection:
         return S.connect(cfg.db_path)
@@ -139,14 +235,6 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/meta")
     def meta():
         conn = db()
-        def col(name: str, src: str = "jobs"):
-            return [r[0] for r in conn.execute(
-                f"SELECT DISTINCT {name} FROM {src} WHERE {name} IS NOT NULL "
-                f"ORDER BY {name}") if r[0] not in (None, "")]
-        roles = [r[0] for r in conn.execute(
-            "SELECT DISTINCT role_slug FROM job_provenance ORDER BY role_slug")]
-        locs = [r[0] for r in conn.execute(
-            "SELECT DISTINCT location FROM job_provenance ORDER BY location")]
         c = S.counts(conn)
         last = conn.execute("SELECT MAX(run_at) r FROM slice_stats").fetchone()["r"]
         slices = [dict(r) for r in conn.execute(
@@ -155,36 +243,89 @@ def create_app(cfg: Config) -> FastAPI:
         for s in slices:
             s["recovery"] = (round(s["jobs_recovered"] / s["total_claimed"], 3)
                              if s["total_claimed"] else None)
+        crawled = {r[0] for r in conn.execute(
+            "SELECT DISTINCT role_slug FROM job_provenance")}
         return {
-            "roles": roles, "locations": locs,
-            "remote": col("remote_label"), "sizes": col("company_size"),
-            "job_types": col("job_type"),
+            # Every configured role, flagged with whether it has been crawled.
+            "roles": [{"slug": r, "crawled": r in crawled} for r in cfg.roles],
             "counts": c, "last_crawl": last, "slices": slices,
-            "sorts": list(SORTS),
+            "sorts": list(SORTS), "max_pages": cfg.max_pages_per_slice,
+            "delay_range": list(cfg.delay_range),
         }
+
+    @app.post("/api/facets")
+    def facets(f: Filters):
+        """Options for every dimension, counted against the CURRENT filter set.
+
+        Each dimension is computed with its own selection excluded, so choosing
+        "Pune" narrows company/size/remote but leaves the other cities visible
+        and selectable. Values that would yield zero rows are omitted entirely --
+        that is the "filters update as I select" behaviour.
+        """
+        conn = db()
+        out: dict[str, Any] = {}
+
+        def simple(dim: str, col: str, limit: int = 400):
+            where, p = _where(f, exclude=dim)
+            rows = conn.execute(
+                f"SELECT {col} AS v, COUNT(*) n FROM jobs j{where} "
+                f"{'AND' if where else 'WHERE'} {col} IS NOT NULL AND {col} <> '' "
+                f"GROUP BY v ORDER BY n DESC, v LIMIT {limit}", p).fetchall()
+            out[dim] = [{"value": r["v"], "count": r["n"]} for r in rows]
+
+        # Location joins the derived table; everything else is a column.
+        where, p = _where(f, exclude="locations")
+        rows = conn.execute(
+            f"SELECT l.location AS v, l.kind AS kind, COUNT(DISTINCT j.source_job_id) n "
+            f"FROM jobs j JOIN job_location l ON l.source_job_id = j.source_job_id{where} "
+            f"GROUP BY l.location, l.kind ORDER BY n DESC, v LIMIT 500", p).fetchall()
+        merged: dict[str, dict] = {}
+        for r in rows:
+            e = merged.setdefault(r["v"], {"value": r["v"], "count": 0, "kinds": []})
+            e["count"] += r["n"]
+            e["kinds"].append(r["kind"])
+        out["locations"] = sorted(merged.values(), key=lambda x: (-x["count"], x["value"]))
+
+        simple("remote", "remote_label")
+        simple("sizes", "company_size")
+        simple("job_types", "job_type")
+        simple("companies", "company", limit=300)
+
+        where, p = _where(f, exclude="roles")
+        rows = conn.execute(
+            f"SELECT p.role_slug v, COUNT(DISTINCT p.source_job_id) n FROM job_provenance p "
+            f"JOIN jobs j ON j.source_job_id = p.source_job_id{where} "
+            f"GROUP BY v ORDER BY n DESC", p).fetchall()
+        out["roles"] = [{"value": r["v"], "count": r["n"]} for r in rows]
+
+        where, p = _where(f, exclude="statuses")
+        rows = conn.execute(
+            f"SELECT status v, COUNT(*) n FROM jobs j{where} GROUP BY v", p).fetchall()
+        out["statuses"] = [{"value": r["v"], "count": r["n"]} for r in rows]
+
+        where, p = _where(f)
+        out["total"] = conn.execute(f"SELECT COUNT(*) FROM jobs j{where}", p).fetchone()[0]
+        return out
 
     @app.post("/api/jobs")
     def jobs(f: Filters):
         conn = db()
         where, params = _where(f)
-        total = conn.execute(f"SELECT COUNT(*) FROM jobs{where}", params).fetchone()[0]
+        total = conn.execute(f"SELECT COUNT(*) FROM jobs j{where}", params).fetchone()[0]
         n_enriched = conn.execute(
-            f"SELECT COALESCE(SUM(enriched),0) FROM jobs{where}", params).fetchone()[0]
+            f"SELECT COALESCE(SUM(enriched),0) FROM jobs j{where}", params).fetchone()[0]
         order = SORTS.get(f.sort, SORTS["posted"])
         rows = conn.execute(
-            f"SELECT * FROM jobs{where} ORDER BY {order} LIMIT ? OFFSET ?",
+            f"SELECT j.* FROM jobs j{where} ORDER BY {order} LIMIT ? OFFSET ?",
             params + [min(f.limit, 500), f.offset]).fetchall()
-        return {"total": total, "enriched": n_enriched,
-                "rows": [dict(r) for r in rows]}
+        return {"total": total, "enriched": n_enriched, "rows": [dict(r) for r in rows]}
 
     @app.post("/api/ids")
     def ids(f: Filters):
-        """Every id matching the filter -- what the Enrich button acts on."""
         conn = db()
         where, params = _where(f)
-        rows = conn.execute(
-            f"SELECT source_job_id FROM jobs{where}", params).fetchall()
-        return {"ids": [r[0] for r in rows]}
+        return {"ids": [r[0] for r in conn.execute(
+            f"SELECT j.source_job_id FROM jobs j{where}", params)]}
 
     @app.post("/api/status")
     def status(s: StatusIn):
@@ -195,13 +336,32 @@ def create_app(cfg: Config) -> FastAPI:
         conn.commit()
         return {"ok": True, "job_id": s.job_id, "status": s.status}
 
+    @app.post("/api/crawl")
+    def crawl_start(c: CrawlIn):
+        unknown = [r for r in c.roles if r not in cfg.roles]
+        if unknown:
+            raise HTTPException(400, f"unknown role slug(s): {unknown}. "
+                                     f"Add them to targets.yaml first.")
+        if not c.roles:
+            raise HTTPException(400, "no roles selected")
+        started = job.start(cfg, c.roles, c.location,
+                            c.max_pages or cfg.max_pages_per_slice)
+        if not started:
+            raise HTTPException(409, "a crawl is already running")
+        lo, hi = cfg.delay_range
+        pages = (c.max_pages or cfg.max_pages_per_slice) * len(c.roles)
+        return {"started": True, "roles": c.roles,
+                "est_minutes": round(pages * (lo + hi) / 2 / 60, 1)}
+
+    @app.get("/api/crawl/status")
+    def crawl_status():
+        return job.state
+
     @app.post("/api/enrich")
     def enrich(e: EnrichIn):
         if not e.ids:
             return {"enriched": 0, "requested": 0}
-        # Serialised: concurrency 1 to Wellfound is non-negotiable, and two
-        # overlapping enrich calls would break the rate limit.
-        if not lock.acquire(blocking=False):
+        if not enrich_lock.acquire(blocking=False):
             raise HTTPException(409, "an enrichment run is already in progress")
         try:
             conn = db()
@@ -209,7 +369,7 @@ def create_app(cfg: Config) -> FastAPI:
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
             return enrich_ids(f, conn, e.ids)
         finally:
-            lock.release()
+            enrich_lock.release()
 
     @app.get("/api/estimate")
     def estimate(n: int):
