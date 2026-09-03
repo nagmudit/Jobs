@@ -1,0 +1,548 @@
+schema_version: "1.0"
+
+product:
+  name: jobsearch
+  owners: [mudit]
+
+# ---------------------------------------------------------------------------
+# Capabilities. Priority is cost of failure, not implementation complexity.
+# Note that CAP-CONDUCT outranks everything: it is the only capability whose
+# failure harms a third party and can revoke our access permanently.
+# ---------------------------------------------------------------------------
+capabilities:
+  - id: CAP-CONDUCT
+    name: Polite-crawl conduct
+    priority: P0
+    description: >
+      robots.txt enforcement, 3-5s rate limit, concurrency 1, honest UA, and
+      halting on the first Cloudflare mitigation. Failure gets the user blocked
+      and breaks every other capability irrecoverably.
+
+  - id: CAP-INTEGRITY
+    name: Corpus integrity guards
+    priority: P0
+    description: >
+      SilentRoleFallback, PageWrap, YieldFloor, SchemaDrift. Each guards a
+      failure that returns HTTP 200 with plausible data.
+
+  - id: CAP-STATE
+    name: User workflow state
+    priority: P0
+    description: >
+      shortlist / applied / hidden. The ONLY non-regenerable data in the
+      database - everything else can be re-crawled. Loss is silent and
+      unrecoverable.
+
+  - id: CAP-CRAWL
+    name: Slice crawl and dedupe
+    priority: P0
+    description: Page walking, termination, dedupe on source_job_id, provenance.
+
+  - id: CAP-STORE
+    name: Raw storage and derived view
+    priority: P0
+    description: Raw Apollo persistence plus the jobs view and its derivations.
+
+  - id: CAP-CONFIG
+    name: Configuration and guards
+    priority: P0
+    description: >
+      targets.yaml loading, CLI overrides, and the delay_range floor guard,
+      which is a conduct control living in config.
+
+  - id: CAP-ENRICH
+    name: On-demand detail enrichment
+    priority: P1
+    description: Detail pages for equity and improved salary.
+
+  - id: CAP-FILTER
+    name: Filter, sort, and apply links
+    priority: P1
+    description: SQL-side filtering, sorting, pagination, working apply URLs.
+
+# ---------------------------------------------------------------------------
+# Journeys. System-facing ones are listed explicitly because nobody clicks
+# them and they are where this repo will actually break.
+# ---------------------------------------------------------------------------
+journeys:
+  - id: CJ-001
+    name: robots.txt-disallowed URL is refused before any request
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: Crawls a forbidden path; breaks our stated conduct; silent
+    release_blocking: true
+
+  - id: CJ-002
+    name: Cloudflare mitigation halts the crawl and commits progress
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: Retrying through a block escalates to a hard ban
+    release_blocking: true
+
+  - id: CJ-003
+    name: Rate limit holds at >=3s between requests, concurrency 1
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: Looks like an attack; triggers mitigation
+    release_blocking: true
+
+  - id: CJ-004
+    name: delay_range below 3.0s is rejected at config load
+    capability: CAP-CONFIG
+    priority: P0
+    facing: system
+    blast_radius: Silently removes the only enforced conduct guard
+    release_blocking: true
+
+  - id: CJ-005
+    name: Invalid role slug is refused, never ingested
+    capability: CAP-INTEGRITY
+    priority: P0
+    facing: system
+    blast_radius: Corpus silently filled with unfiltered location-wide results
+    release_blocking: true
+
+  - id: CJ-006
+    name: Pagination wrap ends the slice without duplicating page 1
+    capability: CAP-INTEGRITY
+    priority: P0
+    facing: system
+    blast_radius: Corpus inflated with repeated page-1 rows; silent
+    release_blocking: true
+
+  - id: CJ-007
+    name: App Router migration fails loudly with a diagnosis
+    capability: CAP-INTEGRITY
+    priority: P0
+    facing: system
+    blast_radius: Parser silently yields zero jobs; looks like an empty result
+    release_blocking: true
+
+  - id: CJ-008
+    name: Broken parse yielding 0 jobs is distinguished from a real empty page
+    capability: CAP-INTEGRITY
+    priority: P0
+    facing: system
+    blast_radius: Crawl reports success having stored nothing
+    release_blocking: true
+
+  - id: CJ-009
+    name: Same job found via multiple slices is one row with N provenance rows
+    capability: CAP-CRAWL
+    priority: P0
+    facing: system
+    blast_radius: Duplicate rows; found_via_roles filter wrong
+    release_blocking: true
+
+  - id: CJ-010
+    name: Re-crawl rewrites job_raw and user_state survives
+    capability: CAP-STATE
+    priority: P0
+    facing: user
+    blast_radius: User loses every applied/shortlisted mark. Unrecoverable
+    release_blocking: true
+
+  - id: CJ-011
+    name: Interrupted crawl resumes without re-requesting completed pages
+    capability: CAP-CRAWL
+    priority: P1
+    facing: system
+    blast_radius: Wasted rate-limited requests; corrupted slice telemetry
+    release_blocking: false
+
+  - id: CJ-012
+    name: Absent values ('' not null) normalise so filters and fill rates are honest
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: Every has-salary filter wrong; fill rate reads 100% at 52% true
+    release_blocking: false
+
+  - id: CJ-013
+    name: Salary and equity parse across USD and INR formats, or yield NULL
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: Wrong numeric filtering on money; silently wrong
+    release_blocking: false
+
+  - id: CJ-014
+    name: Filter set produces correct, injection-safe SQL
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: Wrong result set, or arbitrary SQL execution
+    release_blocking: false
+
+  - id: CJ-015
+    name: Enrich a filtered set recovers equity without exceeding the rate limit
+    capability: CAP-ENRICH
+    priority: P1
+    facing: user
+    blast_radius: Concurrent enrich runs breach the rate limit
+    release_blocking: false
+
+  - id: CJ-016
+    name: Re-run replays from disk cache instead of the network
+    capability: CAP-CONDUCT
+    priority: P1
+    facing: system
+    blast_radius: Repeated development runs multiply live traffic
+    release_blocking: false
+
+  - id: CJ-017
+    name: apply_url resolves to the correct live Wellfound posting
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: User cannot apply; the entire point of the tool
+    release_blocking: false
+
+# ---------------------------------------------------------------------------
+# Tests. Only P0/P1 journey coverage is catalogued; the rest of the suite is
+# deliberately out of scope per references/manifest.md.
+# ---------------------------------------------------------------------------
+tests:
+  - id: INT-001
+    name: Silent role fallback and role mismatch both raise
+    journey: CJ-005
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_assertions.py
+    command: python -m pytest tests/test_assertions.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: INT-002
+    name: Page wrap raises; matching page passes
+    journey: CJ-006
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_assertions.py
+    command: python -m pytest tests/test_assertions.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: INT-003
+    name: App Router flight chunks raise SchemaDrift with a diagnosis
+    journey: CJ-007
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_assertions.py
+    command: python -m pytest tests/test_assertions.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: INT-004
+    name: Yield floor separates broken parse from natural exhaustion
+    journey: CJ-008
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_assertions.py
+    command: python -m pytest tests/test_assertions.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CRAWL-001
+    name: Duplicate job across slices is one row with two provenance rows
+    journey: CJ-009
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_derive_store.py
+    command: python -m pytest tests/test_derive_store.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STATE-001
+    name: Status survives a job_raw rewrite
+    journey: CJ-010
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_derive_store.py
+    command: python -m pytest tests/test_derive_store.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-001
+    name: Empty-string compensation becomes NULL in the view
+    journey: CJ-012
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_derive_store.py
+    command: python -m pytest tests/test_derive_store.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-002
+    name: Salary and equity parsing across USD/INR, NULL when unrecognised
+    journey: CJ-013
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_derive_store.py
+    command: python -m pytest tests/test_derive_store.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-001
+    name: Filter SQL is fully parameterised; hidden excluded by default
+    journey: CJ-014
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_derive_store.py
+    command: python -m pytest tests/test_derive_store.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  # ---- proposed: the gap closers, sequenced in docs/plans/active/ ----
+  - id: CONDUCT-001
+    name: Fetcher refuses a robots-disallowed URL before opening a connection
+    journey: CJ-001
+    priority: P0
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_fetch.py
+    command: python -m pytest tests/test_fetch.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-002
+    name: Fetcher.get raises MitigationDetected on cf-mitigated and on 403/429
+    journey: CJ-002
+    priority: P0
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_fetch.py
+    command: python -m pytest tests/test_fetch.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-003
+    name: Consecutive fetches are spaced by at least the configured floor
+    journey: CJ-003
+    priority: P0
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_fetch.py
+    command: python -m pytest tests/test_fetch.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONFIG-001
+    name: delay_range floor below 3.0s raises at Config.load
+    journey: CJ-004
+    priority: P0
+    level: unit
+    status: proposed
+    location: jobsearch/tests/test_config.py
+    command: python -m pytest tests/test_config.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-004
+    name: Second identical fetch is served from cache with no network call
+    journey: CJ-016
+    priority: P1
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_fetch.py
+    command: python -m pytest tests/test_fetch.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CRAWL-002
+    name: crawl_slice ends on page_wrap and records ended_reason correctly
+    journey: CJ-006
+    priority: P0
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_crawl.py
+    command: python -m pytest tests/test_crawl.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CRAWL-003
+    name: Resumed slice skips completed pages and still reports correct recovery
+    journey: CJ-011
+    priority: P1
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_crawl.py
+    command: python -m pytest tests/test_crawl.py -q
+    triggers: [pull_request]
+    merge_blocking: false
+    owner: mudit
+
+  - id: ENRICH-001
+    name: Concurrent enrich is rejected with 409, never run in parallel
+    journey: CJ-015
+    priority: P1
+    level: integration
+    status: proposed
+    location: jobsearch/tests/test_enrich.py
+    command: python -m pytest tests/test_enrich.py -q
+    triggers: [pull_request]
+    merge_blocking: false
+    owner: mudit
+
+# ---------------------------------------------------------------------------
+# Findings ledger. IDs are stable across re-audits - never renumber.
+# ---------------------------------------------------------------------------
+known_gaps:
+  - id: GAP-001
+    journey: CJ-001
+    priority: P0
+    description: >
+      src/fetch.py has zero tests. robots enforcement, the rate limiter, the
+      cache, and mitigation halting are all unverified. This is the module
+      whose failure harms a third party and revokes our access.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-002
+    journey: CJ-002
+    priority: P0
+    description: >
+      assertions.check_mitigation is tested, but nothing verifies Fetcher.get
+      actually calls it. The guard could be removed from the call path and the
+      suite would stay green.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-003
+    journey: CJ-004
+    priority: P0
+    description: >
+      src/config.py untested. The delay_range floor guard - a conduct control -
+      has never been exercised.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-004
+    journey: CJ-006
+    priority: P0
+    description: >
+      src/crawl.py untested. PageWrap is verified as an assertion but not as
+      slice-loop behaviour: nothing proves crawl_slice catches it, stops, and
+      records ended_reason instead of propagating.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-005
+    journey: CJ-011
+    priority: P1
+    description: >
+      Resume path untested. A resume telemetry bug (skipped pages inflating
+      pages_walked without jobs_seen) already shipped once and was caught by
+      eye, not by a test.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-006
+    journey: CJ-016
+    priority: P1
+    description: Cache read/write round-trip untested; no proof re-runs avoid the network.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-007
+    journey: CJ-001
+    priority: P1
+    description: >
+      "All egress goes through Fetcher.get" is convention only. No test or lint
+      prevents a second httpx call bypassing robots and the rate limit.
+      Automatable as an AST or grep check.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-008
+    journey: CJ-015
+    priority: P1
+    description: >
+      enrich_ids orchestration untested (only parse_detail is). The 409 lock
+      that prevents concurrent rate-limit breach is unverified.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-009
+    journey: CJ-017
+    priority: P1
+    description: >
+      apply_url shape verified manually against a live posting on 2026-09-03,
+      never automated. Cannot be fully automated without network; a unit test
+      pinning the URL template against a known raw node is the affordable half.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-011
+    journey: CJ-003
+    priority: P0
+    description: >
+      The rate limiter itself is unverified. Fetcher._throttle has no test, so
+      a regression that drops the spacing to zero would ship silently and look
+      to Wellfound like an attack. This is the conduct control with the largest
+      blast radius and the least protection.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+  - id: GAP-010
+    journey: CJ-010
+    priority: P1
+    description: >
+      No CI. The suite passes locally and nothing enforces it. Maturity level 1:
+      tests exist, nothing blocks.
+    status: open
+    first_seen: 2026-09-03
+    owner: mudit
+
+risk_acceptances: []
+
+environments:
+  - id: local
+    services: []
+    note: >
+      No containers, no services. Every test runs offline against synthetic
+      fixtures; the suite must never touch Wellfound.
+
+last_audit:
+  date: 2026-09-03
+  revision: 0099cae
+  report: docs/testing/report.md
+  suite_status: "38 passed in 0.60s (run 2026-09-03)"
+  maturity_level: 1
