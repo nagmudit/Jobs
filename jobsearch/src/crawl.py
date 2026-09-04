@@ -60,7 +60,7 @@ def validate_role(fetcher: Fetcher, conn, role: str, location: str) -> dict[str,
     location-wide search. Refusing to proceed is the whole point.
     """
     url = search_url(role, location, 1)
-    resp = fetcher.get(url)
+    resp = fetcher.get(url, max_age=fetcher.listing_ttl)
     rec = {"role": role, "location": location, "url": url, "valid": False,
            "total_job_count": None, "reason": None}
     if resp.status == 404:
@@ -119,7 +119,7 @@ def crawl_slice(
             res.pages_walked += 1
             continue
 
-        resp = fetcher.get(url)      # raises MitigationDetected -> caller halts
+        resp = fetcher.get(url, max_age=fetcher.listing_ttl)  # raises MitigationDetected -> caller halts
         if not resp.ok:
             res.ended_reason = f"http_{resp.status}"
             break

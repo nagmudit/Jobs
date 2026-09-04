@@ -17,6 +17,8 @@ The repository is the source of truth. Start here, read only what your task touc
 | Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) |
 | Adding another job platform | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md), `jobsearch/src/sources/` |
 | Fetching a role from every source | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md), `jobsearch/src/roles.py` |
+| ATS boards (Greenhouse, Ashby, Workable) | [ADR-010](architecture/decisions/ADR-010-ats-boards-company-scoped.md), `jobsearch/src/ats.py` |
+| Why a re-run finds new jobs (cache TTL) | [ADR-011](architecture/decisions/ADR-011-cache-freshness.md), `jobsearch/src/fetch.py` |
 | Which platforms are readable at all | [research/job-platform-survey.md](research/job-platform-survey.md) |
 | Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/crawl.py` |
 | Locations, filters, facets | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/web/app.py` |
@@ -42,6 +44,8 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-007](architecture/decisions/ADR-007-multi-source.md) | robots is per-origin; what multi-source would cost |
 | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md) | Multi-source built: namespaced ids, layered views, ingesters |
 | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md) | One role-driven fetch; only Wellfound filters server-side |
+| [ADR-010](architecture/decisions/ADR-010-ats-boards-company-scoped.md) | ATS boards expand companies; they cannot be role-searched |
+| [ADR-011](architecture/decisions/ADR-011-cache-freshness.md) | Listings expire from the cache; a cached mitigation never does |
 
 ## Quality
 
@@ -56,6 +60,8 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 
 [plans/active/](plans/active/) — read before touching an area with an open plan.
 
+- [ats-board-integrations.md](plans/active/ats-board-integrations.md) — integrating the
+  four ATS boards one provider at a time. Greenhouse and Ashby done; **Workable next**.
 - [close-conduct-test-gaps.md](plans/active/close-conduct-test-gaps.md) — the conduct
   layer is untested; this closes it and adds CI.
 

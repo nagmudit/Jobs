@@ -63,7 +63,11 @@ class FakeFetcher:
         self.pages = pages
         self.urls: list[str] = []
 
-    def get(self, url, refresh=False):
+    # Listings carry a freshness window; the fake ignores it but must
+    # expose it, because production reads fetcher.listing_ttl.
+    listing_ttl = None
+
+    def get(self, url, refresh=False, max_age=None):
         self.urls.append(url)
         page = 1
         if "page=" in url:

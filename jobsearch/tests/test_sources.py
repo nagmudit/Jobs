@@ -51,8 +51,10 @@ def test_contract_drift_is_detected(conn):
         SRC.registry = real
 
 
-def test_all_three_sources_registered():
-    assert set(SRC.registry()) == {"wellfound", "remoteok", "himalayas"}
+def test_all_sources_registered():
+    assert set(SRC.registry()) == {
+        "wellfound", "remoteok", "himalayas", "greenhouse", "ashby", "workable"
+    }
 
 
 # --- id namespacing -----------------------------------------------------------
@@ -153,7 +155,11 @@ def test_himalayas_offset_mismatch_raises_pagewrap(conn):
     """If the server ever stops honouring offset the way Wellfound wraps pages,
     we would silently re-ingest page 1 forever."""
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             class R:
                 ok = True
                 status = 200

@@ -404,6 +404,78 @@ journeys:
       which raised SchemaDrift and aborted an otherwise healthy ingest.
     release_blocking: false
 
+  - id: CJ-039
+    name: ATS board expansion is bounded by the corpus, not the provider
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      Walking all 2,002 companies across four providers is thousands of
+      rate-limited requests against third parties for no added value.
+    release_blocking: true
+
+  - id: CJ-040
+    name: Board-token resolution caches hits AND misses
+    capability: CAP-CONDUCT
+    priority: P1
+    facing: system
+    blast_radius: >
+      Re-probing six token candidates per unresolvable company on every run
+      multiplies traffic against a third party.
+    release_blocking: false
+
+  - id: CJ-041
+    name: Greenhouse fields map correctly, and absent ones stay NULL
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Entity-encoded HTML shown raw; guessed salary or remote flags that the
+      source never provided.
+    release_blocking: false
+
+  - id: CJ-042
+    name: Ashby expands only robots-allowed hosted boards and maps posting details
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      A silent-200 invalid board can be mistaken for a resolved company; salary
+      periods, remote type, or posting age can be mapped incorrectly.
+    release_blocking: false
+
+  - id: CJ-043
+    name: A stale listing is re-fetched; a cached mitigation never is
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      Without the TTL the tool is live exactly once per URL and silently stops
+      discovering new jobs. With a TTL that ignores the mitigation carve-out it
+      becomes a backoff-and-continue path, retrying a 403 on a six-hour timer.
+    release_blocking: true
+
+  - id: CJ-044
+    name: Workable collapses per-location entries and dates bare dates correctly
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Uncollapsed, telemetry inflates several-fold and all but one location is
+      discarded. A bare date read as local midnight drops postings up to 24 h
+      early, and disagreeing with the view hides a stored job with no explanation.
+    release_blocking: false
+
+  - id: CJ-045
+    name: A colliding ATS board token is rejected by account name
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      resolve() binds the first token that answers 200, so another company's
+      entire board can be silently attached to ours.
+    release_blocking: false
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -633,6 +705,42 @@ tests:
     merge_blocking: true
     owner: mudit
 
+  - id: CONDUCT-009
+    name: Listing TTL expires stale entries; mitigations stay sticky forever
+    journey: CJ-043
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_fetch_cache.py
+    command: python -m pytest tests/test_fetch_cache.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-011
+    name: Workable per-location collapse, UTC end-of-day dates, view/ingest parity
+    journey: CJ-044
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_workable.py
+    command: python -m pytest tests/test_workable.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-012
+    name: ATS token collision rejected via verify_account
+    journey: CJ-045
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_workable.py
+    command: python -m pytest tests/test_workable.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   - id: STORE-005
     name: Core view contract checked at connect; drift raises
     journey: CJ-029
@@ -753,6 +861,54 @@ tests:
     merge_blocking: true
     owner: mudit
 
+  - id: CONDUCT-007
+    name: companies_for_role bounds expansion; unimplemented providers not probed
+    journey: CJ-039
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_greenhouse.py
+    command: python -m pytest tests/test_greenhouse.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-008
+    name: Token resolution caches hits and misses; disambiguators stripped
+    journey: CJ-040
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_greenhouse.py
+    command: python -m pytest tests/test_greenhouse.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-009
+    name: Greenhouse content decoded, location structured, salary/remote NULL not guessed
+    journey: CJ-041
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_greenhouse.py
+    command: python -m pytest tests/test_greenhouse.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-010
+    name: Ashby hosted-board and JSON-LD fields map without guesses
+    journey: CJ-042
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_ashby.py
+    command: python -m pytest tests/test_ashby.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   # ---- proposed: the gap closers, sequenced in docs/plans/active/ ----
   - id: CONDUCT-001
     name: Fetcher refuses a robots-disallowed URL before opening a connection
@@ -858,9 +1014,11 @@ known_gaps:
     journey: CJ-001
     priority: P0
     description: >
-      src/fetch.py is partially tested. robots enforcement IS now covered
-      (CONDUCT-005/006, added 2026-09-04 with the per-origin fix). The rate
-      limiter, the disk cache, and the mitigation call path remain unverified.
+      src/fetch.py is partially tested. robots enforcement IS covered
+      (CONDUCT-005/006) and the disk cache IS now covered including the
+      sticky-mitigation carve-out (CONDUCT-009, added 2026-09-05 with ADR-011).
+      The rate limiter (_throttle) and the live mitigation call path on a real
+      response remain unverified.
     status: open
     first_seen: 2026-09-03
     owner: mudit
@@ -1054,7 +1212,7 @@ last_audit:
   date: 2026-09-04
   revision: 0099cae
   report: docs/testing/report.md
-  suite_status: "108 passed in 0.94s (run 2026-09-04)"
+  suite_status: "125 passed in 1.42s (run 2026-09-04)"
   maturity_level: 1
   delta_since_2026_09_03: >
     37 tests added (CJ-018..CJ-021, CJ-023..CJ-025, CJ-027..CJ-034 covered);

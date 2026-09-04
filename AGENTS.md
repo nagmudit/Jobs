@@ -1,7 +1,7 @@
 # Jobs — Agent Instructions
 
 A personal job-search corpus tool. `jobsearch/` pulls listings from Wellfound,
-RemoteOK and Himalayas into SQLite and serves a local filter/sort UI with apply links. `wellfound-probe/` is the completed research that established *how* to
+RemoteOK, Himalayas and company ATS boards (Greenhouse, Ashby, Workable) into SQLite and serves a local filter/sort UI with apply links. `wellfound-probe/` is the completed research that established *how* to
 read Wellfound at all — frozen evidence, not a live component.
 
 There is no scorer, recommender, or auto-apply here, by design. The user filters; the
@@ -68,7 +68,10 @@ Run from `jobsearch/` unless noted. Full list in `docs/engineering/commands.md`.
 | Stats | `python -m src.cli stats` |
 | Prune old jobs | `python -m src.cli prune` (add `--apply` to delete) |
 
-All verified 2026-09-03. There is no lint or typecheck configured — don't claim one ran.
+A cold `fetch` across all six sources is ~1,100 requests / 75-95 min. Run it in the
+background; re-runs inside `cache_ttl_hours` are cheap.
+
+All verified 2026-09-05. There is no lint or typecheck configured — don't claim one ran.
 
 ## Conduct rules — these are not style preferences
 
@@ -89,6 +92,10 @@ for everyone using it.
   the crawl. Never retry through it, never add a backoff-and-continue path.
 - All network access goes through `Fetcher.get`. Adding a second path out to the
   network bypasses every rule above.
+- **Listings expire from the cache; a mitigation never does.** Search pages, feeds and
+  ATS boards pass `max_age=fetcher.listing_ttl` (`cache_ttl_hours`, default 6); detail
+  pages pass none. A cached 403/429/503 or `cf-mitigated` is **sticky forever** — aging
+  one out is a backoff-and-continue path on a timer. See ADR-011.
 - **robots.txt is cached per origin.** One `Fetcher` may span hosts; each host is
   judged by its own rules. Never collapse that cache — doing so lets one site's
   robots.txt permit a fetch another site forbids. A host whose robots.txt cannot be
@@ -128,6 +135,18 @@ for everyone using it.
   in one column sort silently wrong. Carry `salary_currency` / `salary_period`.
 - **`expired` NULL means unknown, not "not expired".** Only Himalayas publishes an
   expiry. Any filter must keep NULL rows.
+- **Check the origin, not the path, against robots.** Ashby and Workable publish the
+  same path shape on two hosts with different rules (`apply.workable.com` allows all;
+  `www.workable.com` disallows `/j/`). A source names ONE origin. See ADR-010.
+- **A date with no time of day resolves to the END of that day** — unknown age is not
+  old (ADR-006). Ingest and `CORE_VIEW_SQL` must apply the *same* rule, or a job is
+  stored then immediately hidden by the UI's age filter.
+- **ATS boards cannot be searched by role at all.** Greenhouse's docs are explicit:
+  every request needs a `board_token`, there is no cross-board search. They EXPAND
+  companies the role already touched (`filter_mode: "expand"`), bounded by the corpus,
+  never by the provider. Resolution is cached in `company_ats` — **including misses**,
+  because re-probing six candidates for a company with no board is pure cost against a
+  third party. See ADR-010.
 - **Only Wellfound filters by role server-side.** Himalayas ignores every filter
   parameter; RemoteOK's `?tag=` serves an archive (median age 112-144 days) while its
   unfiltered feed is fresh (median 5 days), so role fetches send NO tag and filter
@@ -139,8 +158,7 @@ for everyone using it.
   match `html` and `ai` does not match `retail`.
 - **`filtered_out` (wrong role) is counted separately from `stale_skipped` (too old).**
   Conflating them makes the telemetry unreadable.
-- **Enrichment is Wellfound-only.** JSON-LD detail pages are a Wellfound concept; the
-  API sources already return full descriptions.
+- **Enrichment is Wellfound-only** — the API sources already return descriptions.
 - **`rebuild_locations()` after any crawl or ingest.** `job_location` is derived from
   `job_raw`; the crawl paths call it, and a new derivation never needs a re-crawl.
 - **FastAPI request models stay at module level** in `src/web/app.py`. With

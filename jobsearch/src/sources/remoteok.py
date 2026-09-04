@@ -113,7 +113,7 @@ def ingest(
     role = target.get("role")
     keywords = target.get("keywords") or []
     url = api_url(tag)
-    resp = fetcher.get(url)
+    resp = fetcher.get(url, max_age=fetcher.listing_ttl)
     if not resp.ok:
         return {"source": NAME, "target": tag or "all", "ended_reason": f"http_{resp.status}",
                 "seen": 0, "new": 0, "stale_skipped": 0, "pages": 0}

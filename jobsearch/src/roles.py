@@ -14,6 +14,10 @@ actually happened. That is what `filter_mode` is for:
                         cutoff yields nothing. We take the live feed instead.
     "server+local"  Reserved for a source where a real server-side filter is
                     worth combining with ours. Nothing uses it today.
+    "expand"        Greenhouse (and the other ATS boards). These are
+                    company-scoped with NO cross-board search, so they cannot be
+                    role-fetched at all. Instead they expand companies the role
+                    already touched, then filter locally. See ADR-010.
     "skipped"       The source has no usable query for this role.
 
 The UI must surface that field. "Fetched 40 jobs for artificial-intelligence-
@@ -32,6 +36,10 @@ from . import store as S
 from .config import Config
 
 WELLFOUND = "wellfound"
+
+# Sources whose APIs are company-scoped with no cross-board search. They are
+# driven by companies the role already touched, never by the role itself.
+ATS_PROVIDERS = {"greenhouse", "ashby", "workable"}
 
 
 def sources_for(cfg: Config) -> list[str]:
@@ -96,6 +104,12 @@ def fetch_role(
             })
             continue
 
+        # ATS boards: company-scoped, so expand rather than search.
+        if name in ATS_PROVIDERS:
+            out.append(_expand_ats(fetcher, conn, cfg, role, name,
+                                   keywords, cutoff, on_event))
+            continue
+
         # JSON-API sources.
         # RemoteOK: deliberately NO tag. Its tag endpoints return an archive
         # (median age 112-144 days) while the unfiltered feed is fresh (median
@@ -128,6 +142,46 @@ def fetch_role(
     return out
 
 
+def _expand_ats(fetcher, conn, cfg, role: str, provider: str,
+                keywords: list[str], cutoff: int | None,
+                on_event) -> dict[str, Any]:
+    """Expand every company the role touched that declares this ATS.
+
+    Bounded by the corpus, not by the provider: a role that touched 55
+    Greenhouse companies costs ~55 board fetches plus resolution attempts, not a
+    walk of all 2,002 companies.
+    """
+    from . import ats as ATS
+    from . import sources as SRC
+
+    mod = SRC.registry()[provider]
+    companies = ATS.companies_for_role(conn, role, provider)
+    seen = new = stale = filtered = resolved = 0
+
+    for co in companies:
+        rec = ATS.resolve(fetcher, conn, co["company_slug"], co["company"], provider)
+        if not rec.get("resolved"):
+            continue
+        resolved += 1
+        r = mod.expand_company(
+            fetcher, conn, co["company_slug"], rec["board_token"],
+            keywords=keywords, cutoff_ts=cutoff, role=role)
+        seen += r["seen"]; new += r["new"]
+        stale += r["stale_skipped"]; filtered += r["filtered_out"]
+        if on_event:
+            on_event({"source": provider, "page": resolved,
+                      "jobs": r.get("claimed") or 0, "kept": seen,
+                      "stale_skipped": r["stale_skipped"],
+                      "filtered_out": r["filtered_out"],
+                      "company": co["company_slug"]})
+
+    return {"source": provider, "role": role, "filter_mode": "expand",
+            "seen": seen, "new": new, "stale_skipped": stale,
+            "filtered_out": filtered, "pages": resolved,
+            "claimed": len(companies),
+            "ended_reason": f"{resolved}/{len(companies)} companies resolved"}
+
+
 def _skipped(source: str, role: str, reason: str) -> dict[str, Any]:
     return {"source": source, "role": role, "filter_mode": "skipped",
             "reason": reason, "seen": 0, "new": 0, "stale_skipped": 0,
@@ -139,6 +193,13 @@ def describe(results: list[dict[str, Any]]) -> str:
     """One line per source, for the CLI and the UI status box."""
     lines = []
     for r in results:
+        if r["filter_mode"] == "expand":
+            lines.append(
+                f"  {r['source']:10} {r['seen']:>4} kept from "
+                f"{r['pages']}/{r['claimed']} companies resolved "
+                f"({r['new']} new, {r['filtered_out']} off-role, "
+                f"{r['stale_skipped']} too old) [expand]")
+            continue
         if r["filter_mode"] == "skipped":
             lines.append(f"  {r['source']:10} skipped — {r.get('reason','')}")
             continue
