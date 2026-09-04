@@ -198,6 +198,99 @@ def _print_stats(conn) -> None:
     print(f"\n  mitigation events: {ev}")
 
 
+def cmd_fetch(args, cfg: Config) -> int:
+    """Fetch one or more roles from every enabled source.
+
+    This is the role-driven workflow: one role in, each source queried in its
+    own shape. Sources differ in HOW the role is applied, so every line reports
+    its filter_mode -- see src/roles.py and ADR-009.
+    """
+    from .roles import describe, fetch_role, sources_for
+
+    conn, f = _wire(cfg)
+    roles = [r.strip() for r in (args.roles2 or args.roles or "").split(",") if r.strip()]
+    if not roles:
+        roles = list(cfg.roles)
+    names = ([n.strip() for n in args.sources.split(",") if n.strip()]
+             if args.sources else sources_for(cfg))
+
+    age = f"keeping jobs <= {cfg.max_age_days}d" if cfg.max_age_days else "no age cutoff"
+    print(f"Fetching {len(roles)} role(s) from {names} at "
+          f"{cfg.delay_range[0]}-{cfg.delay_range[1]}s, {age}.")
+
+    for role in roles:
+        print(f"\n=== {role} ===")
+        try:
+            res = fetch_role(
+                f, conn, cfg, role, names,
+                on_event=lambda d: print(
+                    f"    {d.get('source','?'):10} p{d.get('page','?'):<3} "
+                    f"got={d.get('jobs','?'):<4} kept={d.get('kept','?'):<5} "
+                    f"off-role={d.get('filtered_out',0):<4} "
+                    f"stale={d.get('stale_skipped',0)}"))
+        except A.CorpusIntegrityError as e:
+            print(f"  !! HALTED: {type(e).__name__}: {e}", file=sys.stderr)
+            _print_stats(conn)
+            return 2
+        print(describe(res))
+
+    _print_stats(conn)
+    return 0
+
+
+def cmd_ingest(args, cfg: Config) -> int:
+    """Pull from the JSON-API sources (RemoteOK, Himalayas).
+
+    Separate from `crawl` because these are documented APIs with their own
+    paging, not Wellfound search pages: none of the slice machinery or the four
+    Wellfound-specific assertions apply.
+    """
+    from . import sources as SRC
+
+    conn, f = _wire(cfg)
+    reg = SRC.registry()
+    names = ([n.strip() for n in args.sources.split(",") if n.strip()]
+             if args.sources else
+             [n for n in reg if n != "wellfound" and cfg.source_enabled(n)])
+    unknown = [n for n in names if n not in reg]
+    if unknown:
+        print(f"unknown source(s): {unknown}. Known: {sorted(reg)}", file=sys.stderr)
+        return 2
+
+    cutoff = cfg.cutoff_ts()
+    age = f"keeping jobs <= {cfg.max_age_days}d" if cfg.max_age_days else "no age cutoff"
+    print(f"Ingesting {names} at {cfg.delay_range[0]}-{cfg.delay_range[1]}s, {age}.")
+
+    results = []
+    for name in names:
+        mod = reg[name]
+        if not hasattr(mod, "ingest"):
+            print(f"  {name}: no ingest() -- skipped (view-only source)")
+            continue
+        for target in cfg.source_targets(name):
+            label = target.get("tag") or target.get("name") or "all"
+            print(f"\n  {name} :: {label}")
+            try:
+                r = mod.ingest(
+                    f, conn, target, cutoff_ts=cutoff,
+                    max_pages=cfg.source_max_pages(name),
+                    on_page=lambda d: print(
+                        f"    p{d['page']:<3} got={d['jobs']:<4} kept={d['kept']:<5} "
+                        f"stale={d['stale_skipped']}"))
+            except A.CorpusIntegrityError as e:
+                print(f"    !! HALTED: {type(e).__name__}: {e}", file=sys.stderr)
+                _print_stats(conn)
+                return 2
+            results.append(r)
+            print(f"    -> {r['seen']} kept ({r['new']} new), "
+                  f"{r['stale_skipped']} too old, {r['pages']} pages, "
+                  f"claimed={r.get('claimed')}, ended={r['ended_reason']}")
+
+    S.rebuild_locations(conn)
+    _print_stats(conn)
+    return 0
+
+
 def cmd_prune(args, cfg: Config) -> int:
     conn, _ = _wire(cfg)
     if not cfg.max_age_days:
@@ -255,7 +348,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--location", default=None)
     p.set_defaults(fn=cmd_roles)
 
-    p = targeted(sub.add_parser("crawl", help="breadth crawl of every role x location slice"))
+    p = targeted(sub.add_parser(
+        "fetch", help="fetch role(s) from every enabled source (the main workflow)"))
+    p.add_argument("--sources", default=None,
+                   help="comma-separated; default = all enabled sources")
+    p.set_defaults(fn=cmd_fetch)
+
+    p = targeted(sub.add_parser("crawl", help="Wellfound-only role x location slice crawl"))
     p.add_argument("--no-resume", action="store_true")
     p.add_argument("--no-validate", action="store_true")
     p.set_defaults(fn=cmd_crawl)
@@ -265,6 +364,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--limit", type=int, default=25)
     p.add_argument("--refresh", action="store_true")
     p.set_defaults(fn=cmd_enrich)
+
+    p = sub.add_parser("ingest", help="pull from JSON-API sources (remoteok, himalayas)")
+    p.add_argument("--sources", default=None,
+                   help="comma-separated; default = all enabled non-wellfound sources")
+    p.set_defaults(fn=cmd_ingest)
 
     p = sub.add_parser("prune", help="remove jobs older than the age cutoff")
     p.add_argument("--apply", action="store_true",

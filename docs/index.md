@@ -15,7 +15,9 @@ The repository is the source of truth. Start here, read only what your task touc
 | Area | Read |
 |---|---|
 | Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) |
-| Adding another job platform | [ADR-007](architecture/decisions/ADR-007-multi-source.md), [research/job-platform-survey.md](research/job-platform-survey.md) |
+| Adding another job platform | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md), `jobsearch/src/sources/` |
+| Fetching a role from every source | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md), `jobsearch/src/roles.py` |
+| Which platforms are readable at all | [research/job-platform-survey.md](research/job-platform-survey.md) |
 | Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/crawl.py` |
 | Locations, filters, facets | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/web/app.py` |
 | Job age, staleness, pruning | [ADR-006](architecture/decisions/ADR-006-age-cutoff.md), `jobsearch/src/config.py` |
@@ -38,6 +40,8 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md) | Crawl by role only; filter location locally |
 | [ADR-006](architecture/decisions/ADR-006-age-cutoff.md) | 30-day age cutoff at ingest; never an early stop |
 | [ADR-007](architecture/decisions/ADR-007-multi-source.md) | robots is per-origin; what multi-source would cost |
+| [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md) | Multi-source built: namespaced ids, layered views, ingesters |
+| [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md) | One role-driven fetch; only Wellfound filters server-side |
 
 ## Quality
 

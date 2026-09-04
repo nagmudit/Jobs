@@ -29,6 +29,11 @@ class Config:
     # Jobs older than this are not ingested, not enriched, and not shown.
     # 0 or null disables the cutoff entirely.
     max_age_days: int | None = 30
+    # Per-source targets. Wellfound uses roles x locations above; the JSON-API
+    # sources take their own shapes. See src/sources/.
+    sources: dict = field(default_factory=dict)
+    # role -> per-source query shape. See targets.yaml and ADR-009.
+    role_map: dict = field(default_factory=dict)
 
     db_path: Path = DB_PATH
     cache_dir: Path = CACHE_DIR
@@ -61,6 +66,8 @@ class Config:
             # the cutoff. Those are different intents and must not collapse.
             max_age_days=((int(raw["max_age_days"]) or None)
                           if "max_age_days" in raw else 30),
+            sources=dict(raw.get("sources") or {}),
+            role_map=dict(raw.get("role_map") or {}),
         )
         # CLI overrides win over the file.
         if roles:
@@ -77,6 +84,43 @@ class Config:
                 "capped at 1 request per 3-5s. Refusing to go faster."
             )
         return cfg
+
+    def role_query(self, role: str, source: str) -> str | None:
+        """The source's own query token for a role, or None if it has none.
+
+        None is meaningful and is not the same as "not configured": for RemoteOK
+        it records that no tag returns jobs, verified rather than assumed.
+        """
+        return (self.role_map.get(role) or {}).get(source)
+
+    def role_keywords(self, role: str) -> list[str]:
+        """Keywords for the LOCAL relevance filter (RemoteOK, Himalayas).
+
+        Empty means no filter, so a role missing from role_map keeps everything
+        rather than silently returning nothing.
+        """
+        return list((self.role_map.get(role) or {}).get("keywords") or [])
+
+    def role_categories(self, role: str) -> list[str]:
+        return list((self.role_map.get(role) or {}).get("categories") or [])
+
+    def source_enabled(self, name: str) -> bool:
+        cfg = self.sources.get(name)
+        if cfg is None:
+            return name == "wellfound"   # the original, on by default
+        return bool(cfg.get("enabled", True))
+
+    def source_targets(self, name: str) -> list[dict]:
+        """Targets to ingest for a source. Empty dict = 'everything it offers'."""
+        cfg = self.sources.get(name) or {}
+        targets = cfg.get("targets")
+        if not targets:
+            return [{}]
+        return [t if isinstance(t, dict) else {"name": str(t)} for t in targets]
+
+    def source_max_pages(self, name: str) -> int:
+        cfg = self.sources.get(name) or {}
+        return int(cfg.get("max_pages", self.max_pages_per_slice))
 
     def cutoff_ts(self) -> int | None:
         """Unix timestamp before which a job is considered stale, or None.

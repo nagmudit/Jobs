@@ -22,6 +22,10 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Enrich specific jobs | `python -m src.cli enrich --ids 123,456` | ✅ ran, 3 enriched |
 | Enrich next N unenriched | `python -m src.cli enrich --limit 25` | ⚠️ not run |
 | Stats | `python -m src.cli stats` | ✅ ran |
+| **Fetch a role from every source** | `python -m src.cli fetch --roles artificial-intelligence-engineer` | ✅ ran, 3 sources |
+| Fetch several roles | `python -m src.cli fetch --roles a,b --sources remoteok` | ✅ ran |
+| Ingest all API sources (no role) | `python -m src.cli ingest` | ✅ ran |
+| Ingest one source | `python -m src.cli ingest --sources himalayas` | ✅ ran, 500 kept / 478 new |
 | Prune stale (dry run) | `python -m src.cli prune` | ✅ ran, reported 1747/2941 |
 | Prune stale (delete) | `python -m src.cli prune --apply` | ⚠️ not run — destructive |
 | Widen the age cutoff | `python -m src.cli crawl --no-resume --max-age-days 90` | ⚠️ not run |
@@ -37,6 +41,16 @@ ingest, skips them during enrichment, and seeds the UI filter. It saves **no req
 — Wellfound does not order results by date, so every page is still fetched (ADR-006).
 Widening it later needs no network: the raw pages stay in `cache/`, so
 `crawl --no-resume --max-age-days 90` re-ingests from disk.
+
+## Backing up the database
+
+WAL mode means the newest rows may live in `jobs.db-wal`, not `jobs.db`. Copying the
+main file alone can produce a backup that reads as empty. Checkpoint first:
+
+```bash
+python -c "import sqlite3;sqlite3.connect('jobs.db').execute('PRAGMA wal_checkpoint(TRUNCATE)')"
+cp jobs.db jobs.db.bak
+```
 
 ## Repo hygiene
 

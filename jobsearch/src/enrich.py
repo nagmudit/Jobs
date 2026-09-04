@@ -92,9 +92,16 @@ def enrich_ids(
 
     for jid in ids:
         row = conn.execute(
-            "SELECT source_job_id, apply_url, days_old FROM jobs WHERE source_job_id=?",
-            (jid,)).fetchone()
+            "SELECT source_job_id, apply_url, days_old, source FROM jobs "
+            "WHERE source_job_id=?", (jid,)).fetchone()
         if row is None:
+            skipped += 1
+            continue
+        # Detail-page enrichment is Wellfound-specific: it parses JSON-LD and a
+        # rendered equity string that only Wellfound emits. RemoteOK and
+        # Himalayas already return full descriptions and numeric salary in the
+        # list payload, so there is nothing to enrich and a request would be waste.
+        if row["source"] != "wellfound":
             skipped += 1
             continue
         # A stale job is never worth a rate-limited request: it is excluded from
