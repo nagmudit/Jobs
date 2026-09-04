@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-09-04
+last_verified: 2026-09-05
 applies_to: [jobsearch/src/fetch.py]
 ---
 
@@ -69,10 +69,22 @@ description, pubDate, expires_at, guid, link`.
 | boards.greenhouse.io | 200 | 1 | `/embed/` |
 | jobs.lever.co | 200 | 2 | — |
 | jobs.ashbyhq.com | 200 | 3 | `/meeting/`, `/b/`, `/api/` |
+| api.ashbyhq.com | **401** | — | unreadable |
+| apply.workable.com | 200 | **0** | — (everything allowed) |
+| www.workable.com | 200 | 4 | **`/j/`**, `/admin`, `/auth/google` |
+| jobs.workable.com | 200 | 6 | `/search`, `/profile*` |
 
-Note the Ashby row: `jobs.ashbyhq.com` disallows `/api/`, but the posting API used by
-P6 lives on **`api.ashbyhq.com`**, a different origin with its own rules. Exactly the
-distinction the multi-origin robots fix exists to preserve.
+**Workable has the same two-origin split, in the opposite direction.**
+`apply.workable.com` allows everything, while `www.workable.com` **disallows `/j/`** —
+the identical path shape on a different host. The live tool reads only
+`apply.workable.com/api/v1/widget/accounts/{token}`, which is keyless and returns the
+whole board in one request; `?details=true` includes full descriptions inline
+(verified 2026-09-05: 55 entries / 635 KB for `lawnstarter`). See ADR-010.
+
+Ashby has two distinct origins. `jobs.ashbyhq.com` disallows its internal `/api/` but
+allows public board and posting pages. The documented lightweight posting API lives on
+`api.ashbyhq.com`; its robots file returned HTTP 401 on 2026-09-04, so the live tool
+does not use that origin. It reads the allowed hosted pages instead (ADR-010).
 
 ## Why these are easier than Wellfound
 

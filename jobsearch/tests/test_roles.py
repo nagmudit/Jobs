@@ -96,7 +96,11 @@ def test_remoteok_filters_off_role_jobs_and_counts_them(tmp_path):
     ])
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             class R:
                 ok, status, text = True, 200, payload
             return R()
@@ -116,7 +120,11 @@ def test_remoteok_records_the_role_as_provenance_not_the_tag(tmp_path):
     payload = json.dumps([RO_LEGAL, RO_JOB])
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             class R:
                 ok, status, text = True, 200, payload
             return R()
@@ -138,7 +146,11 @@ def test_himalayas_filters_off_role_jobs_and_counts_them(tmp_path):
     payload = json.dumps({"jobs": [keep, drop], "totalCount": 2, "offset": 0})
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             class R:
                 ok, status, text = True, 200, payload
             return R()
@@ -167,7 +179,11 @@ def test_off_role_is_counted_separately_from_too_old(tmp_path):
     ])
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             class R:
                 ok, status, text = True, 200, payload
             return R()
@@ -192,7 +208,11 @@ def test_remoteok_role_fetch_sends_no_tag(tmp_path, monkeypatch):
     seen_urls = []
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             seen_urls.append(url)
 
             class Resp:
@@ -217,7 +237,11 @@ def test_fetch_role_reports_filter_mode_per_source(tmp_path):
     conn = S.connect(tmp_path / "t6.db")
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             class Resp:
                 ok, status = True, 200
                 text = json.dumps([RO_LEGAL, RO_JOB])
@@ -238,7 +262,11 @@ def test_unknown_role_is_skipped_with_a_reason_not_crawled(tmp_path):
     conn = S.connect(tmp_path / "t7.db")
 
     class F:
-        def get(self, url, refresh=False):
+        # Listings carry a freshness window; the fake ignores it but must
+        # expose it, because production reads fetcher.listing_ttl.
+        listing_ttl = None
+
+        def get(self, url, refresh=False, max_age=None):
             raise AssertionError(f"should not have fetched {url}")
 
     res = R.fetch_role(F(), conn, cfg, "not-a-real-role", sources=["wellfound"])

@@ -47,6 +47,9 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `crawl.py` | Wellfound slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
 | `roles.py` | `fetch_role` — one role across every source, with `filter_mode` | `crawl`, `sources`, `store` |
 | `relevance.py` | Local role matching (title + categories). No internal imports | — |
+| `ats.py` | Company -> ATS board token resolution, cached in `company_ats` | `store` |
+| `sources/greenhouse.py` | Company-scoped board expansion + core view | `assertions`, `store` |
+| `sources/ashby.py` | Hosted-board index + matched posting details + core view | `assertions`, `store` |
 | `sources/__init__.py` | `CORE_COLUMNS` contract, registry, drift check | — |
 | `sources/wellfound.py` | Core view only (ingest lives in `crawl.py`) | — |
 | `sources/remoteok.py` | `/api` ingest + core view | `assertions`, `store` |
@@ -121,6 +124,10 @@ Things that will mislead you if nobody says them:
 - **`job_provenance.location` is not a place.** It is the slice token we crawled
   (`anywhere`), not where the job is. Places live in `job_location`. Presenting
   provenance as location was a real shipped bug; see ADR-005.
+- **ATS boards are not search sources.** Greenhouse and Ashby are company-scoped:
+  `fetch_role` expands companies the role already touched. A `filter_mode` of `expand`
+  means exactly that. Ashby uses its robots-allowed hosted pages because the documented
+  API origin's robots.txt returns 401; see ADR-010.
 - **"Fetched for role X" does not mean the source filtered by role.** Only Wellfound
   does. Check `filter_mode` — RemoteOK and Himalayas are filtered locally by
   `src/relevance.py`. See ADR-009.

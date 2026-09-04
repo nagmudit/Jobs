@@ -34,6 +34,10 @@ class Config:
     sources: dict = field(default_factory=dict)
     # role -> per-source query shape. See targets.yaml and ADR-009.
     role_map: dict = field(default_factory=dict)
+    # How stale a cached LISTING may be before it is re-fetched, in hours.
+    # Detail pages are never aged out, and a cached mitigation never expires
+    # at all. 0 or null restores the old permanent cache. See ADR-011.
+    cache_ttl_hours: float | None = 6.0
 
     db_path: Path = DB_PATH
     cache_dir: Path = CACHE_DIR
@@ -68,6 +72,10 @@ class Config:
                           if "max_age_days" in raw else 30),
             sources=dict(raw.get("sources") or {}),
             role_map=dict(raw.get("role_map") or {}),
+            # As with max_age_days, an absent key keeps the default while an
+            # explicit 0/null disables the TTL. Different intents.
+            cache_ttl_hours=((float(raw["cache_ttl_hours"]) or None)
+                             if "cache_ttl_hours" in raw else 6.0),
         )
         # CLI overrides win over the file.
         if roles:
@@ -84,6 +92,10 @@ class Config:
                 "capped at 1 request per 3-5s. Refusing to go faster."
             )
         return cfg
+
+    def cache_ttl_seconds(self) -> float | None:
+        """Listing freshness window in seconds, or None to never expire."""
+        return self.cache_ttl_hours * 3600.0 if self.cache_ttl_hours else None
 
     def role_query(self, role: str, source: str) -> str | None:
         """The source's own query token for a role, or None if it has none.

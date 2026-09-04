@@ -9,6 +9,20 @@ aspirational:
   * honest User-Agent carrying a contact address
   * cf-ray / cf-mitigated recorded on EVERY response
   * responses cached to disk by URL hash; re-runs hit cache
+
+## Cache freshness
+
+Listing responses (search pages, API feeds, ATS boards) carry a `max_age`; job
+detail pages do not. A job description does not change, so re-fetching it is
+pure cost -- but a *listing* that never expires means the tool can never see a
+job posted since the last run, which is what `fetch --roles X` exists to do.
+See ADR-011.
+
+One carve-out, and it is a conduct rule rather than a performance one: **a
+cached mitigation never expires.** A 403/429/503 or a `cf-mitigated` header
+stays sticky and keeps halting, however old it is. Letting the TTL clear it
+would turn this into a backoff-and-continue path, which is precisely what is
+forbidden. Clearing one is a deliberate human act: delete the cache entry.
 """
 
 from __future__ import annotations
@@ -59,13 +73,35 @@ class RobotsDisallowed(RuntimeError):
     """A path family robots.txt forbids. Raised rather than silently skipped."""
 
 
+# robots.txt is re-read daily. It was cached permanently, so a site could tighten
+# its rules and we would never see it. Longer than the listing TTL because rules
+# change rarely, short enough that we notice within a day -- and still readable
+# offline in between.
+ROBOTS_TTL = 24 * 3600.0
+
+
+def _is_mitigation(status: int | None, headers: dict) -> bool:
+    """Whether a cached response records Cloudflare acting on us.
+
+    Kept in step with `assertions.check_mitigation`: these are the responses that
+    must NEVER be aged out of the cache, because re-requesting them on a timer is
+    a retry-through-mitigation by another name.
+    """
+    return bool((headers or {}).get("cf-mitigated")) or status in (403, 429, 503)
+
+
 class Fetcher:
     def __init__(self, cache_dir: Path, user_agent: str,
-                 delay_range: tuple[float, float] = (3.0, 5.0)):
+                 delay_range: tuple[float, float] = (3.0, 5.0),
+                 listing_ttl: float | None = None):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.user_agent = user_agent
         self.delay_range = delay_range
+        # How stale a LISTING may be before it is re-fetched. Callers that fetch
+        # listings pass `max_age=fetcher.listing_ttl` explicitly, so which
+        # requests are freshness-sensitive stays greppable. None = never expire.
+        self.listing_ttl = listing_ttl
         self._last_request = 0.0
         # Keyed by origin. A single shared rule set would apply one site's
         # robots.txt to another host -- potentially permitting a fetch that host
@@ -83,13 +119,36 @@ class Fetcher:
         d.mkdir(parents=True, exist_ok=True)
         return d / f"{key}.meta.json", d / f"{key}.body"
 
-    def _load(self, url: str) -> Response | None:
+    def _load(self, url: str, max_age: float | None = None) -> Response | None:
+        """The cached response, or None when there is none or it has aged out.
+
+        Age comes from the recorded `fetched_at` rather than the file mtime: it
+        is the real fetch time and it travels with the cache directory.
+        """
         meta_p, body_p = self._paths(url)
         if not meta_p.exists():
             return None
         meta = json.loads(meta_p.read_text(encoding="utf-8"))
         body = body_p.read_text(encoding="utf-8", errors="replace") if body_p.exists() else ""
-        return Response(from_cache=True, **{**meta, "text": body})
+        resp = Response(from_cache=True, **{**meta, "text": body})
+        # A recorded mitigation is sticky regardless of age. See the module docstring.
+        if max_age is not None and not _is_mitigation(resp.status, resp.headers):
+            if self._age_of(resp) > max_age:
+                return None
+        return resp
+
+    @staticmethod
+    def _age_of(resp: Response) -> float:
+        """Seconds since the response was fetched. An unparseable or missing
+        timestamp counts as infinitely old -- a cache entry we cannot date is one
+        we cannot vouch for, so it is re-fetched rather than trusted."""
+        try:
+            when = datetime.fromisoformat(resp.fetched_at)
+        except (TypeError, ValueError):
+            return float("inf")
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - when).total_seconds()
 
     def _store(self, resp: Response) -> None:
         meta_p, body_p = self._paths(resp.url)
@@ -111,7 +170,7 @@ class Fetcher:
         """
         if origin in self._robots:
             return self._robots[origin]
-        resp = self._raw_get(f"{origin}/robots.txt")
+        resp = self._raw_get(f"{origin}/robots.txt", max_age=ROBOTS_TTL)
         if not resp.ok:
             raise RuntimeError(
                 f"{origin}: could not read robots.txt (HTTP {resp.status}); "
@@ -165,9 +224,10 @@ class Fetcher:
             time.sleep(wait)
         self._last_request = time.monotonic()
 
-    def _raw_get(self, url: str, timeout: float = 30.0) -> Response:
+    def _raw_get(self, url: str, timeout: float = 30.0,
+                 max_age: float | None = None) -> Response:
         """Uncached, un-robots-checked. Only robots.txt itself uses this directly."""
-        cached = self._load(url)
+        cached = self._load(url, max_age)
         if cached is not None:
             return cached
         self._throttle()
@@ -196,15 +256,21 @@ class Fetcher:
         self._store(resp)
         return resp
 
-    def get(self, url: str, refresh: bool = False) -> Response:
+    def get(self, url: str, refresh: bool = False,
+            max_age: float | None = None) -> Response:
         """The only public way to reach the network. Robots-gated, logged,
-        and halting on the first Cloudflare mitigation."""
+        and halting on the first Cloudflare mitigation.
+
+        `max_age` in seconds re-fetches a cache entry older than that. Listing
+        callers pass `max_age=self.listing_ttl`; detail callers pass nothing.
+        A cached mitigation ignores it and keeps halting -- see `_is_mitigation`.
+        """
         self.assert_allowed(url)
         if refresh:
             meta_p, body_p = self._paths(url)
             meta_p.unlink(missing_ok=True)
             body_p.unlink(missing_ok=True)
-        resp = self._raw_get(url)
+        resp = self._raw_get(url, max_age=max_age)
 
         if self.on_response is not None:
             self.on_response(resp)

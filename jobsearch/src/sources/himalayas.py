@@ -89,7 +89,7 @@ def ingest(
 
     for _ in range(max_pages):
         url = api_url(offset)
-        resp = fetcher.get(url)
+        resp = fetcher.get(url, max_age=fetcher.listing_ttl)
         if not resp.ok:
             ended = f"http_{resp.status}"
             break

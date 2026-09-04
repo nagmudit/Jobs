@@ -33,6 +33,7 @@ from .. import store as S
 from ..config import Config
 from ..enrich import enrich_ids
 from ..fetch import Fetcher
+from ..roles import ATS_PROVIDERS
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -220,7 +221,8 @@ class CrawlJob:
 
         try:
             conn = S.connect(cfg.db_path)
-            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
+                    listing_ttl=cfg.cache_ttl_seconds())
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
             use = names or sources_for(cfg)
             for role in roles:
@@ -266,7 +268,8 @@ class CrawlJob:
 
         try:
             conn = S.connect(cfg.db_path)
-            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
+                    listing_ttl=cfg.cache_ttl_seconds())
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
             reg = SRC.registry()
             for name in names:
@@ -300,7 +303,8 @@ class CrawlJob:
 
         try:
             conn = S.connect(cfg.db_path)
-            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
+                    listing_ttl=cfg.cache_ttl_seconds())
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
             run_at = S.now()
             for role in roles:
@@ -375,10 +379,13 @@ def create_app(cfg: Config) -> FastAPI:
             # "fetched for role X" never implies filtering that did not happen.
             # RemoteOK is "local": role fetch deliberately skips its ?tag=
             # endpoints because they serve an archive, not the live feed.
+            # ATS boards report "expand": they cannot be role-searched at all
+            # and instead walk companies the role already touched (ADR-010).
             "role_filtering": {
                 r: {"wellfound": "server",
                     "remoteok": "local" if cfg.role_keywords(r) else "skipped",
-                    "himalayas": "local" if cfg.role_keywords(r) else "skipped"}
+                    "himalayas": "local" if cfg.role_keywords(r) else "skipped",
+                    **{p: "expand" for p in sorted(ATS_PROVIDERS)}}
                 for r in cfg.roles},
             "delay_range": list(cfg.delay_range),
             "max_age_days": cfg.max_age_days,
@@ -529,7 +536,8 @@ def create_app(cfg: Config) -> FastAPI:
             raise HTTPException(409, "an enrichment run is already in progress")
         try:
             conn = db()
-            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
+                    listing_ttl=cfg.cache_ttl_seconds())
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
             return enrich_ids(f, conn, e.ids, max_age_days=cfg.max_age_days)
         finally:

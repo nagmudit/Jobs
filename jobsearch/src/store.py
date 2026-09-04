@@ -129,6 +129,20 @@ CREATE TABLE IF NOT EXISTS crawl_unit (
   PRIMARY KEY (slice_key, page)
 );
 
+-- Resolution of a company to its ATS board. ATS APIs are company-scoped with
+-- no cross-board search, so the board token has to be discovered per company
+-- and is worth caching: a miss costs several requests to re-establish.
+CREATE TABLE IF NOT EXISTS company_ats (
+  company_slug TEXT NOT NULL,
+  provider     TEXT NOT NULL,
+  board_token  TEXT,
+  resolved     INTEGER NOT NULL DEFAULT 0,
+  n_jobs       INTEGER,
+  attempts     TEXT,
+  checked_at   TEXT NOT NULL,
+  PRIMARY KEY (company_slug, provider)
+);
+
 CREATE TABLE IF NOT EXISTS request_log (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   url          TEXT NOT NULL,
@@ -188,10 +202,12 @@ SELECT
   NULLIF(COALESCE(NULLIF(d.salary_raw,''), NULLIF(k.salary_raw,'')),'') AS salary_raw,
   -- Sources that hand us numbers directly are trusted as-is; otherwise parse
   -- the string. NULL beats a guess either way.
-  COALESCE(k.salary_min_native,
-           salary_min(COALESCE(NULLIF(d.salary_raw,''), k.salary_raw))) AS salary_min,
-  COALESCE(k.salary_max_native,
-           salary_max(COALESCE(NULLIF(d.salary_raw,''), k.salary_raw))) AS salary_max,
+  CASE WHEN k.salary_period IS NOT NULL AND k.salary_period <> 'annual' THEN NULL
+       ELSE COALESCE(k.salary_min_native,
+            salary_min(COALESCE(NULLIF(d.salary_raw,''), k.salary_raw))) END AS salary_min,
+  CASE WHEN k.salary_period IS NOT NULL AND k.salary_period <> 'annual' THEN NULL
+       ELSE COALESCE(k.salary_max_native,
+            salary_max(COALESCE(NULLIF(d.salary_raw,''), k.salary_raw))) END AS salary_max,
   k.salary_currency, k.salary_period,
   NULLIF(d.equity_raw,'')                                  AS equity_raw,
   equity_max(d.equity_raw)                                 AS equity_max,

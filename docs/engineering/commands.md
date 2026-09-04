@@ -14,7 +14,7 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Task | Command | Verified |
 |---|---|---|
 | Install | `pip install httpx beautifulsoup4 lxml pyyaml fastapi uvicorn pytest` | ✅ all import |
-| Test | `python -m pytest tests -q` | ✅ ran, 38 pass in 0.6 s |
+| Test | `python -m pytest tests -q` | ✅ ran, 133 pass (2026-09-04) |
 | Crawl (targets.yaml) | `python -m src.cli crawl` | ✅ ran, 9 slices, 1836 jobs |
 | Crawl (override) | `python -m src.cli crawl --roles ai-engineer --locations remote` | ✅ ran |
 | Crawl (force re-ingest) | `python -m src.cli crawl --no-resume` | ✅ ran |
@@ -24,6 +24,8 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Stats | `python -m src.cli stats` | ✅ ran |
 | **Fetch a role from every source** | `python -m src.cli fetch --roles artificial-intelligence-engineer` | ✅ ran, 3 sources |
 | Fetch several roles | `python -m src.cli fetch --roles a,b --sources remoteok` | ✅ ran |
+| Expand ATS boards for a role | `python -m src.cli fetch --roles <role> --sources greenhouse` | ✅ ran, 47/55 companies |
+| Expand Ashby for a role | `python -m src.cli fetch --roles <role> --sources ashby` | ✅ ran, 73/88 companies |
 | Ingest all API sources (no role) | `python -m src.cli ingest` | ✅ ran |
 | Ingest one source | `python -m src.cli ingest --sources himalayas` | ✅ ran, 500 kept / 478 new |
 | Prune stale (dry run) | `python -m src.cli prune` | ✅ ran, reported 1747/2941 |

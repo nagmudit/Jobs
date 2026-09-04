@@ -33,6 +33,17 @@ user_agent: "jobsearch-personal/0.1 (+muditnag13@gmail.com)"
 
 yield_floor: 1
 
+# How stale a cached LISTING (search page, API feed, ATS board) may be before it
+# is re-fetched. Without this the disk cache never expired, so a second
+# `fetch --roles X` replayed pages from days earlier and could not see a single
+# job posted since -- the tool was live exactly once per URL.
+#
+# Detail pages are NOT aged out (a job description does not change), and a cached
+# 403/429/cf-mitigated NEVER expires however old it is: aging one out would be a
+# retry-through-mitigation on a timer. Set to 0 for the old permanent cache.
+# See ADR-011.
+cache_ttl_hours: 6
+
 # Age cutoff, in days. Jobs older than this are NOT ingested, NOT enriched, and
 # NOT shown. Set to 0 (or null) to disable and keep everything.
 #
@@ -58,11 +69,29 @@ sources:
 
   himalayas:
     enabled: true
-    # limit is server-capped at 20, so max_pages 25 ~= 500 jobs ~= 2 min.
-    # totalCount was 101,235 on 2026-09-04; full ingestion is ~5.6 h.
-    max_pages: 25
+    # limit is server-capped at 20, so max_pages 250 ~= 5,000 jobs ~= 17 min on a
+    # cold cache, then free within cache_ttl_hours. totalCount was 101,235 on
+    # 2026-09-04, so this reaches the newest ~5% -- which is where fresh jobs are.
+    # Himalayas has NO server-side filter of any kind, so depth is pure request
+    # cost and every job must be fetched to be judged. See ADR-009.
+    max_pages: 250
     targets:
       - {name: all, offset: 0}
+
+  # ATS boards. These cannot be searched by role at all -- they EXPAND companies
+  # the role already touched, bounded by the corpus (ADR-010). They were absent
+  # from this block, which made `source_enabled` fall through to its
+  # "wellfound only" default and silently left them out of every role fetch.
+  #
+  # Cost is real and unbounded by design: one cold role fetch across all sources
+  # runs ~1,100 requests / 75-95 min at the mandated 3-5 s, Ashby dominating
+  # because it needs a detail fetch per posting. Run it in the background.
+  greenhouse:
+    enabled: true
+  ashby:
+    enabled: true
+  workable:
+    enabled: true
 
 # Per-role translation to each source's query shape. The `roles:` list above is
 # the canonical vocabulary; this maps it outward.

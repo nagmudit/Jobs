@@ -341,6 +341,12 @@ const FILTER_NOTE = {
   wellfound: 'server-side',
   remoteok: 'filtered locally',
   himalayas: 'filtered locally',
+  // ATS boards cannot be searched by role at all. They expand companies this
+  // role already touched, then filter locally (ADR-010). Without these three
+  // the checkbox rendered a blank label, which read as "no filtering claim".
+  greenhouse: 'expands companies',
+  ashby: 'expands companies',
+  workable: 'expands companies',
 };
 
 function renderFetchSources() {
