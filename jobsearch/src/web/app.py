@@ -46,11 +46,14 @@ SORTS = {
     "size": "company_size_min DESC NULLS LAST",
     "equity": "equity_max DESC NULLS LAST",
     "slices": "n_slices DESC",
+    "expires": "expires_ts ASC NULLS LAST",
 }
 
 
 class Filters(BaseModel):
     q: str | None = None
+    sources: list[str] = []
+    hide_expired: bool = True
     roles: list[str] = []          # role slugs the job was found via
     locations: list[str] = []      # REAL places, from job_location
     remote: list[str] = []
@@ -83,6 +86,15 @@ class CrawlIn(BaseModel):
     roles: list[str]
     location: str = "anywhere"
     max_pages: int | None = None
+
+
+class IngestIn(BaseModel):
+    sources: list[str]
+
+
+class FetchIn(BaseModel):
+    roles: list[str]
+    sources: list[str] = []
 
 
 # NOTE: these models MUST stay at module level. With `from __future__ import
@@ -118,7 +130,13 @@ def _clauses(f: Filters) -> list[tuple[str, str, list[Any]]]:
                     f"j.source_job_id IN (SELECT source_job_id FROM job_location "
                     f"WHERE location IN ({ph}))", list(f.locations)))
 
-    for dim, col, vals in (("remote", "remote_label", f.remote),
+    if f.hide_expired:
+        # `expired` is NULL where the source publishes no expiry (Wellfound).
+        # NULL means unknown, never "expired", so those rows must survive.
+        out.append(("hide_expired", "(expired IS NULL OR expired = 0)", []))
+
+    for dim, col, vals in (("sources", "source", f.sources),
+                           ("remote", "remote_label", f.remote),
                            ("sizes", "company_size", f.sizes),
                            ("job_types", "job_type", f.job_types),
                            ("companies", "company", f.companies)):
@@ -184,6 +202,98 @@ class CrawlJob:
             target=self._run, args=(cfg, roles, location, max_pages), daemon=True)
         self.thread.start()
         return True
+
+    def start_fetch(self, cfg: Config, roles: list[str],
+                    names: list[str]) -> bool:
+        if not self.lock.acquire(blocking=False):
+            return False
+        self.state = {"running": True, "roles": roles, "done": [], "current": None,
+                      "pages": 0, "jobs_new": 0, "stale": 0, "error": None,
+                      "finished_at": None, "mode": "fetch"}
+        self.thread = threading.Thread(
+            target=self._run_fetch, args=(cfg, roles, names), daemon=True)
+        self.thread.start()
+        return True
+
+    def _run_fetch(self, cfg: Config, roles: list[str], names: list[str]) -> None:
+        from ..roles import fetch_role, sources_for
+
+        try:
+            conn = S.connect(cfg.db_path)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
+            use = names or sources_for(cfg)
+            for role in roles:
+                self.state["current"] = role
+                for r in fetch_role(
+                        f, conn, cfg, role, use,
+                        on_event=lambda d: self.state.update(
+                            pages=self.state["pages"] + 1,
+                            stale=self.state["stale"] + d.get("stale_skipped", 0))):
+                    self.state["jobs_new"] += r["new"]
+                    self.state["done"].append({
+                        "role": f"{role} · {r['source']}", "jobs": r["seen"],
+                        "new": r["new"], "stale": r["stale_skipped"],
+                        "filtered_out": r["filtered_out"],
+                        "filter_mode": r["filter_mode"],
+                        "reason": r.get("reason"),
+                        "pages": r["pages"], "ended": r.get("ended_reason"),
+                        "claimed": r.get("claimed")})
+        except Exception as e:
+            self.state["error"] = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+        finally:
+            self.state["running"] = False
+            self.state["current"] = None
+            self.state["finished_at"] = S.now()
+            self.lock.release()
+
+    def start_ingest(self, cfg: Config, names: list[str]) -> bool:
+        """Shares the crawl lock deliberately: concurrency 1 to the network is a
+        process-wide rule, not a per-source one."""
+        if not self.lock.acquire(blocking=False):
+            return False
+        self.state = {"running": True, "roles": names, "done": [], "current": None,
+                      "pages": 0, "jobs_new": 0, "stale": 0, "error": None,
+                      "finished_at": None, "mode": "ingest"}
+        self.thread = threading.Thread(
+            target=self._run_ingest, args=(cfg, names), daemon=True)
+        self.thread.start()
+        return True
+
+    def _run_ingest(self, cfg: Config, names: list[str]) -> None:
+        from .. import sources as SRC
+
+        try:
+            conn = S.connect(cfg.db_path)
+            f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range)
+            f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
+            reg = SRC.registry()
+            for name in names:
+                self.state["current"] = name
+                mod = reg[name]
+                for target in cfg.source_targets(name):
+                    r = mod.ingest(
+                        f, conn, target, cutoff_ts=cfg.cutoff_ts(),
+                        max_pages=cfg.source_max_pages(name),
+                        on_page=lambda d: self.state.update(
+                            pages=self.state["pages"] + 1,
+                            stale=self.state["stale"] + d["stale_skipped"]))
+                    self.state["jobs_new"] += r["new"]
+                    self.state["done"].append(
+                        {"role": f"{name}:{r['target']}", "jobs": r["seen"],
+                         "new": r["new"], "stale": r["stale_skipped"],
+                         "pages": r["pages"], "ended": r["ended_reason"],
+                         "claimed": r.get("claimed")})
+            S.rebuild_locations(conn)
+        except Exception as e:
+            self.state["error"] = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+        finally:
+            self.state["running"] = False
+            self.state["current"] = None
+            self.state["finished_at"] = S.now()
+            self.lock.release()
 
     def _run(self, cfg: Config, roles: list[str], location: str, max_pages: int) -> None:
         from ..crawl import crawl_slice, validate_role
@@ -260,6 +370,16 @@ def create_app(cfg: Config) -> FastAPI:
             "roles": [{"slug": r, "crawled": r in crawled} for r in cfg.roles],
             "counts": c, "last_crawl": last, "slices": slices,
             "sorts": list(SORTS), "max_pages": cfg.max_pages_per_slice,
+            "sources": sorted(cfg.sources) + ["wellfound"],
+            # How each source will filter this role -- shown in the UI so
+            # "fetched for role X" never implies filtering that did not happen.
+            # RemoteOK is "local": role fetch deliberately skips its ?tag=
+            # endpoints because they serve an archive, not the live feed.
+            "role_filtering": {
+                r: {"wellfound": "server",
+                    "remoteok": "local" if cfg.role_keywords(r) else "skipped",
+                    "himalayas": "local" if cfg.role_keywords(r) else "skipped"}
+                for r in cfg.roles},
             "delay_range": list(cfg.delay_range),
             "max_age_days": cfg.max_age_days,
         }
@@ -297,6 +417,7 @@ def create_app(cfg: Config) -> FastAPI:
             e["kinds"].append(r["kind"])
         out["locations"] = sorted(merged.values(), key=lambda x: (-x["count"], x["value"]))
 
+        simple("sources", "source")
         simple("remote", "remote_label")
         simple("sizes", "company_size")
         simple("job_types", "job_type")
@@ -363,6 +484,38 @@ def create_app(cfg: Config) -> FastAPI:
         pages = (c.max_pages or cfg.max_pages_per_slice) * len(c.roles)
         return {"started": True, "roles": c.roles,
                 "est_minutes": round(pages * (lo + hi) / 2 / 60, 1)}
+
+    @app.post("/api/fetch")
+    def fetch_start(i: FetchIn):
+        """The main workflow: pick role(s), fetch from every enabled source."""
+        unknown = [r for r in i.roles if r not in cfg.roles]
+        if unknown:
+            raise HTTPException(400, f"unknown role slug(s): {unknown}. "
+                                     f"Add them to targets.yaml first.")
+        if not i.roles:
+            raise HTTPException(400, "no roles selected")
+        if not job.start_fetch(cfg, i.roles, i.sources):
+            raise HTTPException(409, "a crawl, ingest or fetch is already running")
+        lo, hi = cfg.delay_range
+        # Wellfound pages + one RemoteOK request + the Himalayas page budget.
+        per_role = cfg.max_pages_per_slice + 1 + cfg.source_max_pages("himalayas")
+        return {"started": True, "roles": i.roles,
+                "est_minutes": round(len(i.roles) * per_role * (lo + hi) / 2 / 60, 1)}
+
+    @app.post("/api/ingest")
+    def ingest_start(i: IngestIn):
+        from .. import sources as SRC
+
+        reg = SRC.registry()
+        unknown = [n for n in i.sources if n not in reg or n == "wellfound"]
+        if unknown:
+            raise HTTPException(400, f"not ingestable here: {unknown} "
+                                     f"(wellfound uses /api/crawl)")
+        if not i.sources:
+            raise HTTPException(400, "no sources selected")
+        if not job.start_ingest(cfg, i.sources):
+            raise HTTPException(409, "a crawl or ingest is already running")
+        return {"started": True, "sources": i.sources}
 
     @app.get("/api/crawl/status")
     def crawl_status():

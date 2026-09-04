@@ -301,6 +301,109 @@ journeys:
       to permissive would crawl a site that never granted permission.
     release_blocking: true
 
+  - id: CJ-029
+    name: Core views match CORE_COLUMNS positionally
+    capability: CAP-STORE
+    priority: P0
+    facing: system
+    blast_radius: >
+      UNION ALL aligns by position. A drifted source view still builds and
+      silently serves another column's values -- salary shown as a timestamp,
+      and no error anywhere.
+    release_blocking: true
+
+  - id: CJ-030
+    name: Ids and company slugs do not collide across sources
+    capability: CAP-STORE
+    priority: P0
+    facing: system
+    blast_radius: >
+      RemoteOK id 1137286 and a Wellfound 1137286 would be one row, each
+      overwriting the other on every run. Silent data loss.
+    release_blocking: true
+
+  - id: CJ-031
+    name: A pre-multi-source database migrates without losing rows or user_state
+    capability: CAP-STATE
+    priority: P0
+    facing: user
+    blast_radius: >
+      Losing the corpus, or losing applied/shortlisted marks that no crawl can
+      regenerate.
+    release_blocking: true
+
+  - id: CJ-032
+    name: Non-annual salary is never emitted as a comparable number
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      An hourly 70 sorts beside an annual 70000. Silently wrong ordering on the
+      field people sort by most.
+    release_blocking: false
+
+  - id: CJ-033
+    name: expired reflects the real expiry date, and NULL means unknown
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      Shipped once: SQLite type ordering made every job with an expiry read as
+      expired, hiding the entire Himalayas corpus behind the default filter.
+    release_blocking: false
+
+  - id: CJ-034
+    name: Each JSON source raises on a payload shape change
+    capability: CAP-INTEGRITY
+    priority: P0
+    facing: system
+    blast_radius: >
+      A renamed field yields zero jobs and an apparently successful run. These
+      APIs have no stability contract.
+    release_blocking: true
+
+  - id: CJ-035
+    name: Role fetch reports how each source actually filtered
+    capability: CAP-FILTER
+    priority: P0
+    facing: user
+    blast_radius: >
+      "Fetched 40 jobs for role X" read as server-side filtering when only
+      Wellfound does it. The user trusts a corpus that was never filtered the
+      way they think.
+    release_blocking: true
+
+  - id: CJ-036
+    name: Local role matching uses word boundaries and ignores unreliable tags
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Substring matching puts HTML jobs under "ml" and retail under "ai";
+      matching RemoteOK's own tags puts carpenters under software-engineer.
+      Both observed during development.
+    release_blocking: false
+
+  - id: CJ-037
+    name: RemoteOK role fetch uses the live feed, never the archive tag endpoints
+    capability: CAP-CRAWL
+    priority: P1
+    facing: system
+    blast_radius: >
+      Tag endpoints have median age 112-144 days versus 5 for the live feed, so
+      with the 30-day cutoff a tag-based fetch silently returns nothing.
+    release_blocking: false
+
+  - id: CJ-038
+    name: An empty filtered result is not treated as a schema change
+    capability: CAP-INTEGRITY
+    priority: P1
+    facing: system
+    blast_radius: >
+      Shipped bug: a tag matching nothing returns only the legal-notice element,
+      which raised SchemaDrift and aborted an otherwise healthy ingest.
+    release_blocking: false
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -530,6 +633,126 @@ tests:
     merge_blocking: true
     owner: mudit
 
+  - id: STORE-005
+    name: Core view contract checked at connect; drift raises
+    journey: CJ-029
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_sources.py
+    command: python -m pytest tests/test_sources.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-006
+    name: Namespaced ids and composite company key prevent cross-source collision
+    journey: CJ-030
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_sources.py
+    command: python -m pytest tests/test_sources.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STATE-003
+    name: v1 database migrates; user_state follows the renamed id
+    journey: CJ-031
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_sources.py
+    command: python -m pytest tests/test_sources.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-007
+    name: Hourly salary stays raw-only; native numerics used without reparsing
+    journey: CJ-032
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_sources.py
+    command: python -m pytest tests/test_sources.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-004
+    name: expired flag is correct in both directions and NULL where unknown
+    journey: CJ-033
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_sources.py
+    command: python -m pytest tests/test_sources.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: INT-006
+    name: RemoteOK and Himalayas raise SchemaDrift on payload shape changes
+    journey: CJ-034
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_sources.py
+    command: python -m pytest tests/test_sources.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-005
+    name: fetch_role reports filter_mode per source; unknown roles skipped with a reason
+    journey: CJ-035
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_roles.py
+    command: python -m pytest tests/test_roles.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-008
+    name: Relevance matching is word-boundary, title+categories, never descriptions
+    journey: CJ-036
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_roles.py
+    command: python -m pytest tests/test_roles.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CRAWL-005
+    name: RemoteOK role fetch sends no tag; off-role counted separately from too-old
+    journey: CJ-037
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_roles.py
+    command: python -m pytest tests/test_roles.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: INT-007
+    name: Legal-notice-only payload is an empty result, not SchemaDrift
+    journey: CJ-038
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_roles.py
+    command: python -m pytest tests/test_roles.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   # ---- proposed: the gap closers, sequenced in docs/plans/active/ ----
   - id: CONDUCT-001
     name: Fetcher refuses a robots-disallowed URL before opening a connection
@@ -725,6 +948,53 @@ known_gaps:
     first_seen: 2026-09-03
     owner: mudit
 
+  - id: GAP-016
+    priority: P2
+    journey: CJ-035
+    description: >
+      Jobs ingested before ADR-009 carry provenance 'all', 'dev' or 'engineer'
+      and were never role-filtered, so the RemoteOK slice of the corpus still
+      contains Kitchen Technician and JANITOR. Visible in the found-via-role
+      facet; needs a deliberate prune or a re-fetch, not an automatic delete.
+    status: open
+    first_seen: 2026-09-04
+    owner: mudit
+
+  - id: GAP-017
+    priority: P3
+    journey: CJ-035
+    description: >
+      HTML entities in source titles are double-escaped in the UI
+      ("H&amp;M Visual Merchandiser"), and some RemoteOK titles show mojibake.
+      Cosmetic; needs unescaping at the view or render layer.
+    status: open
+    first_seen: 2026-09-04
+    owner: mudit
+
+  - id: GAP-014
+    priority: P1
+    journey: CJ-032
+    description: >
+      Cross-currency salary comparison is wrong. salary_min mixes USD, INR, EUR,
+      CAD, PLN and BRL in one column, so sorting by salary compares 1500000 INR
+      against 150000 USD. Pre-dates multi-source (Wellfound already mixed the
+      two) but is now visible. Needs a normalised salary_usd, or a currency
+      filter, before salary sort can be trusted.
+    status: open
+    first_seen: 2026-09-04
+    owner: mudit
+
+  - id: GAP-015
+    priority: P2
+    journey: CJ-030
+    description: >
+      found_via_roles mixes vocabularies: Wellfound role slugs, RemoteOK tags,
+      and the literal 'all'. Honest but confusing in the facet. Consider a
+      separate provenance kind column.
+    status: open
+    first_seen: 2026-09-04
+    owner: mudit
+
   - id: GAP-013
     journey: CJ-026
     priority: P1
@@ -784,10 +1054,11 @@ last_audit:
   date: 2026-09-04
   revision: 0099cae
   report: docs/testing/report.md
-  suite_status: "72 passed in 0.63s (run 2026-09-04)"
+  suite_status: "108 passed in 0.94s (run 2026-09-04)"
   maturity_level: 1
   delta_since_2026_09_03: >
-    16 tests added (CJ-018..CJ-021, CJ-023..CJ-025, CJ-027..CJ-028 covered);
-    2 new gaps (GAP-012 crawl-endpoint guards, GAP-013 migrations);
+    37 tests added (CJ-018..CJ-021, CJ-023..CJ-025, CJ-027..CJ-034 covered);
+    4 new gaps (GAP-012 crawl-endpoint guards, GAP-013 migrations,
+    GAP-014 cross-currency salary, GAP-015 mixed provenance vocabulary);
     GAP-001 narrowed -- robots enforcement now covered, rate limiter and cache
-    still open
+    still open. Multi-source landed: wellfound + remoteok + himalayas.

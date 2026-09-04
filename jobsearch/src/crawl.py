@@ -24,6 +24,11 @@ from . import store as S
 from .fetch import Fetcher, search_url
 from .parse import parse_search_page
 
+# This module is the Wellfound ingester. Other sources live in src/sources/ and
+# carry their own paging; they do not share the slice/assertion machinery here
+# because none of it generalises to a documented JSON API.
+SOURCE = "wellfound"
+
 
 @dataclass
 class SliceResult:
@@ -154,12 +159,12 @@ def crawl_slice(
             if not fresh:
                 continue
             # Only store a company once one of its jobs survives the cutoff.
-            S.upsert_company(conn, cslug, startup)
+            S.upsert_company(conn, cslug, startup, source=SOURCE)
             seen_companies.add(cslug)
             for jid, jraw in fresh:
-                if S.upsert_job(conn, jid, cslug, jraw):
+                if S.upsert_job(conn, jid, cslug, jraw, source=SOURCE):
                     res.jobs_new += 1
-                S.add_provenance(conn, jid, role, location, page_no)
+                S.add_provenance(conn, S.job_uid(SOURCE, jid), role, location, page_no)
                 kept_on_page += 1
 
         # mark_page records the parsed count, not the kept count: the page was
@@ -205,7 +210,7 @@ def crawl_slice(
 
     S.record_slice(conn, role, location, res.total_claimed, res.companies_claimed,
                    res.pages_walked, res.jobs_seen, res.ended_reason, run_at,
-                   res.jobs_stale_skipped)
+                   res.jobs_stale_skipped, source=SOURCE)
     conn.commit()
     return res
 

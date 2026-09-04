@@ -88,17 +88,21 @@ td.acts{white-space:nowrap}
 
 <main>
 <aside>
-  <h4>Roles — pick, then crawl</h4>
+  <h4>Roles — pick, then fetch</h4>
   <div class="crawlbox">
-    <div class="multi short" id="f-crawlroles"></div>
+    <div class="multi short" id="f-fetchroles"></div>
+    <div style="margin-top:6px;font-size:11px;color:var(--dim)">fetch from:</div>
+    <div class="multi short" id="f-fetchsources" style="max-height:74px"></div>
     <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
       <label style="flex:1;color:var(--dim);font-size:11px">pages
         <input type="number" id="crawl_pages" min="1" max="200" style="width:100%">
       </label>
-      <button id="crawl" class="primary" style="flex:2">Crawl selected</button>
+      <button id="fetch" class="primary" style="flex:2">Fetch selected</button>
     </div>
     <div id="crawl_status" style="margin-top:6px;color:var(--dim);font-size:11px"></div>
   </div>
+
+  <h4>Source</h4><div class="multi short" id="f-sources"></div>
 
   <h4>Search</h4>
   <input type="text" id="q" placeholder="title, description, company">
@@ -126,6 +130,8 @@ td.acts{white-space:nowrap}
   <label class="ck"><span class="lbl"><input type="checkbox" id="has_equity"> has equity (needs enrich)</span></label>
   <label class="ck"><span class="lbl"><input type="checkbox" id="has_ats"> has ATS board</span></label>
   <label class="ck"><span class="lbl"><input type="checkbox" id="show_hidden"> show hidden</span></label>
+  <label class="ck"><span class="lbl"><input type="checkbox" id="hide_expired" checked>
+    hide expired (where known)</span></label>
 
   <h4>Max age (days) <button class="linkish" id="age_clear">show all</button></h4>
   <input type="number" id="max_days" placeholder="any">
@@ -156,13 +162,13 @@ td.acts{white-space:nowrap}
     <colgroup>
       <col style="width:25%"><col style="width:13%"><col style="width:7%">
       <col style="width:14%"><col style="width:8%"><col style="width:11%">
-      <col style="width:6%"><col style="width:6%"><col style="width:10%">
+      <col style="width:5%"><col style="width:5%"><col style="width:8%"><col style="width:9%">
     </colgroup>
     <thead><tr>
       <th data-s="title">Title</th><th data-s="company">Company</th>
       <th data-s="size">Size</th><th>Location</th><th>Remote</th>
       <th data-s="salary">Salary</th><th data-s="equity">Equity</th>
-      <th data-s="posted">Age</th><th>Actions</th>
+      <th data-s="posted">Age</th><th data-s="expires">Expires</th><th>Actions</th>
     </tr></thead>
     <tbody></tbody>
   </table>
@@ -174,8 +180,10 @@ const $ = s => document.querySelector(s);
 const state = {
   offset: 0, sort: 'posted', meta: null, rows: [],
   sel: {locations:new Set(), roles:new Set(), remote:new Set(), sizes:new Set(),
-        job_types:new Set(), companies:new Set(), statuses:new Set()},
-  facets: {}, crawlSel: new Set(), polling: null,
+        job_types:new Set(), companies:new Set(), statuses:new Set(),
+        sources:new Set()},
+  facets: {}, crawlSel: new Set(), ingestSel: new Set(), fetchSel: new Set(),
+  polling: null,
 };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -187,7 +195,8 @@ function filters() {
     locations: [...state.sel.locations], roles: [...state.sel.roles],
     remote: [...state.sel.remote], sizes: [...state.sel.sizes],
     job_types: [...state.sel.job_types], companies: [...state.sel.companies],
-    statuses: [...state.sel.statuses],
+    statuses: [...state.sel.statuses], sources: [...state.sel.sources],
+    hide_expired: $('#hide_expired').checked,
     salary_min: n('#salary_min'),
     include_unlisted_salary: $('#incl_unlisted').checked,
     has_equity: $('#has_equity').checked,
@@ -237,19 +246,24 @@ async function loadFacets() {
   renderFacet('#f-job_types', 'job_types', f.job_types);
   renderFacet('#f-companies', 'companies', f.companies, '#co_search');
   renderFacet('#f-statuses', 'statuses', f.statuses);
+  renderFacet('#f-sources', 'sources', f.sources || []);
 }
 
 function rowHtml(r) {
   const sal = r.salary_raw ? esc(r.salary_raw) : '<span class="pill">—</span>';
   return `<tr class="${esc(r.status)}" data-id="${esc(r.source_job_id)}">
     <td title="${esc(r.title)}"><a href="#" class="exp">${esc(r.title)}</a></td>
-    <td title="${esc(r.high_concept || '')}">${esc(r.company || r.company_slug)}</td>
+    <td title="${esc(r.high_concept || '')}">${esc(r.company || r.company_slug)}
+        <span class="pill" title="source">${esc(r.source)}</span></td>
     <td>${esc(r.company_size || '')}</td>
     <td title="${esc(r.location_raw || '')}">${esc(r.location_raw || r.remote_locations || '')}</td>
     <td>${esc(r.remote_label || '')}</td>
     <td>${sal}</td>
     <td>${esc(r.equity_raw || '')}</td>
     <td class="num">${r.days_old ?? ''}d</td>
+    <td class="num" title="${esc(r.expires_at || 'source publishes no expiry')}">${
+      r.expires_ts ? (r.expired ? '<span style="color:var(--bad)">expired</span>'
+                                : String(r.expires_at || '').slice(0,10)) : '—'}</td>
     <td class="acts">
       <a class="sbtn" href="${esc(r.apply_url)}" target="_blank" rel="noopener">Apply</a>
       <button class="sbtn" data-st="shortlisted">★</button>
@@ -263,7 +277,7 @@ async function loadRows() {
   const res = await post('/api/jobs', f);
   state.rows = res.rows;
   $('#grid tbody').innerHTML = res.rows.map(rowHtml).join('') ||
-    '<tr><td colspan="9" style="padding:20px;color:var(--dim)">No rows match.</td></tr>';
+    '<tr><td colspan="10" style="padding:20px;color:var(--dim)">No rows match.</td></tr>';
   $('#c-match').textContent = res.total;
   $('#c-enr').textContent = res.enriched;
   const from = res.total ? state.offset + 1 : 0;
@@ -285,9 +299,9 @@ function wireRows() {
       const r = state.rows.find(x => x.source_job_id === id);
       const d = document.createElement('tr');
       d.className = 'drawer';
-      d.innerHTML = `<td colspan="9"><div class="desc">${esc(r.description || '(no description)')}</div>
+      d.innerHTML = `<td colspan="10"><div class="desc">${esc(r.description || '(no description)')}</div>
         <div style="padding:6px 2px;color:var(--dim);font-size:11px">
-        found via <b>${esc(r.found_via_roles || '')}</b> · ${esc(r.job_type || '')}
+        source <b>${esc(r.source)}</b> · found via <b>${esc(r.found_via_roles || '')}</b> · ${esc(r.job_type || '')}
         · ${esc(r.primary_role_title || '')} · locations: ${esc(r.location_raw || '—')}
         · remote-ok: ${esc(r.remote_locations || '—')}
         · ats: ${esc(r.ats_source || 'none')} · id ${esc(r.source_job_id)}
@@ -307,15 +321,52 @@ function wireRows() {
 
 /* ---------- crawl ---------- */
 
-function renderCrawlRoles() {
-  $('#f-crawlroles').innerHTML = state.meta.roles.map(r => `
-    <label class="ck" title="${esc(r.slug)}">
+function renderFetchRoles() {
+  const fm = state.meta.role_filtering || {};
+  $('#f-fetchroles').innerHTML = (state.meta.roles || []).map(r => {
+    const modes = fm[r.slug] || {};
+    const tip = Object.entries(modes).map(([s, m]) => `${s}: ${m}`).join(' · ');
+    return `<label class="ck" title="${esc(tip)}">
       <span class="lbl"><input type="checkbox" value="${esc(r.slug)}"
         ${state.crawlSel.has(r.slug) ? 'checked' : ''}>
-      <i class="dot ${r.crawled ? 'on' : 'off'}"></i>${esc(r.slug)}</span></label>`).join('');
-  $('#f-crawlroles').querySelectorAll('input').forEach(i => i.onchange = () =>
+      <i class="dot ${r.crawled ? 'on' : 'off'}"></i>${esc(r.slug)}</span></label>`;
+  }).join('');
+  $('#f-fetchroles').querySelectorAll('input').forEach(i => i.onchange = () =>
     i.checked ? state.crawlSel.add(i.value) : state.crawlSel.delete(i.value));
 }
+
+/* Each source is labelled with HOW it filters, so "fetched for role X" is never
+   read as server-side filtering that did not happen. */
+const FILTER_NOTE = {
+  wellfound: 'server-side',
+  remoteok: 'filtered locally',
+  himalayas: 'filtered locally',
+};
+
+function renderFetchSources() {
+  const avail = state.meta.sources || [];
+  if (!state.fetchSel.size) avail.forEach(s => state.fetchSel.add(s));
+  $('#f-fetchsources').innerHTML = avail.map(s => `
+    <label class="ck" title="${esc(FILTER_NOTE[s] || '')}">
+      <span class="lbl"><input type="checkbox" value="${esc(s)}"
+        ${state.fetchSel.has(s) ? 'checked' : ''}>${esc(s)}</span>
+      <span class="n">${esc((FILTER_NOTE[s] || '').replace('filtered ', ''))}</span></label>`).join('');
+  $('#f-fetchsources').querySelectorAll('input').forEach(i => i.onchange = () =>
+    i.checked ? state.fetchSel.add(i.value) : state.fetchSel.delete(i.value));
+}
+
+$('#fetch').onclick = async () => {
+  const roles = [...state.crawlSel], srcs = [...state.fetchSel];
+  if (!roles.length) return msg('Select at least one role.');
+  if (!srcs.length) return msg('Select at least one source.');
+  try {
+    const r = await post('/api/fetch', {roles, sources: srcs});
+    msg(`Fetching ${roles.length} role(s) from ${srcs.join(', ')} — about ${r.est_minutes} min. ` +
+        `Rate limit is 3–5s per request and cannot be sped up.`);
+    state.polling = setInterval(pollCrawl, 2000);
+    pollCrawl();
+  } catch (e) { msg('Fetch refused: ' + (e.detail || JSON.stringify(e))); }
+};
 
 async function pollCrawl() {
   const s = await fetch('/api/crawl/status').then(r => r.json());
@@ -324,13 +375,17 @@ async function pollCrawl() {
     box.innerHTML = `<b style="color:var(--accent)">crawling ${esc(s.current || '')}</b>
       · ${s.pages} pages · ${s.jobs_new} new · ${s.stale || 0} too old
       · done: ${s.done.map(d => esc(d.role)).join(', ') || '—'}`;
-    $('#crawl').disabled = true;
+    $('#fetch').disabled = true;
   } else {
-    $('#crawl').disabled = false;
+    $('#fetch').disabled = false;
     if (s.error) box.innerHTML = `<b style="color:var(--bad)">halted:</b> ${esc(s.error)}`;
     else if (s.done && s.done.length)
-      box.innerHTML = s.done.map(d =>
-        `${esc(d.role)}: <b>${d.new}</b> new / ${d.jobs} kept, ${d.stale || 0} too old, p${d.pages}, ${esc(d.ended)}`
+      box.innerHTML = s.done.map(d => d.filter_mode === 'skipped'
+        ? `${esc(d.role)}: <i>skipped</i> — ${esc(d.reason || '')}`
+        : `${esc(d.role)}: <b>${d.new}</b> new / ${d.jobs} kept` +
+          (d.filtered_out ? `, ${d.filtered_out} off-role` : '') +
+          (d.stale ? `, ${d.stale} too old` : '') +
+          ` <span class="pill">${esc(d.filter_mode || '')}</span>`
       ).join('<br>');
     if (state.polling) {
       clearInterval(state.polling); state.polling = null;
@@ -339,24 +394,12 @@ async function pollCrawl() {
   }
 }
 
-$('#crawl').onclick = async () => {
-  const roles = [...state.crawlSel];
-  if (!roles.length) return msg('Select at least one role to crawl.');
-  const pages = Number($('#crawl_pages').value) || state.meta.max_pages;
-  try {
-    const r = await post('/api/crawl', {roles, location: 'anywhere', max_pages: pages});
-    msg(`Crawling ${roles.length} role(s), ~${r.est_minutes} min. Rate limit is 3–5s per request and cannot be sped up.`);
-    state.polling = setInterval(pollCrawl, 2000);
-    pollCrawl();
-  } catch (e) { msg('Crawl refused: ' + (e.detail || JSON.stringify(e))); }
-};
-
 /* ---------- wiring ---------- */
 
 $('#q').oninput = debounce(() => { state.offset = 0; refresh(); }, 250);
 ['#salary_min', '#max_days'].forEach(s =>
   $(s).oninput = debounce(() => { state.offset = 0; refresh(); }, 300));
-['#incl_unlisted', '#has_equity', '#has_ats', '#show_hidden'].forEach(s =>
+['#incl_unlisted', '#has_equity', '#has_ats', '#show_hidden', '#hide_expired'].forEach(s =>
   $(s).onchange = () => { state.offset = 0; refresh(); });
 $('#loc_search').oninput = () =>
   renderFacet('#f-locations', 'locations', state.facets.locations || [], '#loc_search');
@@ -408,7 +451,8 @@ $('#enrich').onclick = async () => {
 async function loadMeta() {
   const m = await fetch('/api/meta').then(r => r.json());
   state.meta = m;
-  renderCrawlRoles();
+  renderFetchRoles();
+  renderFetchSources();
   if (!$('#crawl_pages').value) $('#crawl_pages').value = m.max_pages;
   $('#sort').innerHTML = m.sorts.map(s =>
     `<option ${s === state.sort ? 'selected' : ''}>${s}</option>`).join('');

@@ -64,7 +64,8 @@ def db(tmp_path):
         S.upsert_company(conn, startup["slug"], startup)
         for jid, raw in jobs:
             S.upsert_job(conn, jid, startup["slug"], raw)
-            S.add_provenance(conn, jid, "ai-engineer", "bangalore", 1)
+            S.add_provenance(conn, S.job_uid("wellfound", jid),
+                             "ai-engineer", "bangalore", 1)
     conn.commit()
     return conn
 
@@ -86,7 +87,8 @@ def test_dedupe_and_provenance(db):
     for startup, jobs in page.startups:
         for jid, raw in jobs:
             S.upsert_job(db, jid, startup["slug"], raw)
-            S.add_provenance(db, jid, "data-engineer", "remote", 1)
+            S.add_provenance(db, S.job_uid("wellfound", jid),
+                             "data-engineer", "remote", 1)
     db.commit()
     assert db.execute("SELECT COUNT(*) FROM job_raw").fetchone()[0] == before
     r = db.execute("SELECT found_via_roles, n_slices FROM jobs LIMIT 1").fetchone()

@@ -44,7 +44,13 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `assertions.py` | The four corpus-integrity guards | nothing internal |
 | `store.py` | Schema, writers, the `jobs` view, `rebuild_locations`, `migrate`, `prune_stale` | `derive` |
 | `derive.py` | salary/equity/size parsing, registered as SQLite functions | nothing internal |
-| `crawl.py` | Slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
+| `crawl.py` | Wellfound slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
+| `roles.py` | `fetch_role` — one role across every source, with `filter_mode` | `crawl`, `sources`, `store` |
+| `relevance.py` | Local role matching (title + categories). No internal imports | — |
+| `sources/__init__.py` | `CORE_COLUMNS` contract, registry, drift check | — |
+| `sources/wellfound.py` | Core view only (ingest lives in `crawl.py`) | — |
+| `sources/remoteok.py` | `/api` ingest + core view | `assertions`, `store` |
+| `sources/himalayas.py` | `/jobs/api` offset paging + core view | `assertions`, `store` |
 | `enrich.py` | Detail pages: JSON-LD + rendered comp | `fetch`, `store` |
 | `cli.py` | Argument parsing and command dispatch | everything |
 | `web/app.py` | FastAPI; all filtering in SQL | `store`, `enrich`, `fetch` |
@@ -115,10 +121,21 @@ Things that will mislead you if nobody says them:
 - **`job_provenance.location` is not a place.** It is the slice token we crawled
   (`anywhere`), not where the job is. Places live in `job_location`. Presenting
   provenance as location was a real shipped bug; see ADR-005.
+- **"Fetched for role X" does not mean the source filtered by role.** Only Wellfound
+  does. Check `filter_mode` — RemoteOK and Himalayas are filtered locally by
+  `src/relevance.py`. See ADR-009.
 - **The age cutoff is an ingest filter, not a stop condition.** Search results are
   not date-ordered, so paging must continue past all-stale pages. See ADR-006.
 - **`CREATE TABLE IF NOT EXISTS` does not add columns.** New columns go in
   `store.MIGRATIONS` (additive only) or an existing database breaks on first query.
+- **`jobs` is three layers deep**: `job_raw` → `jobs_core` (UNION ALL per source) →
+  `jobs`. A missing column error usually means a source view drifted from
+  `CORE_COLUMNS`, not that the outer view is wrong.
+- **SQLite orders every INTEGER before every TEXT.** `strftime('%s','now')` returns
+  TEXT, so any `int_column < strftime(...)` is unconditionally true without a `CAST`.
+  This shipped once as an always-expired flag.
+- **Back up with `PRAGMA wal_checkpoint(TRUNCATE)` first.** WAL mode means `cp jobs.db`
+  can copy an empty-looking database while the rows sit in `jobs.db-wal`.
 - **Filter clauses carry a dimension name** so `/api/facets` can exclude one and let
   that dimension's siblings stay selectable. A clause without a dimension silently
   breaks cascading.

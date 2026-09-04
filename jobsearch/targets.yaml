@@ -43,3 +43,85 @@ yield_floor: 1
 # Raising it later does not require a re-crawl -- the raw pages stay in cache/.
 # Re-ingest with:  python -m src.cli crawl --no-resume --max-age-days 90
 max_age_days: 30
+
+# Other platforms. Each has its own shape; see src/sources/.
+# Wellfound uses the roles x locations above and is always enabled.
+sources:
+  remoteok:
+    enabled: true
+    # Optional tag filter. {} means the default endpoint (latest ~100).
+    # RemoteOK has no pagination, so one request is the whole result.
+    targets:
+      - {}
+      - {tag: dev}
+      - {tag: engineer}
+
+  himalayas:
+    enabled: true
+    # limit is server-capped at 20, so max_pages 25 ~= 500 jobs ~= 2 min.
+    # totalCount was 101,235 on 2026-09-04; full ingestion is ~5.6 h.
+    max_pages: 25
+    targets:
+      - {name: all, offset: 0}
+
+# Per-role translation to each source's query shape. The `roles:` list above is
+# the canonical vocabulary; this maps it outward.
+#
+# Only Wellfound filters by role server-side. RemoteOK's ?tag= shifts the result
+# set but is mostly NOT role-relevant (measured title-relevance 2026-09-04 in
+# brackets), and Himalayas ignores every filter parameter outright -- so for both
+# of those the `keywords` below are applied LOCALLY after fetching.
+# `remoteok: null` means no tag returned jobs at all; verified, not assumed.
+role_map:
+  software-engineer:
+    remoteok: software          # 30 jobs, 83% title-relevant -- the best tag on the site
+    keywords: [software engineer, developer, engineer, swe]
+    categories: [Software-Engineer, Software-Engineering]
+
+  artificial-intelligence-engineer:
+    remoteok: ai                # 75 jobs, 11% relevant -- local filter does the real work
+    keywords: [ai, artificial intelligence, machine learning, ml, llm, genai,
+               deep learning, data scientist]
+    categories: [Artificial-Intelligence, Machine-Learning, Data-Science]
+
+  machine-learning-engineer:
+    remoteok: machine learning  # 20 jobs, 60% relevant. NOTE: "machine-learning"
+                                # and "ml" both return junk -- the space matters
+    keywords: [machine learning, ml, mlops, deep learning, ai]
+    categories: [Machine-Learning, Data-Science]
+
+  product-manager:
+    remoteok: product-manager   # 100 jobs, 14% relevant
+    keywords: [product manager, product owner, product management]
+    categories: [Product-Management]
+
+  backend-engineer:
+    remoteok: backend           # 100 jobs, 9% relevant
+    keywords: [backend, back end, api engineer, server]
+    categories: [Backend-Engineering, Software-Engineer]
+
+  mobile-engineer:
+    remoteok: mobile            # 100 jobs, 1% relevant
+    keywords: [mobile, ios, android, react native, flutter]
+    categories: [Mobile-Development]
+
+  frontend-engineer:
+    remoteok: front end         # 100 jobs, 13%. NOTE: "frontend" returns 0 --
+                                # the space matters here too
+    keywords: [frontend, front end, react, ui engineer, web developer]
+    categories: [Frontend-Engineering, Software-Engineer]
+
+  full-stack-engineer:
+    remoteok: full stack        # 99 jobs, 4%. "fullstack" returns 0
+    keywords: [full stack, fullstack, full-stack]
+    categories: [Software-Engineer]
+
+  software-architect:
+    remoteok: architect         # 100 jobs, 3% relevant
+    keywords: [architect, principal engineer, staff engineer]
+    categories: [Software-Engineer]
+
+  devops-engineer:
+    remoteok: devops            # 100 jobs, 3% relevant
+    keywords: [devops, sre, site reliability, platform engineer, infrastructure]
+    categories: [DevOps, Infrastructure]

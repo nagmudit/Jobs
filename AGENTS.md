@@ -1,8 +1,7 @@
 # Jobs — Agent Instructions
 
-A personal job-search corpus tool. `jobsearch/` crawls Wellfound listings for
-configurable roles and locations into SQLite and serves a local filter/sort UI with
-apply links. `wellfound-probe/` is the completed research that established *how* to
+A personal job-search corpus tool. `jobsearch/` pulls listings from Wellfound,
+RemoteOK and Himalayas into SQLite and serves a local filter/sort UI with apply links. `wellfound-probe/` is the completed research that established *how* to
 read Wellfound at all — frozen evidence, not a live component.
 
 There is no scorer, recommender, or auto-apply here, by design. The user filters; the
@@ -47,6 +46,7 @@ probe module.
 | Path | Holds |
 |------|-------|
 | `jobsearch/src/` | The tool. See `docs/architecture/repository-map.md` |
+| `jobsearch/src/sources/` | One module per platform: core view + ingester |
 | `jobsearch/src/web/` | FastAPI app + one static HTML page, no build step |
 | `jobsearch/tests/` | Offline tests against synthetic fixtures |
 | `jobsearch/targets.yaml` | Roles, locations, conduct settings — **all** crawl config |
@@ -61,7 +61,9 @@ Run from `jobsearch/` unless noted. Full list in `docs/engineering/commands.md`.
 |------|---------|
 | Install | `pip install httpx beautifulsoup4 lxml pyyaml fastapi uvicorn pytest` |
 | Test | `python -m pytest tests -q` |
-| Crawl | `python -m src.cli crawl` |
+| **Fetch a role (main workflow)** | `python -m src.cli fetch --roles ai-engineer` |
+| Crawl (Wellfound only) | `python -m src.cli crawl` |
+| Ingest (APIs, no role) | `python -m src.cli ingest` |
 | Serve | `python -m src.cli serve` |
 | Stats | `python -m src.cli stats` |
 | Prune old jobs | `python -m src.cli prune` (add `--apply` to delete) |
@@ -116,7 +118,30 @@ for everyone using it.
   does not order results by date, so a page of only-stale jobs is followed by pages
   with fresh ones. Early termination would silently lose them. See ADR-006.
 - **Unknown age is not old.** A job with no `liveStartAt` is kept by the cutoff.
-- **`rebuild_locations()` after any crawl.** `job_location` is derived from
+- **IDs are namespaced `"<source>:<native_id>"`.** `S.upsert_job` takes the native id
+  and namespaces it; `S.add_provenance` takes the already-namespaced uid. Mixing them
+  up silently orphans provenance. See ADR-008.
+- **`CORE_COLUMNS` is positional.** UNION ALL aligns by position, not name, so a source
+  view that reorders a column silently returns another column's values.
+  `assert_core_views` checks this on every connect — never bypass it.
+- **Numeric salary only where the source states an annual figure.** Hourly and annual
+  in one column sort silently wrong. Carry `salary_currency` / `salary_period`.
+- **`expired` NULL means unknown, not "not expired".** Only Himalayas publishes an
+  expiry. Any filter must keep NULL rows.
+- **Only Wellfound filters by role server-side.** Himalayas ignores every filter
+  parameter; RemoteOK's `?tag=` serves an archive (median age 112-144 days) while its
+  unfiltered feed is fresh (median 5 days), so role fetches send NO tag and filter
+  locally. Every result carries `filter_mode` (`server` / `local` / `skipped`) and the
+  UI must show it — never present a local filter as if the source did it. See ADR-009.
+- **Match role keywords on title and categories, never descriptions**, and never on
+  RemoteOK's own tags: `?tag=engineer` returns Kitchen Technician, Joiner and JANITOR,
+  all genuinely carrying that tag. `src/relevance.py` pads with spaces so `ml` does not
+  match `html` and `ai` does not match `retail`.
+- **`filtered_out` (wrong role) is counted separately from `stale_skipped` (too old).**
+  Conflating them makes the telemetry unreadable.
+- **Enrichment is Wellfound-only.** JSON-LD detail pages are a Wellfound concept; the
+  API sources already return full descriptions.
+- **`rebuild_locations()` after any crawl or ingest.** `job_location` is derived from
   `job_raw`; the crawl paths call it, and a new derivation never needs a re-crawl.
 - **FastAPI request models stay at module level** in `src/web/app.py`. With
   `from __future__ import annotations`, a model defined inside `create_app()` is
