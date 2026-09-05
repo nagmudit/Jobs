@@ -1,7 +1,7 @@
 ---
 status: active
 created: 2026-09-04
-last_updated: 2026-09-05
+last_updated: 2026-09-06
 areas: [jobsearch/src/ats.py, jobsearch/src/sources, jobsearch/src/roles.py]
 ---
 
@@ -32,7 +32,7 @@ the role already touched rather than answering a role query. Each provider needs
 | **Greenhouse** | 186 | ✅ **done** — 47/55 resolved on the AI role, 48 jobs |
 | **Ashby** | **230** | ✅ **done** — 73/88 resolved on the AI role, 58 jobs |
 | **Workable** | 19 | ✅ **done** — 3/4 resolved on the ML role, 1 job kept from 15 |
-| Lever | 7 | next |
+| **Lever** | 7 | ✅ **done** — 3/5 attempted resolved, 3 jobs on the SWE role |
 | Dover | 2 | not planned (tiny; no free board API verified) |
 
 ## Log
@@ -135,3 +135,64 @@ recorded here.
 - Dover (2) — not planned.
 - Workable's sample is small (4 companies for this role). Re-measure resolution rate
   after a role that touches more of the 19.
+
+### 2026-09-06 — Lever (the last of the four)
+
+- Conduct first. **Three origins**: `api.lever.co` (allows `/`, and the keyless postings
+  API we use), `jobs.lever.co` (allows `/`, hosted pages we only link to), and
+  `www.lever.co` which **disallows `/api/`**. Third instance of the same trap Ashby and
+  Workable set. Only `api.lever.co` is touched, and a test asserts no URL the module
+  builds names `www.`.
+- **Lever is the only provider that publishes a rate limit: 2 req/s.** We run at 3-5 s,
+  ~an order of magnitude under. Recorded in the module docstring so nobody later treats
+  the documented ceiling as a target.
+- **Bug found by the tests before it ever ran live:** Lever's wire format is a bare JSON
+  array, but every other source's `parse` returns an object carrying `jobs`, and
+  `ats.resolve` counts `data["jobs"]`. Returning the raw array made `resolve` die with
+  `AttributeError: 'list' object has no attribute 'get'` — which would have taken down
+  every company in the run, not just Lever. `parse` now adapts to the registry shape.
+  Regression-tested (`test_resolve_counts_jobs_without_tripping_on_the_list_shape`).
+- **Three shape traps, all verified live and all tested:**
+  1. `createdAt` is epoch **milliseconds**; as seconds every posting is permanently fresh.
+  2. The 404 body is valid JSON (`{"ok":false,"error":"Document not found"}`), so `parse`
+     requires a *list* — a JSON-only check would read an error as a board.
+  3. `workplaceType` is `onsite` live but `on-site` in the docs; both map to `Onsite` or
+     the UI facet splits in two.
+- **Salary is the best of any source**: structured AND states its interval
+  (`per-year-salary`), so numeric values are emitted with no guessing. Rare (1/18).
+- **Yield will be low, and honestly so.** `createdAt` is a requisition creation date, not
+  a publish date. Corpus boards: gridline 0/4 fresh, metabase 0/18 (median age 319 d),
+  odin-dynamics 5/6, sambatv 10/59, zaimler 2/13. The 30-day cutoff does most of the
+  filtering, as on Ashby.
+- Resolution on a corpus probe: **5/7**. `zaimler-ai` → `zaimler` and `1-gridline` →
+  `gridline` both via the existing candidate generation; `bolt` and `instrumentl` have
+  no Lever board.
+- Ran: `python -m pytest tests -q` → **240 passed**. Both validators clean.
+- Mutation-verified: ms-as-seconds, both shape checks removed, and a non-annual salary
+  emitted as numeric each redden exactly the right tests.
+
+### Live run, 2026-09-06
+
+    lever  0 kept from 1/1 companies resolved  (machine-learning-engineer)
+    lever  3 kept from 2/4 companies resolved  (software-engineer, 3 new, 7 off-role, 53 too old)
+
+Only `odin-dynamics` is linked to the ML role, and its 6 postings were off-role or stale —
+a correct but thin result, so the pipeline was re-verified on `software-engineer`, which
+touches four Lever companies. Stored rows confirm the whole mapping on a real payload:
+millisecond `createdAt` -> `2026-08-11 (25d)`, `hybrid` -> `Onsite or Remote`, badges
+deduped, descriptions 4.0-6.7k chars, and **EUR 25,000 -> $27,000** via ADR-012's sort key,
+which is the first evidence of the currency work and a new source composing. 0 mitigations.
+
+`bolt` and `instrumentl` are genuine misses (no Lever board). Cumulative corpus:
+wellfound 3108, himalayas 578, ashby 68, greenhouse 60, remoteok 23, lever 3, workable 1.
+
+**Open, minor:** the Workable expansion reported `seen=2` where one row was stored. No
+data is missing (1 job_raw row, 1 provenance row, nothing absent from the `jobs` view), so
+this is a telemetry over-count, most likely two company slugs resolving to one board as
+Ashby's `marble` already does. Not reproducible from post-hoc state; recorded rather than
+guessed at.
+
+## Remaining
+
+**The ATS sweep is complete** — all four providers implemented. Dover (2 companies) stays
+unplanned: too small to justify a fifth integration.

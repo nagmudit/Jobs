@@ -1,0 +1,13 @@
+# Runtime + test dependencies. Kept as a file so CI and AGENTS.md cannot drift
+# apart -- the install command in both places is `pip install -r requirements.txt`.
+#
+# Unpinned deliberately: this is a personal tool with no deploy target, and a
+# lockfile would go stale faster than it would help. CI runs the floor (3.11)
+# and the development version (3.14), which is what actually catches drift.
+httpx
+beautifulsoup4
+lxml
+pyyaml
+fastapi
+uvicorn
+pytest

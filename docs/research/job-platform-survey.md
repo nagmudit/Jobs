@@ -67,12 +67,19 @@ description, pubDate, expires_at, guid, link`.
 | wellfound.com | 200 | 31 | `/_jobs/`, `/search`, `?role=` |
 | naukri.com | **403** | — | unreadable |
 | boards.greenhouse.io | 200 | 1 | `/embed/` |
+| api.lever.co | 200 | 1 | — (Allow: /) |
 | jobs.lever.co | 200 | 2 | — |
+| www.lever.co | 200 | 5 | **`/api/`**, `/studio/` |
 | jobs.ashbyhq.com | 200 | 3 | `/meeting/`, `/b/`, `/api/` |
 | api.ashbyhq.com | **401** | — | unreadable |
 | apply.workable.com | 200 | **0** | — (everything allowed) |
 | www.workable.com | 200 | 4 | **`/j/`**, `/admin`, `/auth/google` |
 | jobs.workable.com | 200 | 6 | `/search`, `/profile*` |
+
+**Lever splits three ways.** `api.lever.co` (the keyless postings API this tool uses)
+and `jobs.lever.co` (the hosted pages we only link to) both allow `/`, while
+`www.lever.co` disallows `/api/`. Lever also publishes an explicit rate limit of
+2 requests/second — the only provider that does. See ADR-010.
 
 **Workable has the same two-origin split, in the opposite direction.**
 `apply.workable.com` allows everything, while `www.workable.com` **disallows `/j/`** —

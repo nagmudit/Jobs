@@ -32,7 +32,7 @@ from . import store as S
 
 # Provider -> the module that knows how to talk to it. Only providers with an
 # implemented source appear here; the rest are recorded but not attempted.
-IMPLEMENTED = {"greenhouse", "ashby", "workable"}
+IMPLEMENTED = {"greenhouse", "ashby", "workable", "lever"}
 
 SUFFIXES = {
     "inc", "llc", "ltd", "limited", "corp", "corporation", "co", "gmbh", "bv",

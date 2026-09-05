@@ -94,10 +94,11 @@ regression that matters.
 Per `references/gates.md`, each step leaves the repo safer than the last. The plan is
 in [`docs/plans/active/close-conduct-test-gaps.md`](../plans/active/close-conduct-test-gaps.md).
 
-1. **`tests/test_fetch.py`** — robots refusal, mitigation on `cf-mitigated` and on
+1. **`tests/test_conduct_guards.py`** (done 2026-09-06) — mitigation on `cf-mitigated` and on
    403/429, throttle spacing, cache round-trip. Closes GAP-001/002/006/011. Highest
    value in the repo; all four are cheap and fully offline against a stub transport.
-2. **`tests/test_config.py`** — the delay floor. Closes GAP-003. Five lines.
+2. **`tests/test_conduct_guards.py`** (done 2026-09-06) — the delay floor, the rate
+   limiter, and a static egress check. Closes GAP-002, 003, 007, 011.
 3. **`tests/test_crawl.py`** — `page_wrap` termination and resume telemetry against a
    fake fetcher. Closes GAP-004/005.
 4. **CI** — one GitHub Actions workflow running `pytest` + `validate_manifest.py` on
