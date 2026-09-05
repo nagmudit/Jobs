@@ -92,6 +92,8 @@ sources:
     enabled: true
   workable:
     enabled: true
+  lever:
+    enabled: true
 
 # Per-role translation to each source's query shape. The `roles:` list above is
 # the canonical vocabulary; this maps it outward.

@@ -78,6 +78,70 @@ def salary_max(raw: str | None) -> int | None:
     return salary_bounds(raw)[1]
 
 
+# The symbol was already being captured by _NUM and then discarded, which is how
+# 2,331 Wellfound rows ended up with a numeric salary and no currency at all.
+_CURRENCY_SYMBOLS = {"$": "USD", "₹": "INR", "€": "EUR", "£": "GBP"}
+
+
+def salary_currency(raw: str | None) -> str | None:
+    """The currency a salary string is quoted in, or None if it does not say.
+
+    Only symbols we can actually convert are recognised. A yen or won figure
+    returns None rather than being quietly treated as dollars -- unparsed beats
+    wrongly parsed, and a wrong currency is worse than no currency because it
+    looks comparable.
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    for sym, code in _CURRENCY_SYMBOLS.items():
+        if sym in raw:
+            return code
+    return None
+
+
+# Approximate rates to USD, for SORTING ONLY.
+#
+# These are a snapshot, not a feed: they drift, and a salary compared across
+# currencies is approximate however carefully it is done. That is why the native
+# `salary_min` / `salary_max` and the original `salary_raw` are always kept
+# alongside -- `salary_usd_*` exists to make an ordering possible, never to be
+# quoted back to anyone as a real figure.
+#
+# Rates as of 2026-09-06. Refreshing them re-derives every row on the next query
+# with no re-crawl, because these are SQL functions rather than stored columns.
+_FX_TO_USD = {
+    "USD": 1.0,
+    "INR": 1 / 83.0,
+    "EUR": 1.08,
+    "GBP": 1.27,
+    "CAD": 0.73,
+    "AUD": 0.66,
+    "SEK": 0.095,
+    "PLN": 0.25,
+    "BRL": 0.18,
+    "CHF": 1.12,
+    "SGD": 0.74,
+}
+
+
+def salary_usd(amount: Any, currency: str | None) -> int | None:
+    """`amount` expressed in USD, or None when it cannot be compared.
+
+    A NULL result is the point: a figure whose currency is unknown must stay OUT
+    of a cross-currency sort rather than defaulting to dollars, which is exactly
+    the bug this replaced.
+    """
+    if amount is None or not currency:
+        return None
+    rate = _FX_TO_USD.get(str(currency).upper())
+    if rate is None:
+        return None
+    try:
+        return int(float(amount) * rate)
+    except (TypeError, ValueError):
+        return None
+
+
 # "0.0% – 1.0%" -> (0.0, 1.0)
 _PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 
@@ -152,6 +216,8 @@ def register(conn) -> None:
     """Attach the derivations to a connection so the jobs view can call them."""
     conn.create_function("salary_min", 1, salary_min, deterministic=True)
     conn.create_function("salary_max", 1, salary_max, deterministic=True)
+    conn.create_function("salary_currency", 1, salary_currency, deterministic=True)
+    conn.create_function("salary_usd", 2, salary_usd, deterministic=True)
     conn.create_function("equity_max", 1, equity_max, deterministic=True)
     conn.create_function("size_label", 1, size_label, deterministic=True)
     conn.create_function("size_min", 1, size_min, deterministic=True)

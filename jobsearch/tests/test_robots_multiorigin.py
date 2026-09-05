@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -14,12 +15,20 @@ STRICT = "User-agent: *\nDisallow: /jobs\nDisallow: /search\n"
 
 def _seed(f: Fetcher, origin: str, body: str, status: int = 200) -> None:
     """Write a robots.txt straight into the fetcher's cache so `allowed()`
-    resolves offline."""
+    resolves offline.
+
+    The timestamp is relative to NOW, deliberately. It was once hardcoded to a
+    literal date, and when robots.txt gained a 24 h TTL (ADR-011) that turned
+    every test in this file into a time bomb: green while the date was recent,
+    red the following day, with no code change in between. A fixture that
+    expresses "fresh" must say so in relative terms.
+    """
     url = f"{origin}/robots.txt"
     meta_p, body_p = f._paths(url)
+    fresh = datetime.now(timezone.utc) - timedelta(minutes=5)
     meta_p.write_text(json.dumps({
         "url": url, "final_url": url, "status": status, "headers": {},
-        "elapsed_ms": 1, "fetched_at": "2026-09-04T00:00:00+00:00", "error": None,
+        "elapsed_ms": 1, "fetched_at": fresh.isoformat(), "error": None,
     }), encoding="utf-8")
     body_p.write_text(body, encoding="utf-8")
 

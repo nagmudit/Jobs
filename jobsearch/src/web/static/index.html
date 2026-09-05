@@ -249,8 +249,21 @@ async function loadFacets() {
   renderFacet('#f-sources', 'sources', f.sources || []);
 }
 
+/* The native figure is what gets displayed -- it is what the employer actually
+   said. The USD value is only a sort key (approximate, rates snapshotted in
+   src/derive.py), so it appears solely as a tooltip and never replaces the
+   real number. Showing "$36k" where the posting says "₹30L" would be a
+   fabrication. */
+function salaryCell(r) {
+  if (!r.salary_raw) return '<span class="pill">—</span>';
+  const txt = esc(r.salary_raw);
+  if (r.salary_usd_min == null || r.salary_currency === 'USD') return txt;
+  const approx = '~$' + Number(r.salary_usd_min).toLocaleString() + ' (approx, for sorting)';
+  return `<span title="${esc(approx)}">${txt}</span>`;
+}
+
 function rowHtml(r) {
-  const sal = r.salary_raw ? esc(r.salary_raw) : '<span class="pill">—</span>';
+  const sal = salaryCell(r);
   return `<tr class="${esc(r.status)}" data-id="${esc(r.source_job_id)}">
     <td title="${esc(r.title)}"><a href="#" class="exp">${esc(r.title)}</a></td>
     <td title="${esc(r.high_concept || '')}">${esc(r.company || r.company_slug)}
@@ -347,6 +360,7 @@ const FILTER_NOTE = {
   greenhouse: 'expands companies',
   ashby: 'expands companies',
   workable: 'expands companies',
+  lever: 'expands companies',
 };
 
 function renderFetchSources() {

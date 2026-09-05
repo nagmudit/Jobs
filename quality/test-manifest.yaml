@@ -476,6 +476,53 @@ journeys:
       entire board can be silently attached to ours.
     release_blocking: false
 
+
+
+  - id: CJ-048
+    name: No module outside src/fetch.py imports a network transport
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      A second egress path bypasses robots, the rate limit and the mitigation
+      halt in one step - every conduct rule at once.
+    release_blocking: true
+
+  - id: CJ-049
+    name: Salary sorts and filters on a currency-normalised value
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      Sorting on the native figure ranked every INR salary above every USD one
+      on the UI's primary sort control, and a threshold filter matched the
+      wrong side of the corpus.
+    release_blocking: false
+
+  - id: CJ-050
+    name: Retroactive role filter drops off-role rows without touching filtered ones
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Too broad and it deletes server-side-filtered Wellfound rows under a
+      retired slug; matched on RemoteOK's own tags and it keeps a janitor as a
+      software engineer. Both were hit while building it.
+    release_blocking: false
+
+  - id: CJ-051
+    name: Lever adapts its array payload and millisecond timestamps
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Lever's wire format is a bare array where every other source returns an
+      object with `jobs`; returning it raw makes ats.resolve die with
+      AttributeError and takes the whole run down. Its createdAt is epoch
+      MILLISECONDS - read as seconds every posting is permanently fresh. Its
+      404 body is valid JSON, so a JSON-only check reads an error as a board.
+    release_blocking: false
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -717,6 +764,56 @@ tests:
     merge_blocking: true
     owner: mudit
 
+
+
+  - id: CONDUCT-012
+    name: Static egress check - only fetch.py imports a transport
+    journey: CJ-048
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_conduct_guards.py
+    command: python -m pytest tests/test_conduct_guards.py -q
+    triggers: [pull_request, schedule]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-010
+    name: Cross-currency salary sort and threshold filter
+    journey: CJ-049
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_salary_currency.py
+    command: python -m pytest tests/test_salary_currency.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-013
+    name: Retroactive role reconcile - scope, per-source matching, user_state safety
+    journey: CJ-050
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_reconcile_roles.py
+    command: python -m pytest tests/test_reconcile_roles.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-014
+    name: Lever - array-to-registry shape, ms timestamps, stated salary interval
+    journey: CJ-051
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_lever.py
+    command: python -m pytest tests/test_lever.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   - id: STORE-011
     name: Workable per-location collapse, UTC end-of-day dates, view/ingest parity
     journey: CJ-044
@@ -915,9 +1012,13 @@ tests:
     journey: CJ-001
     priority: P0
     level: integration
-    status: proposed
-    location: jobsearch/tests/test_fetch.py
-    command: python -m pytest tests/test_fetch.py -q
+    status: implemented
+    location: jobsearch/tests/test_robots_multiorigin.py
+    command: python -m pytest tests/test_robots_multiorigin.py -q
+    triggers: [pull_request, schedule]
+    merge_blocking: true
+    note: >
+      Per-origin robots enforcement, plus proof a TTL-driven re-fetch is still robots-gated (test_robots_is_still_enforced_on_a_refetch).
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
@@ -927,9 +1028,13 @@ tests:
     journey: CJ-002
     priority: P0
     level: integration
-    status: proposed
-    location: jobsearch/tests/test_fetch.py
-    command: python -m pytest tests/test_fetch.py -q
+    status: implemented
+    location: jobsearch/tests/test_conduct_guards.py
+    command: python -m pytest tests/test_conduct_guards.py -q
+    triggers: [pull_request, schedule]
+    merge_blocking: true
+    note: >
+      Parametrised over 403/429/503 and cf-mitigated, and asserts the cf-ray is logged via on_response BEFORE the raise, so the halt keeps its evidence.
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
@@ -939,9 +1044,13 @@ tests:
     journey: CJ-003
     priority: P0
     level: integration
-    status: proposed
-    location: jobsearch/tests/test_fetch.py
-    command: python -m pytest tests/test_fetch.py -q
+    status: implemented
+    location: jobsearch/tests/test_conduct_guards.py
+    command: python -m pytest tests/test_conduct_guards.py -q
+    triggers: [pull_request, schedule]
+    merge_blocking: true
+    note: >
+      Spacing asserted across consecutive requests, drawn from the configured range rather than a constant, and skipped on a cache hit.
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
@@ -951,9 +1060,13 @@ tests:
     journey: CJ-004
     priority: P0
     level: unit
-    status: proposed
-    location: jobsearch/tests/test_config.py
-    command: python -m pytest tests/test_config.py -q
+    status: implemented
+    location: jobsearch/tests/test_conduct_guards.py
+    command: python -m pytest tests/test_conduct_guards.py -q
+    triggers: [pull_request, schedule]
+    merge_blocking: true
+    note: >
+      Includes that a CLI override cannot smuggle a faster floor past the guard, since it runs after overrides are applied.
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
@@ -1019,7 +1132,10 @@ known_gaps:
       sticky-mitigation carve-out (CONDUCT-009, added 2026-09-05 with ADR-011).
       The rate limiter (_throttle) and the live mitigation call path on a real
       response remain unverified.
-    status: open
+    resolution: >
+      src/fetch.py is now covered end to end: robots (CONDUCT-005/006), the disk cache and its sticky-mitigation carve-out (CONDUCT-009), the rate limiter (CONDUCT-010) and the mitigation call path (CONDUCT-011).
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 
@@ -1030,7 +1146,10 @@ known_gaps:
       assertions.check_mitigation is tested, but nothing verifies Fetcher.get
       actually calls it. The guard could be removed from the call path and the
       suite would stay green.
-    status: open
+    resolution: >
+      Closed 2026-09-06 by CONDUCT-011: get() is asserted to raise on 403/429/503 and on cf-mitigated, and to log the cf-ray before raising.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 
@@ -1040,7 +1159,10 @@ known_gaps:
     description: >
       src/config.py untested. The delay_range floor guard - a conduct control -
       has never been exercised.
-    status: open
+    resolution: >
+      Closed 2026-09-06 by CONDUCT-010: the delay_range floor guard is exercised, including that a CLI override cannot smuggle a faster floor past it.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 
@@ -1070,7 +1192,10 @@ known_gaps:
     journey: CJ-016
     priority: P1
     description: Cache read/write round-trip untested; no proof re-runs avoid the network.
-    status: open
+    resolution: >
+      Closed 2026-09-06 by CONDUCT-009: cache read/write round-trip, freshness window, and proof a re-run inside the window makes no request.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 
@@ -1081,7 +1206,10 @@ known_gaps:
       "All egress goes through Fetcher.get" is convention only. No test or lint
       prevents a second httpx call bypassing robots and the rate limit.
       Automatable as an AST or grep check.
-    status: open
+    resolution: >
+      Closed 2026-09-06 by CONDUCT-012: a static AST check fails if any module outside src/fetch.py imports a transport. urllib.parse is deliberately allowed; the check is proven able to detect a real offender.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 
@@ -1114,7 +1242,10 @@ known_gaps:
       and were never role-filtered, so the RemoteOK slice of the corpus still
       contains Kitchen Technician and JANITOR. Visible in the found-via-role
       facet; needs a deliberate prune or a re-fetch, not an automatic delete.
-    status: open
+    resolution: >
+      Closed 2026-09-06: `cli reconcile --apply` re-tagged 149 rows with a real role and removed 512 off-role rows. JANITOR/Kitchen Technician/Carpenter/Data Entry Clerk are gone from the corpus.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-04
     owner: mudit
 
@@ -1125,7 +1256,10 @@ known_gaps:
       HTML entities in source titles are double-escaped in the UI
       ("H&amp;M Visual Merchandiser"), and some RemoteOK titles show mojibake.
       Cosmetic; needs unescaping at the view or render layer.
-    status: open
+    resolution: >
+      Closed 2026-09-06 as a side effect of GAP-016: both affected rows were RemoteOK junk removed by the reconcile. Verified 0 rows remain with double-escaped entities.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-04
     owner: mudit
 
@@ -1138,7 +1272,10 @@ known_gaps:
       against 150000 USD. Pre-dates multi-source (Wellfound already mixed the
       two) but is now visible. Needs a normalised salary_usd, or a currency
       filter, before salary sort can be trusted.
-    status: open
+    resolution: >
+      Closed 2026-09-06 by ADR-012: salary_currency is derived from the symbol and salary_usd_* added for ordering; sort and threshold filter both use it. 2,331 rows gained a currency.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-04
     owner: mudit
 
@@ -1185,7 +1322,10 @@ known_gaps:
       a regression that drops the spacing to zero would ship silently and look
       to Wellfound like an attack. This is the conduct control with the largest
       blast radius and the least protection.
-    status: open
+    resolution: >
+      Closed 2026-09-06 by CONDUCT-010: spacing is asserted across consecutive requests, drawn from the configured range, and skipped on a cache hit.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 
@@ -1195,7 +1335,10 @@ known_gaps:
     description: >
       No CI. The suite passes locally and nothing enforces it. Maturity level 1:
       tests exist, nothing blocks.
-    status: open
+    resolution: >
+      Closed 2026-09-06: .github/workflows/ci.yml runs the suite on 3.11 and 3.14, both validators, and the suite again with outbound traffic blocked. Daily schedule included because a dated fixture broke six tests overnight with no commit to blame.
+    status: closed
+    closed: 2026-09-06
     first_seen: 2026-09-03
     owner: mudit
 

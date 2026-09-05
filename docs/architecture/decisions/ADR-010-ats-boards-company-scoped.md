@@ -1,7 +1,7 @@
 # ADR-010: ATS boards expand companies; they cannot be searched by role
 
-**Status:** accepted · **Date:** 2026-09-04 · **Updated: 2026-09-05**
-**Implemented: Greenhouse, Ashby, Workable**
+**Status:** accepted · **Date:** 2026-09-04 · **Updated: 2026-09-06**
+**Implemented: Greenhouse, Ashby, Workable, Lever — all four**
 
 ## Context
 
@@ -77,6 +77,7 @@ the Phase 1 probe (345 requests for 38 companies). Only the token has to be foun
 | Ashby, full AI-role run | **73/88 = 83.0%** |
 | Ashby, cumulative across runs | **98/116 = 84.5%** |
 | Workable, ML-role run | **3/4 = 75%** (small sample) |
+| Lever, corpus probe | **5/7 = 71%** (small sample) |
 
 The candidates come from measured failure modes, not invention:
 
@@ -158,6 +159,43 @@ no stated rate limit. It is the **cheapest and richest** of the three.
 * **`description` is plain HTML**, not entity-encoded — a single strip, the opposite of
   Greenhouse's unescape-then-strip.
 
+### Lever
+
+Probed live 2026-09-06 against the official `lever/postings-api` docs.
+`api.lever.co/v0/postings/{site}?mode=json`, keyless, whole board in one request
+with descriptions inline.
+
+* **Three origins, one usable.** `api.lever.co` and `jobs.lever.co` both allow `/`;
+  **`www.lever.co` disallows `/api/`**. The third instance of the same trap Ashby and
+  Workable set, and the reason `Fetcher` keys robots per origin (ADR-007).
+* **The first provider that publishes a rate limit: 2 requests/second.** Our mandated
+  3-5 s spacing is about an order of magnitude under it. Recorded so nobody later
+  "optimises" toward the documented ceiling and away from this repo's stricter rule.
+* **Success is a JSON array; an error is a JSON object.** `{"ok":false,"error":"Document
+  not found"}` with HTTP 404. Both are valid JSON, so `parse` requires a list —
+  validating only "is it JSON" would read an error body as a board.
+* **`parse` returns `{"jobs": [...]}`, not the raw array.** Every other source's `parse`
+  returns an object carrying `jobs`, and `ats.resolve` counts `data["jobs"]` for all of
+  them. Returning Lever's wire array made `resolve` die with `AttributeError: 'list'
+  object has no attribute 'get'` and took the whole run down. Adapting in the source
+  module keeps the resolver free of per-provider special cases. Regression-tested.
+* **`createdAt` is epoch MILLISECONDS.** Read as seconds it lands ~50,000 years out and
+  every posting is permanently fresh. Converted once at ingest; the view must not divide
+  again.
+* **`createdAt` is a creation date, not a publish date.** Metabase's 18 postings span
+  2020-05 to 2026-07, median age 319 days, **nothing** inside the 30-day cutoff. Those
+  requisitions really are old, so the cutoff does most of the filtering — as on Ashby.
+  Across the corpus boards: gridline 0/4 fresh, metabase 0/18, odin-dynamics 5/6,
+  sambatv 10/59, zaimler 2/13.
+* **Salary is structured AND states its interval** (`per-year-salary`), so unlike
+  Greenhouse there is no guessing and unlike Himalayas no risk of an hourly figure
+  landing in an annual column. Rare: 1 of 18 on metabase.
+* **`descriptionPlain` is already plain text** — the only source where it is. The full
+  posting is that plus the `lists` blocks (whose `content` IS HTML) plus
+  `additionalPlain`.
+* **`workplaceType` is explicit.** The docs spell it `on-site`; live data sends `onsite`.
+  Both map to the canonical `Onsite`, or the UI facet splits in half.
+
 ### Account-name verification
 
 `ats.resolve` binds the **first** candidate token that answers 200, so a token collision
@@ -183,6 +221,8 @@ catch a wrong match, not to reject an unverifiable one.
   board contributed 6 jobs after cutoff and role filtering.
 - `company_ats` is a new table. Cached misses mean a genuinely new board is not
   discovered until a deliberate `refresh`.
+- **All four providers now implemented**, so the ATS sweep is complete. Dover (2
+  companies) remains unplanned: too small to justify a fifth integration.
 - **Cost per job differs sharply.** Greenhouse ~2.9 requests/job and Workable ~1
   request per *company* (descriptions inline); Ashby ~10 requests/job, because its board
   summary carries no date and forces a fetch per posting. All three are worth having;
@@ -194,6 +234,6 @@ catch a wrong match, not to reject an unverifiable one.
 ## Related
 
 `src/sources/greenhouse.py` · `src/sources/ashby.py` · `src/ats.py` ·
-`src/sources/workable.py` · `src/roles.py::_expand_ats` ·
+`src/sources/workable.py` · `src/sources/lever.py` · `src/roles.py::_expand_ats` ·
 `jobsearch/tests/test_greenhouse.py` · `jobsearch/tests/test_ashby.py` ·
-`jobsearch/tests/test_workable.py` · ADR-002 · ADR-006 · ADR-007 · ADR-009 · ADR-011
+`jobsearch/tests/test_workable.py` · `jobsearch/tests/test_lever.py` · ADR-002 · ADR-006 · ADR-007 · ADR-009 · ADR-011

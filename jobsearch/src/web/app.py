@@ -40,8 +40,12 @@ STATIC = Path(__file__).resolve().parent / "static"
 SORTS = {
     "posted": "posted_ts DESC",           # newest first -- the default
     "oldest": "posted_ts ASC",
-    "salary": "salary_max DESC NULLS LAST, salary_min DESC",
-    "salary_asc": "salary_min ASC NULLS LAST",
+    # Sort on the USD-normalised value, NOT the native figure. Sorting natively
+    # ranked every INR salary above every USD one (₹1.2cr ~ $144k outranked
+    # $520k) because the numbers were larger. Falls back to the native value
+    # only for rows whose currency is unknown, which sort last regardless.
+    "salary": "salary_usd_max DESC NULLS LAST, salary_usd_min DESC NULLS LAST",
+    "salary_asc": "salary_usd_min ASC NULLS LAST",
     "company": "company COLLATE NOCASE ASC",
     "title": "title COLLATE NOCASE ASC",
     "size": "company_size_min DESC NULLS LAST",
@@ -145,15 +149,19 @@ def _clauses(f: Filters) -> list[tuple[str, str, list[Any]]]:
             out.append((dim, f"({' OR '.join([f'{col} = ?'] * len(vals))})", list(vals)))
 
     if f.salary_min is not None:
+        # Compared in USD for the same reason the sort is (see SORTS): a native
+        # threshold of 1,500,000 matches every INR job and excludes a $200k one.
+        # Rows whose currency is unknown fall back to the native figure -- there
+        # is nothing better to compare them on, and dropping them would hide
+        # them from a filter they might well satisfy.
+        cmp_max = "COALESCE(salary_usd_max, salary_max)"
+        cmp_min = "COALESCE(salary_usd_min, salary_min)"
         # "include unlisted" matters: ~47% of rows have no salary at all, and
         # dropping them silently would hide most of the corpus.
-        if f.include_unlisted_salary:
-            out.append(("salary",
-                        "(salary_max >= ? OR salary_min >= ? OR salary_raw IS NULL)",
-                        [f.salary_min, f.salary_min]))
-        else:
-            out.append(("salary", "(salary_max >= ? OR salary_min >= ?)",
-                        [f.salary_min, f.salary_min]))
+        tail = " OR salary_raw IS NULL" if f.include_unlisted_salary else ""
+        out.append(("salary",
+                    f"({cmp_max} >= ? OR {cmp_min} >= ?{tail})",
+                    [f.salary_min, f.salary_min]))
 
     if f.has_equity:
         out.append(("has_equity", "equity_raw IS NOT NULL", []))

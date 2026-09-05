@@ -311,6 +311,31 @@ def cmd_prune(args, cfg: Config) -> int:
     return 0
 
 
+def cmd_reconcile(args, cfg: Config) -> int:
+    """Apply the role filter retroactively to pre-ADR-009 rows."""
+    conn, _ = _wire(cfg)
+    kw = {r: cfg.role_keywords(r) for r in cfg.roles if cfg.role_keywords(r)}
+    if not kw:
+        print("no role keywords configured in targets.yaml; refusing to judge "
+              "any row as off-role")
+        return 1
+    out = S.reconcile_roles(conn, kw, dry_run=not args.apply)
+    if out["dry_run"]:
+        print(f"{out['scanned']} job(s) carry no configured role slug "
+              f"(ingested before the role filter existed).")
+        print(f"  would re-tag with a real role : {out['would_retag']}")
+        print(f"  would remove as off-role      : {out['would_remove']}")
+        print(f"  protected by user_state       : {out['protected']}")
+        print("Re-run with --apply. Removed rows stay in cache/ and can be "
+              "re-ingested without network.")
+    else:
+        S.rebuild_locations(conn)
+        print(f"Re-tagged {out['retagged']}, removed {out['removed']}, "
+              f"protected {out['protected']}.")
+        _print_stats(conn)
+    return 0
+
+
 def cmd_stats(args, cfg: Config) -> int:
     conn, _ = _wire(cfg)
     _print_stats(conn)
@@ -375,6 +400,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--apply", action="store_true",
                    help="actually delete; without this it only reports")
     p.set_defaults(fn=cmd_prune)
+
+    p = sub.add_parser("reconcile",
+                       help="apply the role filter to rows ingested before it "
+                            "existed (re-tag matches, drop off-role)")
+    p.add_argument("--apply", action="store_true",
+                   help="actually change rows; without this it only reports")
+    p.set_defaults(fn=cmd_reconcile)
 
     p = sub.add_parser("stats", help="corpus size, fill rates, slice truncation")
     p.set_defaults(fn=cmd_stats)

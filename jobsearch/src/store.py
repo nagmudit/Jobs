@@ -186,6 +186,14 @@ ADD_COLUMNS: list[tuple[str, str, str]] = [
 OUTER_VIEW = """
 DROP VIEW IF EXISTS jobs;
 CREATE VIEW jobs AS
+-- The outer layer exists only to add the cross-currency sort keys, which have
+-- to be computed from `salary_min`/`salary_currency` after those are themselves
+-- derived. Approximate and for ORDERING ONLY -- the native figure and the raw
+-- string travel alongside and are what the UI displays.
+SELECT *,
+       salary_usd(salary_min, salary_currency) AS salary_usd_min,
+       salary_usd(salary_max, salary_currency) AS salary_usd_max
+FROM (
 WITH prov AS (
   SELECT source_job_id,
          group_concat(DISTINCT role_slug) AS found_via_roles,
@@ -208,7 +216,14 @@ SELECT
   CASE WHEN k.salary_period IS NOT NULL AND k.salary_period <> 'annual' THEN NULL
        ELSE COALESCE(k.salary_max_native,
             salary_max(COALESCE(NULLIF(d.salary_raw,''), k.salary_raw))) END AS salary_max,
-  k.salary_currency, k.salary_period,
+  -- A source that STATES its currency wins; Wellfound states none, so it is
+  -- recovered from the symbol in the raw string. Leaving it NULL is what put
+  -- 3,000,000 INR and 200,000 USD in one sortable column with nothing to tell
+  -- them apart.
+  COALESCE(k.salary_currency,
+           salary_currency(COALESCE(NULLIF(d.salary_raw,''), k.salary_raw))
+  )                                                        AS salary_currency,
+  k.salary_period,
   NULLIF(d.equity_raw,'')                                  AS equity_raw,
   equity_max(d.equity_raw)                                 AS equity_max,
   k.posted_ts,
@@ -235,7 +250,8 @@ SELECT
 FROM jobs_core k
 LEFT JOIN job_detail  d ON d.source_job_id = k.source_job_id
 LEFT JOIN user_state  u ON u.source_job_id = k.source_job_id
-LEFT JOIN prov        p ON p.source_job_id = k.source_job_id;
+LEFT JOIN prov        p ON p.source_job_id = k.source_job_id
+);
 """
 
 
@@ -457,6 +473,98 @@ def prune_stale(conn, max_age_days: int, dry_run: bool = True) -> dict[str, Any]
                  "(SELECT DISTINCT source, company_slug FROM job_raw)")
     conn.commit()
     out["removed"] = len(ids)
+    return out
+
+
+# Sources whose `badges` are USER-SUPPLIED TAGS rather than a real taxonomy.
+# RemoteOK's `?tag=engineer` returns Kitchen Technician, Joiner and JANITOR --
+# all genuinely carrying that tag -- so matching a RemoteOK row against its own
+# badges says a janitor is a software engineer. `remoteok.py` passes None for
+# categories live, and anything reasoning about relevance must do the same.
+UNTRUSTED_BADGE_SOURCES = {"remoteok"}
+
+# The ONLY sources whose rows can have arrived without a role filter (ADR-009).
+#
+# Wellfound filters server-side at crawl time, so its rows are legitimate even
+# under a slug that has since been retired from targets.yaml -- `ai-engineer`
+# and `data-engineer` name real Wellfound role searches that WERE applied. ATS
+# boards apply the current keywords locally at expand time. Re-judging either
+# against our keyword list would delete correctly-filtered jobs using a cruder
+# instrument than the one that filtered them.
+LOCALLY_FILTERED_SOURCES = {"remoteok", "himalayas"}
+
+
+def reconcile_roles(conn, role_keywords: dict[str, list[str]],
+                    dry_run: bool = True) -> dict[str, Any]:
+    """Apply the role filter retroactively to rows that predate it.
+
+    Jobs ingested before ADR-009 carry provenance `all`, `dev` or `engineer` and
+    were never role-filtered. Rows whose provenance is ENTIRELY outside the
+    configured vocabulary are re-judged with the same rule their source uses
+    live: matched ones gain the real role slug, unmatched ones are removed.
+
+    Rows carrying a `user_state` are never deleted. That is the only
+    non-regenerable data in the database; losing the record of having applied to
+    a job is not recoverable by re-crawling.
+
+    Dry-run by default, like `prune_stale`. Deleted rows are re-ingestable from
+    `cache/` without network.
+    """
+    from .relevance import matches
+
+    out: dict[str, Any] = {"scanned": 0, "would_retag": 0, "would_remove": 0,
+                           "retagged": 0, "removed": 0, "protected": 0,
+                           "dry_run": dry_run}
+    # An empty keyword map means "no roles configured", which must never be read
+    # as "nothing matches, delete everything".
+    if not role_keywords:
+        return out
+
+    known = list(role_keywords)
+    srcs = sorted(LOCALLY_FILTERED_SOURCES)
+    rows = conn.execute(f"""
+        SELECT j.source_job_id, j.title, j.badges, j.source
+        FROM jobs j
+        WHERE j.source IN ({",".join("?" * len(srcs))})
+          AND NOT EXISTS (
+            SELECT 1 FROM job_provenance p
+            WHERE p.source_job_id = j.source_job_id
+              AND p.role_slug IN ({",".join("?" * len(known))}))
+    """, srcs + known).fetchall()
+    out["scanned"] = len(rows)
+
+    retag: list[tuple[str, str]] = []
+    remove: list[str] = []
+    acted_on = {r[0] for r in conn.execute(
+        "SELECT source_job_id FROM user_state WHERE status IS NOT NULL "
+        "AND status <> 'new'")}
+
+    for r in rows:
+        cats = None
+        if r["source"] not in UNTRUSTED_BADGE_SOURCES:
+            cats = [c.strip() for c in (r["badges"] or "").split(",") if c.strip()]
+        hit = next((role for role in known
+                    if matches(r["title"], cats, role_keywords[role])), None)
+        if hit:
+            retag.append((r["source_job_id"], hit))
+        elif r["source_job_id"] in acted_on:
+            out["protected"] += 1
+        else:
+            remove.append(r["source_job_id"])
+
+    out["would_retag"], out["would_remove"] = len(retag), len(remove)
+    if dry_run:
+        return out
+
+    for uid, role in retag:
+        add_provenance(conn, uid, role, "backfill", 1)
+    for t in ("job_raw", "job_provenance", "job_detail", "job_location"):
+        conn.executemany(f"DELETE FROM {t} WHERE source_job_id=?",
+                         [(i,) for i in remove])
+    conn.execute("DELETE FROM company_raw WHERE (source, company_slug) NOT IN "
+                 "(SELECT DISTINCT source, company_slug FROM job_raw)")
+    conn.commit()
+    out["retagged"], out["removed"] = len(retag), len(remove)
     return out
 
 

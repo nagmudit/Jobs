@@ -39,7 +39,7 @@ WELLFOUND = "wellfound"
 
 # Sources whose APIs are company-scoped with no cross-board search. They are
 # driven by companies the role already touched, never by the role itself.
-ATS_PROVIDERS = {"greenhouse", "ashby", "workable"}
+ATS_PROVIDERS = {"greenhouse", "ashby", "workable", "lever"}
 
 
 def sources_for(cfg: Config) -> list[str]:

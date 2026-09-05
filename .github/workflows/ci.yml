@@ -1,0 +1,108 @@
+# CI for a personal tool that talks to live third-party sites.
+#
+# Two things this exists to catch, both of which have already happened once:
+#
+#   * A conduct guard silently regressing. The rate limiter, the robots check and
+#     the mitigation halt protect someone else's servers; a regression there is
+#     not a bug we discover at leisure, it gets the user blocked.
+#   * The suite going red on the CALENDAR rather than on a change. A fixture with
+#     a hardcoded date broke six tests overnight on 2026-09-06 and nothing said
+#     so until a human happened to look. The scheduled run below is for that.
+#
+# The suite is fully offline -- every network boundary is faked -- so there are
+# no secrets, no services and nothing here reaches Wellfound or any other site.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # A dated fixture breaks with no commit to blame it on, so time alone has to
+  # be able to turn this red.
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor AGENTS.md claims, and the version it is developed on. The
+        # pair is what catches "works on my machine" drift between them.
+        python: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: jobsearch/requirements.txt
+
+      - name: Install
+        working-directory: jobsearch
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Tests
+        working-directory: jobsearch
+        run: python -m pytest tests -q
+
+      # Named separately so a conduct regression is legible in the checks list
+      # rather than buried in a count. These are the P0s in the test manifest.
+      - name: Conduct guards
+        working-directory: jobsearch
+        run: |
+          python -m pytest tests/test_conduct_guards.py \
+                           tests/test_robots_multiorigin.py \
+                           tests/test_fetch_cache.py \
+                           tests/test_assertions.py -q
+
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install pyyaml
+
+      # The manifest claims which tests protect which journeys, and the context
+      # docs are what an agent reads instead of being re-briefed. Both rot
+      # silently, so both are checked rather than trusted.
+      - name: Test manifest
+        run: python quality/validate_manifest.py
+
+      - name: Context docs
+        run: python quality/validate_context.py
+
+  offline:
+    # The suite must never reach the network: a test that quietly depends on a
+    # live third party would both flake and generate unpoliced traffic. This
+    # proves it rather than asserting it in a comment.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install
+        working-directory: jobsearch
+        run: pip install -r requirements.txt
+      - name: Run the suite with outbound traffic blocked
+        working-directory: jobsearch
+        run: |
+          sudo iptables -P OUTPUT DROP
+          sudo iptables -A OUTPUT -o lo -j ACCEPT
+          python -m pytest tests -q

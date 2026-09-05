@@ -53,7 +53,8 @@ def test_contract_drift_is_detected(conn):
 
 def test_all_sources_registered():
     assert set(SRC.registry()) == {
-        "wellfound", "remoteok", "himalayas", "greenhouse", "ashby", "workable"
+        "wellfound", "remoteok", "himalayas",
+        "greenhouse", "ashby", "workable", "lever",
     }
 
 

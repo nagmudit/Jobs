@@ -58,7 +58,8 @@ CORE_COLUMNS = [
 
 
 def registry() -> dict[str, object]:
-    from . import ashby, greenhouse, himalayas, remoteok, wellfound, workable
+    from . import (ashby, greenhouse, himalayas, lever, remoteok, wellfound,
+                   workable)
 
     return {
         wellfound.NAME: wellfound,
@@ -67,6 +68,7 @@ def registry() -> dict[str, object]:
         greenhouse.NAME: greenhouse,
         ashby.NAME: ashby,
         workable.NAME: workable,
+        lever.NAME: lever,
     }
 
 
