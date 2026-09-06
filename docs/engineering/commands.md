@@ -29,9 +29,13 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Ingest all API sources (no role) | `python -m src.cli ingest` | ✅ ran |
 | Ingest one source | `python -m src.cli ingest --sources himalayas` | ✅ ran, 500 kept / 478 new |
 | Prune stale (dry run) | `python -m src.cli prune` | ✅ ran, reported 1747/2941 |
-| Prune stale (delete) | `python -m src.cli prune --apply` | ⚠️ not run — destructive |
+| Prune stale (delete) | `python -m src.cli prune --apply` | ✅ ran on a copy, removed 1883/6266, kept marked |
 | Widen the age cutoff | `python -m src.cli crawl --no-resume --max-age-days 90` | ⚠️ not run |
 | Serve UI | `python -m src.cli serve` | ✅ ran on :8013, UI + all API routes |
+| Serve UI read-only (as hosted) | `JOBSEARCH_READONLY=1 python -m src.cli serve` | ✅ ran, 4 crawl routes 404 |
+| Adopt a downloaded corpus (dry run) | `python -m src.cli sync /tmp/corpus.db` | ✅ ran |
+| Adopt a downloaded corpus | `python -m src.cli sync /tmp/corpus.db --apply` | ✅ ran on a copy, 2 marks carried |
+| Publishable copy, no user marks | `python -m src.cli export --out corpus.db` | ✅ ran, 6266 jobs / 0 marks |
 
 There is **no lint, formatter, typecheck, or build step** configured. Don't document
 or claim one.

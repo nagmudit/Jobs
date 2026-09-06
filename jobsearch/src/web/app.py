@@ -19,8 +19,10 @@ Two things here are load-bearing and easy to get wrong:
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import threading
+import time
 import traceback
 from pathlib import Path
 from typing import Any
@@ -197,16 +199,63 @@ class CrawlJob:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.thread: threading.Thread | None = None
-        self.state: dict[str, Any] = {"running": False, "roles": [], "done": [],
-                                      "current": None, "pages": 0, "jobs_new": 0,
-                                      "stale": 0, "error": None, "finished_at": None}
+        self.state: dict[str, Any] = self._fresh_state(running=False)
+
+    def _fresh_state(self, mode: str | None = None, roles: list[str] | None = None,
+                     running: bool = True) -> dict[str, Any]:
+        return {"running": running, "roles": list(roles or []), "done": [],
+                "current": None, "source": None, "company": None,
+                "unit": None, "unit_total": None,
+                "pages": 0, "jobs_new": 0, "stale": 0,
+                # Heartbeat. `requests` counts every response, `last_at` is when
+                # the most recent one landed -- together they are what tells a
+                # working crawl from a hung one.
+                "requests": 0, "cached": 0, "last_at": None, "last_url": None,
+                "started_at": time.time(), "error": None, "finished_at": None,
+                "mode": mode}
+
+    def _note_response(self, resp: Any, conn: sqlite3.Connection) -> None:
+        """Heartbeat, hung on `Fetcher.on_response`.
+
+        That is the single chokepoint every network call passes through, so no
+        code path can be busy and silent at the same time -- including ones
+        added later. It also fires BEFORE check_mitigation, so the response that
+        halts a crawl still records where it died.
+        """
+        S.log_request(conn, resp)
+        conn.commit()
+        st = self.state
+        st["requests"] = st.get("requests", 0) + 1
+        if getattr(resp, "from_cache", False):
+            # Not network work, but still liveness: an ATS re-run served
+            # entirely from cache must not read as hung.
+            st["cached"] = st.get("cached", 0) + 1
+        st["last_at"] = time.time()
+        st["last_url"] = (getattr(resp, "url", "") or "")[-120:]
+
+    def _note_event(self, d: dict, source: str | None = None) -> None:
+        """One progress event: update the counters, then print the same line
+        `python -m src.cli fetch` prints."""
+        from ..roles import progress_line
+
+        st = self.state
+        st["pages"] = st.get("pages", 0) + 1
+        st["stale"] = st.get("stale", 0) + d.get("stale_skipped", 0)
+        st["source"] = d.get("source") or source
+        st["company"] = d.get("company")
+        st["unit"], st["unit_total"] = d.get("unit"), d.get("unit_total")
+        print(progress_line(d), flush=True)
+
+    def snapshot(self) -> dict[str, Any]:
+        """State plus the server clock. "last activity 3s ago" is computed
+        against OUR clock -- a skewed browser would otherwise invent a hang or
+        hide a real one."""
+        return {**self.state, "now": time.time()}
 
     def start(self, cfg: Config, roles: list[str], location: str, max_pages: int) -> bool:
         if not self.lock.acquire(blocking=False):
             return False
-        self.state = {"running": True, "roles": roles, "done": [], "current": None,
-                      "pages": 0, "jobs_new": 0, "stale": 0, "error": None,
-                      "finished_at": None}
+        self.state = self._fresh_state(mode="crawl", roles=roles)
         self.thread = threading.Thread(
             target=self._run, args=(cfg, roles, location, max_pages), daemon=True)
         self.thread.start()
@@ -216,9 +265,7 @@ class CrawlJob:
                     names: list[str]) -> bool:
         if not self.lock.acquire(blocking=False):
             return False
-        self.state = {"running": True, "roles": roles, "done": [], "current": None,
-                      "pages": 0, "jobs_new": 0, "stale": 0, "error": None,
-                      "finished_at": None, "mode": "fetch"}
+        self.state = self._fresh_state(mode="fetch", roles=roles)
         self.thread = threading.Thread(
             target=self._run_fetch, args=(cfg, roles, names), daemon=True)
         self.thread.start()
@@ -231,15 +278,13 @@ class CrawlJob:
             conn = S.connect(cfg.db_path)
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds())
-            f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
+            f.on_response = lambda r: self._note_response(r, conn)
             use = names or sources_for(cfg)
             for role in roles:
                 self.state["current"] = role
                 for r in fetch_role(
                         f, conn, cfg, role, use,
-                        on_event=lambda d: self.state.update(
-                            pages=self.state["pages"] + 1,
-                            stale=self.state["stale"] + d.get("stale_skipped", 0))):
+                        on_event=self._note_event):
                     self.state["jobs_new"] += r["new"]
                     self.state["done"].append({
                         "role": f"{role} · {r['source']}", "jobs": r["seen"],
@@ -263,9 +308,7 @@ class CrawlJob:
         process-wide rule, not a per-source one."""
         if not self.lock.acquire(blocking=False):
             return False
-        self.state = {"running": True, "roles": names, "done": [], "current": None,
-                      "pages": 0, "jobs_new": 0, "stale": 0, "error": None,
-                      "finished_at": None, "mode": "ingest"}
+        self.state = self._fresh_state(mode="ingest", roles=names)
         self.thread = threading.Thread(
             target=self._run_ingest, args=(cfg, names), daemon=True)
         self.thread.start()
@@ -278,7 +321,7 @@ class CrawlJob:
             conn = S.connect(cfg.db_path)
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds())
-            f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
+            f.on_response = lambda r: self._note_response(r, conn)
             reg = SRC.registry()
             for name in names:
                 self.state["current"] = name
@@ -287,9 +330,7 @@ class CrawlJob:
                     r = mod.ingest(
                         f, conn, target, cutoff_ts=cfg.cutoff_ts(),
                         max_pages=cfg.source_max_pages(name),
-                        on_page=lambda d: self.state.update(
-                            pages=self.state["pages"] + 1,
-                            stale=self.state["stale"] + d["stale_skipped"]))
+                        on_page=lambda d, _n=name: self._note_event(d, source=_n))
                     self.state["jobs_new"] += r["new"]
                     self.state["done"].append(
                         {"role": f"{name}:{r['target']}", "jobs": r["seen"],
@@ -313,7 +354,7 @@ class CrawlJob:
             conn = S.connect(cfg.db_path)
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds())
-            f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
+            f.on_response = lambda r: self._note_response(r, conn)
             run_at = S.now()
             for role in roles:
                 self.state["current"] = role
@@ -324,9 +365,7 @@ class CrawlJob:
                 res = crawl_slice(
                     f, conn, role, location, max_pages, cfg.yield_floor,
                     resume=True, run_at=run_at,
-                    on_page=lambda d: self.state.update(
-                        pages=self.state["pages"] + 1,
-                        stale=self.state["stale"] + d["stale_skipped"]),
+                    on_page=lambda d: self._note_event(d, source="wellfound"),
                     cutoff_ts=cfg.cutoff_ts())
                 self.state["jobs_new"] += res.jobs_new
                 self.state["done"].append(
@@ -352,8 +391,38 @@ def create_app(cfg: Config) -> FastAPI:
     enrich_lock = threading.Lock()
     job = CrawlJob()
 
+    # The hosted deployment serves a public URL and cannot crawl: a cold fetch is
+    # 75-180 minutes against serverless timeouts measured in minutes, on a
+    # read-only filesystem. The crawl routes are therefore NOT REGISTERED there
+    # rather than registered-and-refusing. That is a conduct control: a public
+    # /api/fetch is an internet-reachable trigger for crawling third-party sites,
+    # and the concurrency-1 guarantee cannot hold across whoever else calls it.
+    readonly = bool(os.environ.get("JOBSEARCH_READONLY"))
+
+    def mutating(path: str):
+        """Register a POST route only when this is not the hosted read-only app.
+
+        Unregistered, not refusing: a 404 leaks nothing and cannot be probed for
+        a misconfiguration the way a 403 can.
+        """
+        def deco(fn):
+            if not readonly:
+                app.post(path)(fn)
+            return fn
+        return deco
+
+    # One connection per thread, reused. FastAPI runs these sync endpoints in
+    # anyio's bounded threadpool, and sqlite3 connections default to
+    # check_same_thread=True, so the thread is the right granularity. The old
+    # per-request S.connect() opened a handle that was never closed and redid
+    # the whole schema build on every call.
+    local = threading.local()
+
     def db() -> sqlite3.Connection:
-        return S.connect(cfg.db_path)
+        conn = getattr(local, "conn", None)
+        if conn is None:
+            conn = local.conn = S.connect(cfg.db_path)
+        return conn
 
     @app.get("/")
     def index():
@@ -397,6 +466,7 @@ def create_app(cfg: Config) -> FastAPI:
                 for r in cfg.roles},
             "delay_range": list(cfg.delay_range),
             "max_age_days": cfg.max_age_days,
+            "readonly": readonly,
         }
 
     @app.post("/api/facets")
@@ -483,7 +553,7 @@ def create_app(cfg: Config) -> FastAPI:
         conn.commit()
         return {"ok": True, "job_id": s.job_id, "status": s.status}
 
-    @app.post("/api/crawl")
+    @mutating("/api/crawl")
     def crawl_start(c: CrawlIn):
         unknown = [r for r in c.roles if r not in cfg.roles]
         if unknown:
@@ -500,7 +570,7 @@ def create_app(cfg: Config) -> FastAPI:
         return {"started": True, "roles": c.roles,
                 "est_minutes": round(pages * (lo + hi) / 2 / 60, 1)}
 
-    @app.post("/api/fetch")
+    @mutating("/api/fetch")
     def fetch_start(i: FetchIn):
         """The main workflow: pick role(s), fetch from every enabled source."""
         unknown = [r for r in i.roles if r not in cfg.roles]
@@ -517,7 +587,7 @@ def create_app(cfg: Config) -> FastAPI:
         return {"started": True, "roles": i.roles,
                 "est_minutes": round(len(i.roles) * per_role * (lo + hi) / 2 / 60, 1)}
 
-    @app.post("/api/ingest")
+    @mutating("/api/ingest")
     def ingest_start(i: IngestIn):
         from .. import sources as SRC
 
@@ -534,9 +604,9 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/api/crawl/status")
     def crawl_status():
-        return job.state
+        return job.snapshot()
 
-    @app.post("/api/enrich")
+    @mutating("/api/enrich")
     def enrich(e: EnrichIn):
         if not e.ids:
             return {"enriched": 0, "requested": 0}
@@ -546,6 +616,8 @@ def create_app(cfg: Config) -> FastAPI:
             conn = db()
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds())
+            # Enrichment runs in the request, not in CrawlJob -- no heartbeat
+            # state to feed, just the request log.
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
             return enrich_ids(f, conn, e.ids, max_age_days=cfg.max_age_days)
         finally:

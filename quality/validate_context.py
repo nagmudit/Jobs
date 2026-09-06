@@ -23,7 +23,11 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 
 DOC_GLOBS = ["docs/**/*.md", "AGENTS.md", "CLAUDE.md"]
-PATH_RE = re.compile(r"\b(?:jobsearch|wellfound-probe|quality|docs|src|tests)/[A-Za-z0-9_/.\-]+")
+# (?<!/) so an ABSOLUTE host path in a deployment doc -- /opt/jobsearch/.venv,
+# /etc/jobsearch/web.env -- is not read as a repo-relative path that then fails
+# the dead-path check. A repo path reference is never preceded by a slash.
+PATH_RE = re.compile(
+    r"(?<!/)\b(?:jobsearch|wellfound-probe|quality|docs|src|tests)/[A-Za-z0-9_/.\-]+")
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)#]+)\)")
 SECRET_RE = re.compile(
     r"sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-"

@@ -97,5 +97,5 @@ currency to a 1.0 rate reddens the NULL test.
 
 ## Related
 
-`src/derive.py::salary_currency` · `src/derive.py::salary_usd` · `src/store.py` OUTER_VIEW ·
+`src/derive.py::salary_currency` · `src/derive.py::salary_usd` · `src/store.py` CREATE_OUTER_VIEW ·
 `src/web/app.py::SORTS` · ADR-002

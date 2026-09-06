@@ -13,8 +13,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
+import time
 import traceback
+from pathlib import Path
 
 from . import assertions as A
 from . import store as S
@@ -206,7 +209,7 @@ def cmd_fetch(args, cfg: Config) -> int:
     own shape. Sources differ in HOW the role is applied, so every line reports
     its filter_mode -- see src/roles.py and ADR-009.
     """
-    from .roles import describe, fetch_role, sources_for
+    from .roles import describe, fetch_role, progress_line, sources_for
 
     conn, f = _wire(cfg)
     roles = [r.strip() for r in (args.roles2 or args.roles or "").split(",") if r.strip()]
@@ -224,11 +227,7 @@ def cmd_fetch(args, cfg: Config) -> int:
         try:
             res = fetch_role(
                 f, conn, cfg, role, names,
-                on_event=lambda d: print(
-                    f"    {d.get('source','?'):10} p{d.get('page','?'):<3} "
-                    f"got={d.get('jobs','?'):<4} kept={d.get('kept','?'):<5} "
-                    f"off-role={d.get('filtered_out',0):<4} "
-                    f"stale={d.get('stale_skipped',0)}"))
+                on_event=lambda d: print(progress_line(d), flush=True))
         except A.CorpusIntegrityError as e:
             print(f"  !! HALTED: {type(e).__name__}: {e}", file=sys.stderr)
             _print_stats(conn)
@@ -342,6 +341,116 @@ def cmd_stats(args, cfg: Config) -> int:
     return 0
 
 
+def cmd_sync(args, cfg: Config) -> int:
+    """Adopt a freshly downloaded corpus without losing local marks.
+
+    The daily workflow publishes a corpus with `user_state` stripped, so pulling
+    it down and using it directly would silently discard every applied and
+    shortlisted mark. This carries them across, upholding the same invariant
+    `prune_stale` states: a job you marked applied keeps that mark.
+
+    Deliberately does NO network. Download it yourself -- the repo is public:
+
+        gh release download corpus --pattern jobs.db --dir /tmp
+        python -m src.cli sync /tmp/jobs.db --apply
+
+    Keeping the download out of Python is what keeps `src/fetch.py` the only
+    module that can reach the network (AGENTS.md).
+    """
+    incoming = Path(args.incoming)
+    if not incoming.exists():
+        print(f"no such corpus: {incoming}", file=sys.stderr)
+        return 2
+
+    marks: list = []
+    if Path(cfg.db_path).exists():
+        local = S.connect(cfg.db_path)
+        marks = S.export_user_state(local)
+        local.close()
+
+    if not args.apply:
+        print(f"Would merge {len(marks)} mark(s) into {incoming} and move it "
+              f"to {cfg.db_path}, backing up the current corpus. "
+              f"Re-run with --apply to do it.")
+        return 0
+
+    conn = S.connect(incoming)
+    n = S.import_user_state(conn, marks)
+    conn.commit()
+    # The published corpus is pruned by age and knows nothing about marks, so a
+    # job you applied to a month ago is simply absent from it. Bring those rows
+    # back, or user_state ends up pointing at jobs that no longer exist.
+    carried = S.carry_forward_marked(conn, cfg.db_path)
+    conn.close()
+
+    db = Path(cfg.db_path)
+    if db.exists():
+        backup = db.with_name(f"{db.name}.bak-{time.strftime('%Y%m%d-%H%M%S')}")
+        try:
+            db.replace(backup)
+        except OSError as e:
+            # Windows refuses to move a file another process still holds open.
+            # The raw errno here says nothing useful; the cause is almost always
+            # a running `serve`.
+            print(f"cannot replace {db}: {e}. Something is holding the corpus "
+                  f"open -- stop `serve` (or any open sqlite session) and "
+                  f"re-run. Nothing has been changed.", file=sys.stderr)
+            return 2
+        print(f"Previous corpus -> {backup.name}")
+        # WAL sidecars belong to the file that just moved; leaving them beside
+        # the new corpus would look like its own uncheckpointed writes.
+        for suffix in ("-wal", "-shm"):
+            side = db.with_name(db.name + suffix)
+            if side.exists():
+                side.unlink()
+    shutil.move(str(incoming), str(db))
+    print(f"Synced. {n} mark(s) carried over, "
+          f"{carried} marked job(s) preserved from the previous corpus.")
+    return 0
+
+
+def cmd_export(args, cfg: Config) -> int:
+    """Write a PUBLISHABLE copy of the corpus: no user marks.
+
+    The hosted deployment is a public URL. It serves third-party job listings;
+    shortlist/applied/hidden are the user's own and stay on their machine. The
+    daily workflow publishes this output, never jobs.db itself.
+    """
+    out = Path(args.out)
+    src = Path(cfg.db_path)
+    if not src.exists():
+        print(f"no corpus at {src}", file=sys.stderr)
+        return 2
+
+    # WAL mode means a plain copy can miss rows still sitting in jobs.db-wal.
+    conn = S.connect(src)
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    conn.close()
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, out)
+
+    pub = S.connect(out)
+    n = S.clear_user_state(pub)
+    # Commit BEFORE checkpointing or vacuuming: the DELETE holds a write
+    # transaction, and both fail inside one with "database table is locked".
+    pub.commit()
+    # SQLite does not hand deleted pages back to the OS, so a pruned corpus is
+    # exactly as large as an unpruned one until this runs. On the real corpus
+    # this was the difference between 59.7 MB and 46.0 MB -- the whole reason
+    # pruning keeps the published file under Vercel's 250 MB bundle limit.
+    pub.execute("VACUUM")
+    pub.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    pub.close()
+    for suffix in ("-wal", "-shm"):
+        side = out.with_name(out.name + suffix)
+        if side.exists():
+            side.unlink()
+
+    print(f"Exported {out} ({out.stat().st_size} bytes), {n} mark(s) stripped.")
+    return 0
+
+
 def cmd_serve(args, cfg: Config) -> int:
     import uvicorn
 
@@ -395,6 +504,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--sources", default=None,
                    help="comma-separated; default = all enabled non-wellfound sources")
     p.set_defaults(fn=cmd_ingest)
+
+    p = sub.add_parser("sync", help="adopt a downloaded corpus, keeping local marks")
+    p.add_argument("incoming", help="path to the downloaded jobs.db")
+    p.add_argument("--apply", action="store_true",
+                   help="actually swap it in; without this it only reports")
+    p.set_defaults(fn=cmd_sync)
+
+    p = sub.add_parser("export", help="write a publishable corpus with no user marks")
+    p.add_argument("--out", required=True, help="destination path")
+    p.set_defaults(fn=cmd_export)
 
     p = sub.add_parser("prune", help="remove jobs older than the age cutoff")
     p.add_argument("--apply", action="store_true",

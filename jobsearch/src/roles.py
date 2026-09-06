@@ -142,6 +142,26 @@ def fetch_role(
     return out
 
 
+def progress_line(d: dict) -> str:
+    """One line per fetch event.
+
+    Shared by `cli.cmd_fetch` and the web fetch thread on purpose: a run started
+    from the UI must read exactly like `python -m src.cli fetch` in the terminal,
+    so there is one format to learn and one place it can drift.
+    """
+    where = ""
+    if d.get("company"):
+        where = f" {d['company']}"
+    if d.get("unit_total"):
+        where += f" [{d['unit']}/{d['unit_total']}]"
+    if d.get("resolved") is False:
+        where += " (no board)"
+    return (f"    {d.get('source','?'):10} p{d.get('page','?'):<3}"
+            f" got={d.get('jobs','?'):<4} kept={d.get('kept','?'):<5}"
+            f" off-role={d.get('filtered_out',0):<4}"
+            f" stale={d.get('stale_skipped',0)}{where}")
+
+
 def _expand_ats(fetcher, conn, cfg, role: str, provider: str,
                 keywords: list[str], cutoff: int | None,
                 on_event) -> dict[str, Any]:
@@ -158,9 +178,21 @@ def _expand_ats(fetcher, conn, cfg, role: str, provider: str,
     companies = ATS.companies_for_role(conn, role, provider)
     seen = new = stale = filtered = resolved = 0
 
-    for co in companies:
+    total = len(companies)
+    for i, co in enumerate(companies, start=1):
         rec = ATS.resolve(fetcher, conn, co["company_slug"], co["company"], provider)
+        # An unresolved company is NOT free: resolve() probes up to six token
+        # candidates at 3-5s each, so this branch costs ~30s. Reporting only the
+        # resolved ones left the UI frozen through the expensive half and made a
+        # working crawl look hung. Every company reports; `resolved` says which
+        # kind of work it was.
         if not rec.get("resolved"):
+            if on_event:
+                on_event({"source": provider, "page": resolved,
+                          "jobs": 0, "kept": seen,
+                          "stale_skipped": 0, "filtered_out": 0,
+                          "company": co["company_slug"], "resolved": False,
+                          "unit": i, "unit_total": total})
             continue
         resolved += 1
         r = mod.expand_company(
@@ -173,7 +205,8 @@ def _expand_ats(fetcher, conn, cfg, role: str, provider: str,
                       "jobs": r.get("claimed") or 0, "kept": seen,
                       "stale_skipped": r["stale_skipped"],
                       "filtered_out": r["filtered_out"],
-                      "company": co["company_slug"]})
+                      "company": co["company_slug"], "resolved": True,
+                      "unit": i, "unit_total": total})
 
     return {"source": provider, "role": role, "filter_mode": "expand",
             "seen": seen, "new": new, "stale_skipped": stale,

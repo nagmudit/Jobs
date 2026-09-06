@@ -49,6 +49,7 @@ probe module.
 | `jobsearch/src/sources/` | One module per platform: core view + ingester |
 | `jobsearch/src/web/` | FastAPI app + one static HTML page, no build step |
 | `jobsearch/tests/` | Offline tests against synthetic fixtures |
+| `api/`, `vercel.json`, `scripts/` | The hosted read-only deployment. See `docs/engineering/deployment.md` |
 | `jobsearch/targets.yaml` | Roles, locations, conduct settings — **all** crawl config |
 | `wellfound-probe/` | Frozen research. Read `REPORT.md`, don't extend the code |
 | `quality/test-manifest.yaml` | What matters vs. what protects it |
@@ -67,6 +68,8 @@ Run from `jobsearch/` unless noted. Full list in `docs/engineering/commands.md`.
 | Serve | `python -m src.cli serve` |
 | Stats | `python -m src.cli stats` |
 | Prune old jobs | `python -m src.cli prune` (add `--apply` to delete) |
+| Adopt a downloaded corpus, keeping your marks | `python -m src.cli sync <file.db> --apply` |
+| Write a publishable copy (no user marks) | `python -m src.cli export --out corpus.db` |
 | Re-apply the role filter to old rows | `python -m src.cli reconcile` (add `--apply`) |
 
 A cold `fetch` across all seven sources is ~1,150 requests / 75-95 min. Run it in the
@@ -95,7 +98,8 @@ for everyone using it.
   response. A non-`None` mitigation or a 403/429 raises `MitigationDetected` and stops
   the crawl. Never retry through it, never add a backoff-and-continue path.
 - All network access goes through `Fetcher.get`. Adding a second path out to the
-  network bypasses every rule above.
+  network bypasses every rule above. There are **no exemptions** — `src/cli.py sync`
+  takes a downloaded file path rather than fetching it, precisely so this stays true.
 - **Listings expire from the cache; a mitigation never does.** Search pages, feeds and
   ATS boards pass `max_age=fetcher.listing_ttl` (`cache_ttl_hours`, default 6); detail
   pages pass none. A cached 403/429/503 or `cf-mitigated` is **sticky forever** — aging

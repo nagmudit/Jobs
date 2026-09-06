@@ -241,6 +241,61 @@ journeys:
       slugs would crawl unvalidated paths.
     release_blocking: true
 
+  - id: CJ-053
+    name: A running fetch is distinguishable from a hung one
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      A cold all-sources fetch is ~180 minutes and the only signal it was alive
+      was a disabled button. _expand_ats skipped the on_event for a company that
+      failed to resolve, but resolve() probes up to six token candidates at 3-5s
+      each -- so the expensive half of the run reported nothing and a working
+      crawl was indistinguishable from a deadlock. Without a heartbeat the user
+      either kills a healthy run or waits hours on a dead one.
+    release_blocking: false
+
+  - id: CJ-054
+    name: The hosted app serves read-only and never exposes a crawl trigger
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: user
+    blast_radius: >
+      The hosted UI is a public URL. /api/crawl, /api/fetch, /api/ingest and
+      /api/enrich were written for localhost and have no authentication -- left
+      registered they are an internet-reachable trigger for crawling third-party
+      sites from the user's identity, with concurrency 1 broken by whoever else
+      calls them. They must be absent, not merely refusing.
+    release_blocking: true
+
+  - id: CJ-055
+    name: A corpus refresh keeps local marks; the published copy carries none
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      Two failures, opposite directions. Adopting a freshly downloaded corpus
+      REPLACES the local file, so without a merge every applied and shortlisted
+      mark is silently destroyed -- the same invariant prune_stale protects.
+      And publishing jobs.db directly would push those marks to a public URL;
+      the published copy must be third-party listings and nothing personal.
+    release_blocking: false
+
+  - id: CJ-056
+    name: The published corpus is pruned and compacted without losing marked jobs
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      The corpus grows daily against a 250 MB serverless bundle limit, so the
+      workflow prunes past the age cutoff. Two ways that goes wrong. SQLite does
+      not return deleted pages to the OS, so a prune without VACUUM reclaims
+      nothing and the limit is hit anyway -- measured, 59.7 MB before and after
+      deleting 1,883 of 6,266 jobs. And the published corpus carries no marks, so
+      its prune cannot spare a job the user applied to; adopting it would delete
+      that listing and leave the user_state row pointing at nothing.
+    release_blocking: false
+
   - id: CJ-023
     name: Age cutoff drops stale jobs at ingest, keeps unknown-age jobs
     capability: CAP-STORE
@@ -522,6 +577,21 @@ journeys:
       MILLISECONDS - read as seconds every posting is permanently fresh. Its
       404 body is valid JSON, so a JSON-only check reads an error as a board.
     release_blocking: false
+
+  - id: CJ-052
+    name: connect() is safe to call concurrently and repeatedly
+    capability: CAP-STORE
+    priority: P0
+    facing: user
+    blast_radius: >
+      Views belong to the database file, not the connection. connect() dropped
+      and recreated both on every call, and the web app opens a connection per
+      request across FastAPI's threadpool while the UI fires /api/jobs and
+      /api/facets in parallel -- so page load 500'd with "view jobs_core
+      already exists" (16 of 20 concurrent /api/facets, measured). The quiet
+      half is worse: one connection could DROP `jobs` while another was
+      mid-query against it.
+    release_blocking: true
 
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
@@ -814,6 +884,30 @@ tests:
     merge_blocking: true
     owner: mudit
 
+  - id: STORE-015
+    name: Concurrent and repeated connect(); views rebuilt only when stale
+    journey: CJ-052
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_store_concurrency.py
+    command: python -m pytest tests/test_store_concurrency.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-016
+    name: prune spares marked jobs; export vacuums; sync carries pruned marks back
+    journey: CJ-056
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_age_cutoff.py
+    command: python -m pytest tests/test_age_cutoff.py tests/test_hosted.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   - id: STORE-011
     name: Workable per-location collapse, UTC end-of-day dates, view/ingest parity
     journey: CJ-044
@@ -918,6 +1012,42 @@ tests:
     status: implemented
     location: jobsearch/tests/test_roles.py
     command: python -m pytest tests/test_roles.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-006
+    name: Every company reports progress; heartbeat beats on every response
+    journey: CJ-053
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_fetch_progress.py
+    command: python -m pytest tests/test_fetch_progress.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-011
+    name: Hosted read-only app registers no crawl routes
+    journey: CJ-054
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_hosted.py
+    command: python -m pytest tests/test_hosted.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: FILTER-007
+    name: sync preserves local marks; export strips them from the published copy
+    journey: CJ-055
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_hosted.py
+    command: python -m pytest tests/test_hosted.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
@@ -1298,6 +1428,11 @@ known_gaps:
       existing database broke with "no such column: stale_skipped" because
       CREATE TABLE IF NOT EXISTS does not alter an existing table. A test would
       create a pre-migration schema and assert the column arrives.
+      Narrowed 2026-09-06 by STORE-015: the ORDERING is now covered (a database
+      that is view-current but migration-pending still migrates, which is what
+      the drop-views-before-migrate rule protects). The migrations' own
+      CONTENT -- each ADD_COLUMNS entry and the v1->v2 rewrite -- remains
+      untested, so this stays open.
     status: open
     first_seen: 2026-09-04
     owner: mudit
