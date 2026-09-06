@@ -1,4 +1,0 @@
-# The corpus is third-party job listings plus this user's own shortlist and
-# applied marks. The URL is public by choice; being indexed is not.
-User-agent: *
-Disallow: /

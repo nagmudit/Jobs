@@ -58,8 +58,18 @@ module that can reach the network (AGENTS.md, no exemptions).
 
 ### Refreshing your local copy
 
+The repo is public, so the corpus is a plain URL — no `gh`, no auth. One command per
+line, because Windows PowerShell 5.1 has no `&&`.
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/<owner>/<repo>/releases/download/corpus/corpus.db" -OutFile "$env:TEMP\corpus.db"
+cd jobsearch
+python -m src.cli sync "$env:TEMP\corpus.db" --apply
+```
+
 ```bash
-gh release download corpus --pattern corpus.db --dir /tmp --clobber
+curl -fL -o /tmp/corpus.db https://github.com/<owner>/<repo>/releases/download/corpus/corpus.db
+cd jobsearch
 python -m src.cli sync /tmp/corpus.db --apply
 ```
 
@@ -81,21 +91,60 @@ partway through the month.
 strips your marks and checkpoints the WAL, so nothing personal is published and no rows
 are left behind in `jobs.db-wal`:
 
-```bash
-cd jobsearch && python -m src.cli export --out ../corpus.db && cd ..
+```
+cd jobsearch
+python -m src.cli export --out ../corpus.db
+cd ..
+```
+
+`cd` has to happen because `python -m src.cli` resolves `src` relative to the working
+directory, and one command per line because Windows PowerShell 5.1 rejects `&&` as a
+statement separator.
+
+Then publish `corpus.db` under a release tagged `corpus`. **No `gh` required** — the
+web UI works: Releases → *Draft a new release* → tag `corpus` → attach the file →
+*Publish*. With the CLI installed it is:
+
+```
 gh release create corpus --title Corpus --notes "Rebuilt automatically."
 gh release upload corpus corpus.db --clobber
 ```
 
-**4. Vercel project**, environment variables:
+The workflow itself uses `gh`, which is preinstalled on GitHub's runners; it is only a
+local convenience.
 
-| Variable | Value |
+**4. Vercel project.** No environment variables are required. The build derives the
+corpus URL from the repository Vercel is building
+(`VERCEL_GIT_REPO_OWNER`/`VERCEL_GIT_REPO_SLUG`), and `api/index.py` defaults
+`JOBSEARCH_READONLY` to `1`.
+
+Optional overrides:
+
+| Variable | When you need it |
 |---|---|
-| `CORPUS_URL` | `https://github.com/<owner>/<repo>/releases/download/corpus/corpus.db` |
-| `JOBSEARCH_READONLY` | `1` (also the default in `api/index.py`) |
+| `CORPUS_URL` | A private repo, a corpus hosted elsewhere, or a non-git deploy |
+| `CORPUS_TAG` / `CORPUS_ASSET` | A release tag or asset name other than `corpus` / `corpus.db` |
 
-`vercel.json` wires the build command, the catch-all rewrite to `api/index.py`, and
-`X-Robots-Tag: noindex`.
+**Order matters.** The build downloads the release, so step 3 has to happen before the
+first deploy — otherwise the build fails with a 404 and tells you to seed it. That is
+deliberate: Vercel keeps the previous deployment live when a build fails, which is
+better than serving an empty corpus.
+
+`vercel.json` carries only the build command and the function config. Routing is left
+to Vercel's own FastAPI detection, and `robots.txt` plus `X-Robots-Tag: noindex` are
+served by the app itself (`web/app.py`) rather than by a static file and a rewrite —
+one routing path instead of two, and testable locally.
+
+`.python-version` pins 3.12. Without it Vercel picks a default and says so in the build
+log; an unpinned runtime is a silent variable in a deploy you cannot reproduce.
+
+The root `requirements.txt` is not `jobsearch/requirements.txt`. It **must** include
+`beautifulsoup4`: `store.connect()` calls `sources.registry()`, which eagerly imports
+all seven source modules, and `sources/ashby.py` imports bs4 at module level — so
+omitting it fails at import, after a green build. `lxml` is deliberately excluded; only
+the crawl path uses it and the read-only app cannot reach that path. Both facts were
+verified by building a clean virtualenv from this file and running a cold start against
+the real corpus.
 
 **5. Run it once by hand** — Actions → Daily fetch → Run workflow — rather than waiting
 for 14:00.

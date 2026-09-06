@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from .. import store as S
@@ -38,6 +38,10 @@ from ..fetch import Fetcher
 from ..roles import ATS_PROVIDERS
 
 STATIC = Path(__file__).resolve().parent / "static"
+
+ROBOTS_TXT = """User-agent: *
+Disallow: /
+"""
 
 SORTS = {
     "posted": "posted_ts DESC",           # newest first -- the default
@@ -423,6 +427,25 @@ def create_app(cfg: Config) -> FastAPI:
         if conn is None:
             conn = local.conn = S.connect(cfg.db_path)
         return conn
+
+    # Serve the crawler directives from the app rather than from a static file
+    # plus a rewrite. One routing path is one fewer thing to misconfigure, and
+    # unlike a vercel.json rule this is testable locally.
+    #
+    # Unconditional: locally it is served to nobody on 127.0.0.1, and making it
+    # conditional would mean the hosted behaviour is the untested branch.
+    @app.middleware("http")
+    async def _noindex(request, call_next):
+        resp = await call_next(request)
+        resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        return resp
+
+    @app.get("/robots.txt", response_class=PlainTextResponse)
+    def robots():
+        """The hosted corpus is third-party job listings. The URL is public by
+        choice; being indexed is not."""
+        return ROBOTS_TXT
 
     @app.get("/")
     def index():

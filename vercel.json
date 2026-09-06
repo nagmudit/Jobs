@@ -1,23 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+
   "buildCommand": "bash scripts/vercel-build.sh",
-  "outputDirectory": "public",
+
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
       "includeFiles": "jobsearch/**"
     }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "Referrer-Policy", "value": "no-referrer" }
-      ]
-    }
-  ]
+  }
 }

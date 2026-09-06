@@ -1,11 +1,23 @@
 # Runtime dependencies for the Vercel deployment ONLY.
 #
-# Deliberately not jobsearch/requirements.txt: the hosted app never crawls and
-# never runs the suite, so it needs neither pytest nor the parsing stack that
-# only the ingesters use. Vercel installs from the project root.
+# Not jobsearch/requirements.txt: the hosted app never crawls and never runs the
+# suite, so pytest and uvicorn are omitted.
 #
-# httpx is required transitively: web/app.py imports Fetcher, and src/fetch.py
+# beautifulsoup4 IS required even though the hosted app never parses anything.
+# `store.connect()` calls `sources.registry()`, which eagerly imports all seven
+# source modules, and `sources/ashby.py` imports bs4 at module level. Leaving it
+# out fails at IMPORT, not at first use -- verified in a clean venv.
+#
+# lxml is deliberately NOT here. It is a large compiled wheel and only
+# `parse.py` uses it, via BeautifulSoup(html, "lxml") on the crawl path, which
+# the read-only app cannot reach -- its crawl routes are never registered. A
+# cold start was verified without it. If a parsing path is ever added to the
+# hosted app it will fail loudly with "couldn't find a tree builder", not
+# silently.
+#
+# httpx is required the same way: web/app.py imports Fetcher, and src/fetch.py
 # imports httpx at module level. The hosted app never calls it.
 fastapi
 httpx
 pyyaml
+beautifulsoup4

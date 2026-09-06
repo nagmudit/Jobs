@@ -358,3 +358,22 @@ def test_sync_reports_a_locked_corpus_instead_of_an_errno(tmp_path, monkeypatch)
 
     assert cli.main(["sync", str(incoming), "--apply"]) == 2
     assert local.exists(), "the corpus was disturbed despite the failure"
+
+
+def test_hosted_app_serves_its_own_robots_and_noindex(tmp_path, monkeypatch):
+    """Served by the app, not by a static file plus a vercel.json rewrite.
+
+    One routing path is one fewer thing to misconfigure -- and unlike a
+    vercel.json rule, this is testable.
+    """
+    local = tmp_path / "jobs.db"
+    _stale_corpus(local, n_stale=0, n_fresh=1).close()
+    monkeypatch.setenv("JOBSEARCH_DB", str(local))
+    monkeypatch.setenv("JOBSEARCH_READONLY", "1")
+
+    client = TestClient(create_app(Config.load()))
+    r = client.get("/robots.txt")
+    assert r.status_code == 200
+    assert "Disallow: /" in r.text
+    assert r.headers["content-type"].startswith("text/plain")
+    assert client.get("/api/meta").headers["x-robots-tag"] == "noindex, nofollow"
