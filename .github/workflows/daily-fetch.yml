@@ -1,0 +1,132 @@
+# The daily corpus refresh.
+#
+# This is the only workflow in this repo that touches the network, so the
+# conduct rules in AGENTS.md apply to it exactly as they apply to a local run:
+# 3-5s between requests, concurrency 1, robots enforced, halt on the first
+# Cloudflare mitigation. None of that is configured here -- it lives in
+# src/fetch.py and src/config.py and cannot be overridden from a workflow.
+#
+# What IS this file's responsibility is the one guarantee a workflow can break:
+# two overlapping runs. See `concurrency` below.
+#
+# Free on a public repository (unlimited Actions minutes). On a private repo a
+# ~180 min daily run is ~5,400 min/month against a 2,000 min allowance and will
+# stop partway through the month.
+
+name: Daily fetch
+
+on:
+  schedule:
+    # 08:30 UTC == 14:00 IST. GitHub cron has no timezone, and scheduled runs
+    # are best-effort -- 5-20 min late under load is normal.
+    - cron: "30 8 * * *"
+  workflow_dispatch:
+    inputs:
+      roles:
+        description: "Comma-separated role slugs (blank = all in targets.yaml)"
+        required: false
+        default: ""
+
+# Concurrency 1 to a third party is a conduct rule, not a preference. Two
+# overlapping crawls breach the rate limit no matter how polite each one is on
+# its own, so a run in flight is never cancelled and never joined.
+concurrency:
+  group: daily-fetch
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # publish the corpus as a release asset
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300     # a cold all-sources sweep is ~180 min at 3-5s spacing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: jobsearch/requirements.txt
+
+      - name: Install
+        working-directory: jobsearch
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Yesterday's corpus. Without it every run starts cold, re-fetching
+      # everything and losing the dedupe that makes re-runs cheap. The published
+      # asset carries no user marks, which is why nothing is merged back here.
+      - name: Restore the previous corpus
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download corpus --pattern corpus.db --dir /tmp --clobber; then
+            mv /tmp/corpus.db jobsearch/jobs.db
+            echo "Restored $(wc -c < jobsearch/jobs.db) bytes."
+          else
+            echo "No previous corpus -- starting cold."
+          fi
+
+      # Exit 2 means a Cloudflare mitigation halted the crawl -- the conduct
+      # guard working. The corpus is still published below so the site serves a
+      # partial day, but the step fails so GitHub emails about it.
+      #
+      # DO NOT add a retry here. Retrying through a mitigation is the
+      # backoff-and-continue path the design forbids (AGENTS.md, ADR-011).
+      - name: Fetch
+        id: fetch
+        working-directory: jobsearch
+        run: python -m src.cli fetch ${{ inputs.roles && format('--roles {0}', inputs.roles) || '' }}
+
+      # Drop jobs past the age cutoff (targets.yaml max_age_days, 30). The
+      # corpus grows every day and Vercel's serverless bundle limit is 250 MB.
+      #
+      # Automatic here, and ONLY here: ADR-006 says existing corpora are not
+      # touched automatically, and its safety net is that cache/ makes a prune
+      # re-ingestable with no network. A runner has no cache, so this IS
+      # irreversible -- which is acceptable for a derived published artifact and
+      # would not be for the user's local corpus. See the ADR-006 addendum.
+      - name: Prune jobs past the age cutoff
+        if: always() && hashFiles('jobsearch/jobs.db') != ''
+        working-directory: jobsearch
+        run: |
+          python -m src.cli prune            # report first, so the log shows both
+          python -m src.cli prune --apply
+
+      # `export` writes a PUBLISHABLE copy: user_state stripped, VACUUMed, WAL
+      # checkpointed. The VACUUM is what actually shrinks the file -- SQLite does
+      # not hand deleted pages back to the OS, so the prune above reclaims
+      # nothing on its own. The published corpus is third-party job listings and
+      # nothing personal. Publishing jobsearch/jobs.db directly would leak any
+      # shortlist/applied marks that a local `sync` had carried into it.
+      - name: Export a publishable corpus
+        if: always() && hashFiles('jobsearch/jobs.db') != ''
+        working-directory: jobsearch
+        run: python -m src.cli export --out ../corpus.db
+
+      - name: Publish the corpus
+        if: always() && hashFiles('corpus.db') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create corpus --title "Corpus" --notes "Rebuilt automatically." 2>/dev/null || true
+          gh release upload corpus corpus.db --clobber
+          echo "Published $(wc -c < corpus.db) bytes."
+
+      # Vercel rebuilds, pulling the asset above into the bundle.
+      - name: Trigger the Vercel deploy
+        if: always() && steps.fetch.outcome == 'success'
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK not set -- skipping deploy." >&2
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Deploy triggered."

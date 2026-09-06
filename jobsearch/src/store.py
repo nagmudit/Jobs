@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import threading
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -183,9 +184,7 @@ ADD_COLUMNS: list[tuple[str, str, str]] = [
 
 # The outer view. Everything source-specific lives in jobs_core; this layer adds
 # provenance, on-demand detail, user state, and the derived scalars.
-OUTER_VIEW = """
-DROP VIEW IF EXISTS jobs;
-CREATE VIEW jobs AS
+CREATE_OUTER_VIEW = """CREATE VIEW jobs AS
 -- The outer layer exists only to add the cross-currency sort keys, which have
 -- to be computed from `salary_min`/`salary_currency` after those are themselves
 -- derived. Approximate and for ORDERING ONLY -- the native figure and the raw
@@ -251,8 +250,7 @@ FROM jobs_core k
 LEFT JOIN job_detail  d ON d.source_job_id = k.source_job_id
 LEFT JOIN user_state  u ON u.source_job_id = k.source_job_id
 LEFT JOIN prov        p ON p.source_job_id = k.source_job_id
-);
-"""
+)"""
 
 
 def _user_version(conn) -> int:
@@ -318,14 +316,58 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
     return applied
 
 
-def connect(path: Path | str) -> sqlite3.Connection:
-    from . import derive, sources
+# Serialises the schema build. Views and tables are properties of the DATABASE
+# FILE, not of a connection, so two connections that both rebuild them race --
+# and the web app opens a connection per request across FastAPI's threadpool.
+# The lock covers every writer in this process; the staleness check below is
+# what keeps the other processes (a CLI run alongside `serve`) out of the way.
+_SCHEMA_LOCK = threading.Lock()
 
-    conn = sqlite3.connect(str(path))
-    conn.row_factory = sqlite3.Row
-    # Registered BEFORE the views are created -- the views call them.
-    derive.register(conn)
-    conn.executescript(SCHEMA)
+
+def _norm(sql: str) -> str:
+    """Compare view definitions by shape, not by formatting.
+
+    SQLite stores the CREATE text as given, minus the trailing semicolon, so
+    normalising whitespace is enough to tell "same view" from "drifted view".
+    """
+    return " ".join(sql.split()).rstrip(";")
+
+
+def _stored_view(conn: sqlite3.Connection, name: str) -> str | None:
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='view' AND name=?",
+        (name,)).fetchone()
+    return _norm(row[0]) if row and row[0] else None
+
+
+def _views_stale(conn: sqlite3.Connection, core_sql: str) -> bool:
+    """True when either view is missing or no longer matches the registry.
+
+    A source whose CORE_VIEW_SQL changed leaves a view that still builds and
+    still queries -- it just answers with the old shape. Comparing against
+    sqlite_master is what turns that into a rebuild instead of a silent stale
+    read.
+    """
+    return (_stored_view(conn, "jobs_core") != _norm(core_sql)
+            or _stored_view(conn, "jobs") != _norm(CREATE_OUTER_VIEW))
+
+
+def _needs_migration(conn: sqlite3.Connection) -> bool:
+    """Ask migrate()'s own questions without doing its work.
+
+    A database can be view-current and migration-pending at once, and the
+    ordering below depends on knowing that before the views go up.
+    """
+    if _user_version(conn) < SCHEMA_VERSION:
+        return True
+    for table, column, _decl in ADD_COLUMNS:
+        cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if cols and column not in cols:
+            return True
+    return False
+
+
+def _build_schema(conn: sqlite3.Connection, core_sql: str) -> None:
     # Views must go BEFORE migrate(): a migration that rebuilds a table cannot
     # DROP it while a view still references it ("error in view jobs: no such
     # table"). They are recreated from the source registry below.
@@ -333,10 +375,36 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.execute("DROP VIEW IF EXISTS jobs_core")
     migrate(conn)
     conn.executescript(INDEXES)
-    conn.execute(sources.core_view_sql())
-    sources.assert_core_views(conn)
-    conn.executescript(OUTER_VIEW)
+    conn.execute(core_sql)
+    conn.execute(CREATE_OUTER_VIEW)
     conn.commit()
+
+
+def connect(path: Path | str) -> sqlite3.Connection:
+    """Open a connection and bring the schema up to date if it is not already.
+
+    Safe to call concurrently and repeatedly. The steady-state path issues no
+    DDL at all: it reads sqlite_master, finds both views current, and returns.
+    That matters for more than speed -- unconditionally dropping the views also
+    meant one connection could drop `jobs` out from under another that was
+    mid-query against it.
+    """
+    from . import derive, sources
+
+    conn = sqlite3.connect(str(path))
+    conn.row_factory = sqlite3.Row
+    # Registered BEFORE the views are created -- the views call them.
+    derive.register(conn)
+
+    core_sql = sources.core_view_sql()
+    with _SCHEMA_LOCK:
+        conn.executescript(SCHEMA)  # idempotent, but still a writer
+        if _views_stale(conn, core_sql) or _needs_migration(conn):
+            _build_schema(conn, core_sql)
+
+    # Never conditional: the positional CORE_COLUMNS contract is checked on
+    # every connect (AGENTS.md). It is read-only and touches no DDL.
+    sources.assert_core_views(conn)
     return conn
 
 
@@ -451,20 +519,128 @@ def rebuild_locations(conn) -> int:
     return conn.execute("SELECT COUNT(*) FROM job_location").fetchone()[0]
 
 
-def prune_stale(conn, max_age_days: int, dry_run: bool = True) -> dict[str, Any]:
-    """Remove jobs older than the cutoff. Dry-run by default; never automatic.
+def export_user_state(conn) -> list[dict[str, Any]]:
+    """Every mark the user has made. The one user-owned table in the corpus.
 
-    Recoverable without network: the raw pages stay in cache/, so a wider cutoff
-    can be re-ingested with `crawl --no-resume` and no requests.
-
-    user_state is deliberately NOT deleted -- a job you marked applied should
-    keep that mark if it returns on a later crawl.
+    Kept separate from `job_raw` on purpose (see the module docstring), which is
+    what makes it portable across a corpus that gets replaced wholesale.
     """
+    return [dict(r) for r in conn.execute(
+        "SELECT source_job_id, status, note FROM user_state")]
+
+
+def import_user_state(conn, rows: list[dict[str, Any]]) -> int:
+    """Write marks into a corpus. Goes through `set_status` so that stays the
+    single writer of user_state."""
+    n = 0
+    for r in rows or []:
+        if not r.get("source_job_id") or not r.get("status"):
+            continue
+        set_status(conn, r["source_job_id"], r["status"], r.get("note"))
+        n += 1
+    return n
+
+
+def clear_user_state(conn) -> int:
+    """Drop every mark. Used only when producing a PUBLISHABLE copy -- the
+    hosted corpus is third-party job listings and nothing personal."""
+    n = conn.execute("SELECT COUNT(*) FROM user_state").fetchone()[0]
+    conn.execute("DELETE FROM user_state")
+    return n
+
+
+# Marks that mean "I invested in this", as opposed to "stop showing me this".
+# A pruned `hidden` row costs nothing -- user_state remembers the mark whether or
+# not the job exists -- but a pruned `applied` row destroys the only record of
+# what you applied to.
+INVESTED_STATUSES = ("applied", "shortlisted")
+
+
+JOB_TABLES = ("job_raw", "job_provenance", "job_detail", "job_location")
+
+
+def carry_forward_marked(conn, previous_db: Path | str) -> int:
+    """Bring back the rows behind marks that a replacement corpus has pruned.
+
+    The published corpus is pruned by age and carries no marks, so it cannot know
+    that one of the jobs it dropped is one you applied to. Adopting it blind would
+    leave `user_state` pointing at a job that no longer exists -- the mark
+    survives, the record of what you applied to does not.
+
+    Only INVESTED_STATUSES travel. Carrying everything would mean the local corpus
+    never shrinks, which defeats the prune.
+    """
+    prev = Path(previous_db)
+    if not prev.exists():
+        return 0
+
+    conn.execute("ATTACH DATABASE ? AS prev", (str(prev),))
+    try:
+        placeholders = ",".join("?" * len(INVESTED_STATUSES))
+        ids = [r[0] for r in conn.execute(
+            f"SELECT source_job_id FROM prev.user_state "
+            f"WHERE status IN ({placeholders})", INVESTED_STATUSES)]
+        missing = [i for i in ids if not conn.execute(
+            "SELECT 1 FROM main.job_raw WHERE source_job_id=?", (i,)).fetchone()]
+        if not missing:
+            return 0
+
+        marks = ",".join("?" * len(missing))
+        for table in JOB_TABLES:
+            # Columns named explicitly rather than SELECT *. Both databases are at
+            # the same SCHEMA_VERSION, but a positional insert is precisely the
+            # silent column shift CORE_COLUMNS exists to prevent.
+            cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})")]
+            if not cols:
+                continue
+            names = ",".join(cols)
+            conn.execute(
+                f"INSERT OR IGNORE INTO main.{table} ({names}) "
+                f"SELECT {names} FROM prev.{table} WHERE source_job_id IN ({marks})",
+                missing)
+
+        # The companies those jobs belong to, or the view joins to nothing.
+        ccols = [r["name"] for r in conn.execute("PRAGMA table_info(company_raw)")]
+        cnames = ",".join(ccols)
+        conn.execute(
+            f"INSERT OR IGNORE INTO main.company_raw ({cnames}) "
+            f"SELECT {cnames} FROM prev.company_raw WHERE (source, company_slug) IN "
+            f"(SELECT source, company_slug FROM main.job_raw "
+            f" WHERE source_job_id IN ({marks}))", missing)
+        conn.commit()
+        return len(missing)
+    finally:
+        conn.execute("DETACH DATABASE prev")
+
+
+def prune_stale(conn, max_age_days: int, dry_run: bool = True,
+                keep_marked: bool = True) -> dict[str, Any]:
+    """Remove jobs older than the cutoff. Dry-run by default.
+
+    Locally recoverable without network: the raw pages stay in cache/, so a wider
+    cutoff can be re-ingested with `crawl --no-resume` and no requests. That does
+    NOT hold in CI, which starts with no cache -- see the ADR-006 addendum, which
+    is why the daily workflow prunes only the published corpus.
+
+    `keep_marked` spares jobs you applied to or shortlisted. Their listing is the
+    record of what you applied to, and `days_old` would otherwise delete it out
+    from under you a month later. A no-op on the published corpus, which carries
+    no marks at all (`cli.cmd_export`).
+
+    user_state is never deleted either way -- a job you marked applied keeps that
+    mark if it returns on a later crawl.
+    """
+    where = "days_old > ?"
+    params: list[Any] = [max_age_days]
+    if keep_marked:
+        where += (" AND source_job_id NOT IN (SELECT source_job_id FROM user_state"
+                  " WHERE status IN (%s))" % ",".join("?" * len(INVESTED_STATUSES)))
+        params += list(INVESTED_STATUSES)
     ids = [r[0] for r in conn.execute(
-        "SELECT source_job_id FROM jobs WHERE days_old > ?", (max_age_days,))]
+        f"SELECT source_job_id FROM jobs WHERE {where}", params)]
     out = {"max_age_days": max_age_days, "would_remove": len(ids),
            "total": conn.execute("SELECT COUNT(*) FROM job_raw").fetchone()[0],
-           "dry_run": dry_run, "removed": 0}
+           "dry_run": dry_run, "removed": 0, "kept_marked": keep_marked}
     if dry_run or not ids:
         return out
     for t in ("job_raw", "job_provenance", "job_detail", "job_location"):

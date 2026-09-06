@@ -1,0 +1,11 @@
+# Runtime dependencies for the Vercel deployment ONLY.
+#
+# Deliberately not jobsearch/requirements.txt: the hosted app never crawls and
+# never runs the suite, so it needs neither pytest nor the parsing stack that
+# only the ingesters use. Vercel installs from the project root.
+#
+# httpx is required transitively: web/app.py imports Fetcher, and src/fetch.py
+# imports httpx at module level. The hosted app never calls it.
+fastapi
+httpx
+pyyaml

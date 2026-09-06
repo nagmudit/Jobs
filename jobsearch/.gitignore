@@ -5,6 +5,8 @@ cache/
 jobs.db
 jobs.db-wal
 jobs.db-shm
+jobs.db.bak*
+*.bak-*
 *.log
 
 ui-*.png

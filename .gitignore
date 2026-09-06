@@ -17,6 +17,11 @@ htmlcov/
 *.db
 *.db-shm
 *.db-wal
+# `sync --apply` and the reconcile flow write jobs.db.bak-<timestamp>. Neither
+# `*.db` nor `jobs.db` matches that suffix, which is how a 32 MB
+# jobs.db.bak-before-reconcile ended up committed in 79b54a2.
+*.db.bak*
+*.bak-*
 *.log
 
 # Project-generated data

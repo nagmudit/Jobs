@@ -9,6 +9,7 @@ The repository is the source of truth. Start here, read only what your task touc
 | [`../AGENTS.md`](../AGENTS.md) | Always, first. Contract + conduct rules | current |
 | [architecture/repository-map.md](architecture/repository-map.md) | Finding where code lives, and the traps | current |
 | [engineering/commands.md](engineering/commands.md) | Running, testing, crawling, serving | current |
+| [engineering/deployment.md](engineering/deployment.md) | Running the daily fetch on an always-on box | **unverified** |
 
 ## Working on...
 
@@ -67,6 +68,18 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
   four ATS boards one provider at a time. Greenhouse and Ashby done; **Workable next**.
 - [close-conduct-test-gaps.md](plans/active/close-conduct-test-gaps.md) — the conduct
   layer is untested; this closes it and adds CI.
+
+[plans/completed/](plans/completed/) — what was done and what it left behind.
+
+- [role-fetch-across-sources.md](plans/completed/role-fetch-across-sources.md) — one
+  role-driven fetch across every source. See ADR-009.
+- [connect-concurrency.md](plans/completed/connect-concurrency.md) — `store.connect()`
+  raced itself creating views; the UI 500'd on load. Read it before adding DDL to
+  `connect()`.
+- [fetch-progress-and-schedule.md](plans/completed/fetch-progress-and-schedule.md) —
+  progress heartbeat for a running fetch, plus the unattended daily-run design.
+- [hosted-on-actions-and-vercel.md](plans/completed/hosted-on-actions-and-vercel.md) —
+  Actions crawls, Vercel serves. Read before changing `api/` or the daily workflow.
 
 ## Research
 

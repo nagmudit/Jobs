@@ -88,8 +88,8 @@ td.acts{white-space:nowrap}
 
 <main>
 <aside>
-  <h4>Roles — pick, then fetch</h4>
-  <div class="crawlbox">
+  <h4 id="fetch_head">Roles — pick, then fetch</h4>
+  <div class="crawlbox" id="fetch_panel">
     <div class="multi short" id="f-fetchroles"></div>
     <div style="margin-top:6px;font-size:11px;color:var(--dim)">fetch from:</div>
     <div class="multi short" id="f-fetchsources" style="max-height:74px"></div>
@@ -99,7 +99,12 @@ td.acts{white-space:nowrap}
       </label>
       <button id="fetch" class="primary" style="flex:2">Fetch selected</button>
     </div>
-    <div id="crawl_status" style="margin-top:6px;color:var(--dim);font-size:11px"></div>
+    <div id="crawl_status" style="margin-top:6px;color:var(--dim);font-size:11px;
+         line-height:1.5"></div>
+  </div>
+  <div id="fetch_note" hidden style="color:var(--dim);font-size:11px;line-height:1.5">
+    Read-only view. The corpus is refreshed daily at 14:00 by GitHub Actions;
+    fetch from a local checkout to crawl on demand.
   </div>
 
   <h4>Source</h4><div class="multi short" id="f-sources"></div>
@@ -383,19 +388,55 @@ $('#fetch').onclick = async () => {
     const r = await post('/api/fetch', {roles, sources: srcs});
     msg(`Fetching ${roles.length} role(s) from ${srcs.join(', ')} — about ${r.est_minutes} min. ` +
         `Rate limit is 3–5s per request and cannot be sped up.`);
-    state.polling = setInterval(pollCrawl, 2000);
-    pollCrawl();
+    pollCrawl();          // pollCrawl owns the interval, so a reload re-arms it
   } catch (e) { msg('Fetch refused: ' + (e.detail || JSON.stringify(e))); }
 };
+
+/* Durations are rendered from the SERVER's clock (`s.now`), never the
+   browser's — a skewed client would otherwise invent a hang or hide a real
+   one. */
+function fmtDur(sec) {
+  if (sec == null || !isFinite(sec)) return '–';
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 60) return sec + 's';
+  const m = Math.floor(sec / 60), h = Math.floor(m / 60);
+  return h ? `${h}h ${String(m % 60).padStart(2, '0')}m` : `${m}m ${String(sec % 60).padStart(2, '0')}s`;
+}
 
 async function pollCrawl() {
   const s = await fetch('/api/crawl/status').then(r => r.json());
   const box = $('#crawl_status');
   if (s.running) {
-    box.innerHTML = `<b style="color:var(--accent)">crawling ${esc(s.current || '')}</b>
-      · ${s.pages} pages · ${s.jobs_new} new · ${s.stale || 0} too old
-      · done: ${s.done.map(d => esc(d.role)).join(', ') || '—'}`;
+    /* The stuck-detector. Requests are spaced 3–5s and every response beats the
+       heartbeat, so a gap beyond ~15s means something is genuinely wedged
+       rather than merely slow. This is the number that answers "is it still
+       going?", which nothing on this page used to. */
+    const idle = s.last_at ? s.now - s.last_at : null;
+    const stalled = idle != null && idle > 15;
+    const where = [s.source, s.company].filter(Boolean).map(esc).join(' · ');
+    const bar = s.unit_total
+      ? `<progress value="${s.unit}" max="${s.unit_total}" style="width:100%;height:6px"></progress>`
+      : '';
+    box.innerHTML = `
+      <div style="font-size:12px"><b style="color:var(--accent)">fetching ${esc(s.current || '')}</b></div>
+      ${where ? `<div style="margin-top:2px">${where}${
+          s.unit_total ? ` <span class="pill">${s.unit}/${s.unit_total}</span>` : ''}</div>` : ''}
+      ${bar}
+      <div style="margin-top:3px">
+        ${s.requests || 0} requests${s.cached ? ` (${s.cached} cached)` : ''}
+        · <b>${s.jobs_new}</b> new · ${s.stale || 0} too old
+      </div>
+      <div style="margin-top:2px">
+        elapsed ${fmtDur(s.now - s.started_at)} ·
+        <span style="color:${stalled ? 'var(--bad)' : 'var(--good)'}">${
+          idle == null ? 'starting…' : `last activity ${fmtDur(idle)} ago`}</span>
+      </div>
+      ${stalled && s.last_url ? `<div style="margin-top:2px;color:var(--warn);word-break:break-all">
+        stalled at ${esc(s.last_url)}</div>` : ''}`;
     $('#fetch').disabled = true;
+    /* Survive a reload mid-fetch: the interval lives in the page, so a refresh
+       during a three-hour run would otherwise leave the box frozen forever. */
+    if (!state.polling) state.polling = setInterval(pollCrawl, 2000);
   } else {
     $('#fetch').disabled = false;
     if (s.error) box.innerHTML = `<b style="color:var(--bad)">halted:</b> ${esc(s.error)}`;
@@ -471,9 +512,19 @@ $('#enrich').onclick = async () => {
 async function loadMeta() {
   const m = await fetch('/api/meta').then(r => r.json());
   state.meta = m;
-  renderFetchRoles();
-  renderFetchSources();
-  if (!$('#crawl_pages').value) $('#crawl_pages').value = m.max_pages;
+  /* The hosted deployment cannot crawl -- a fetch is 75-180 minutes against
+     serverless timeouts, and the crawl routes are not registered there at all.
+     Hiding the panel keeps the UI honest rather than offering a button that
+     404s. Browsing, filtering and status all still work. */
+  if (m.readonly) {
+    $('#fetch_panel').hidden = true;
+    $('#fetch_head').textContent = 'Roles';
+    $('#fetch_note').hidden = false;
+  } else {
+    renderFetchRoles();
+    renderFetchSources();
+    if (!$('#crawl_pages').value) $('#crawl_pages').value = m.max_pages;
+  }
   $('#sort').innerHTML = m.sorts.map(s =>
     `<option ${s === state.sort ? 'selected' : ''}>${s}</option>`).join('');
   $('#c-total').textContent = m.counts.jobs;

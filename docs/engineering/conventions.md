@@ -39,6 +39,11 @@ you cannot work without; this carries the rest. **Read both before changing
 - **`CORE_COLUMNS` is positional.** UNION ALL aligns by position, not name, so a source
   view that reorders a column silently returns another column's values.
   `assert_core_views` checks this on every connect — never bypass it.
+- **`store.connect()` must stay safe to call concurrently.** It is called once per
+  web request, from FastAPI's threadpool. Views and tables are database-global, so
+  it drops and recreates them only when `sqlite_master` no longer matches the source
+  registry (or a migration is pending), and it does that under a module lock. Keep
+  new schema work inside that conditional; unconditional DDL in `connect()` races.
 - **Numeric salary only where the source states an annual figure.** Hourly and annual
   in one column sort silently wrong. Carry `salary_currency` / `salary_period`.
 - **Sort salary on `salary_usd_*`, display `salary_raw`.** Native figures are not

@@ -73,7 +73,49 @@ that saving is real).
 - Adding the column needed a real migration (`store.migrate`), since
   `CREATE TABLE IF NOT EXISTS` does not alter an existing table.
 
+## Addendum — 2026-09-06: the published corpus IS pruned automatically
+
+This amends, and does not replace, the consequence above that reads *"Existing corpora
+are not touched automatically."*
+
+**What changed.** The tool now publishes a corpus daily for a hosted read-only UI
+(`docs/engineering/deployment.md`). Vercel's serverless bundle limit is 250 MB and the
+corpus grows every day — 59.7 MB at the time of writing, with 1,883 of 6,266 jobs
+already past the cutoff. The daily workflow therefore runs `prune --apply` before
+publishing.
+
+**What is genuinely weaker.** This decision's safety argument was that a prune is
+recoverable with no network because the raw pages stay in `cache/`. **A CI runner has
+no `cache/`.** A prune there is irreversible for those rows. That is acceptable only
+because the published corpus is a *derived artifact* — the source of truth for a
+listing is the platform, and a job 30 days dead is not worth a byte of a 250 MB budget.
+
+**What is unchanged.**
+
+- The user's local corpus is still never pruned automatically. `prune` remains dry-run
+  by default and is invoked by hand.
+- Unknown-age jobs are still kept. `days_old` is NULL without a `posted_ts`, and
+  `NULL > 30` is NULL.
+- `user_state` is still never deleted.
+
+**What this required.** `prune_stale` gained `keep_marked=True`: a job marked `applied`
+or `shortlisted` is never pruned, because its listing is the only record of what the
+user applied to. `hidden` is deliberately not protected — it means "stop showing me
+this", and the mark survives in `user_state` regardless.
+
+That protects a *local* prune. The published corpus carries no marks at all (`cmd_export`
+strips them), so its prune cannot know about them — and adopting it would otherwise
+delete an applied job out from under the user. `cmd_sync` therefore calls
+`store.carry_forward_marked`, which copies those rows back from the corpus being
+replaced.
+
+**Note.** `VACUUM` is what actually reclaims the space; SQLite does not return deleted
+pages to the OS. Measured: deleting 1,883 stale jobs left the file at 59.7 MB, and
+`VACUUM` took it to 46.0 MB. `cmd_export` vacuums.
+
 ## Related
 
 `jobsearch/src/config.py::cutoff_ts` · `jobsearch/src/crawl.py::crawl_slice` ·
-`jobsearch/src/store.py::prune_stale` · `jobsearch/tests/test_age_cutoff.py` · ADR-003
+`jobsearch/src/store.py::prune_stale` · `jobsearch/src/store.py::carry_forward_marked` ·
+`jobsearch/tests/test_age_cutoff.py` · `jobsearch/tests/test_hosted.py` ·
+`docs/engineering/deployment.md` · ADR-003

@@ -7,6 +7,7 @@ is no role or location literal anywhere in the source.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,6 +17,17 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGETS_PATH = ROOT / "targets.yaml"
 DB_PATH = ROOT / "jobs.db"
 CACHE_DIR = ROOT / "cache"
+
+
+def _env_path(var: str, default: Path) -> Path:
+    """Let the corpus and cache live outside the checkout.
+
+    Needed for an unattended deploy, where the code is a git checkout that gets
+    replaced and the data is a volume that must not be. Unset means the
+    repo-root default, which is what every local run and every test uses.
+    """
+    raw = os.environ.get(var)
+    return Path(raw).expanduser() if raw else default
 
 
 @dataclass
@@ -39,8 +51,11 @@ class Config:
     # at all. 0 or null restores the old permanent cache. See ADR-011.
     cache_ttl_hours: float | None = 6.0
 
-    db_path: Path = DB_PATH
-    cache_dir: Path = CACHE_DIR
+    # default_factory, not a bare default: the env is read per-Config, so a
+    # test (or a systemd unit) can set it without reimporting the module.
+    db_path: Path = field(default_factory=lambda: _env_path("JOBSEARCH_DB", DB_PATH))
+    cache_dir: Path = field(
+        default_factory=lambda: _env_path("JOBSEARCH_CACHE", CACHE_DIR))
 
     @classmethod
     def load(

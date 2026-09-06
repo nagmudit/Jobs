@@ -42,7 +42,7 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `fetch.py` | **The only network egress.** robots, rate limit, disk cache, cf logging | `assertions` |
 | `parse.py` | `__NEXT_DATA__` → Apollo → raw nodes. No normalisation | `assertions` |
 | `assertions.py` | The four corpus-integrity guards | nothing internal |
-| `store.py` | Schema, writers, the `jobs` view, `rebuild_locations`, `migrate`, `prune_stale` | `derive` |
+| `store.py` | Schema, writers, the `jobs` view, `rebuild_locations`, `migrate`, `prune_stale`. `connect()` is concurrency-safe and rebuilds views only when stale | `derive` |
 | `derive.py` | salary/equity/size parsing, registered as SQLite functions | nothing internal |
 | `crawl.py` | Wellfound slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
 | `roles.py` | `fetch_role` — one role across every source, with `filter_mode` | `crawl`, `sources`, `store` |
@@ -138,6 +138,13 @@ Things that will mislead you if nobody says them:
 - **`jobs` is three layers deep**: `job_raw` → `jobs_core` (UNION ALL per source) →
   `jobs`. A missing column error usually means a source view drifted from
   `CORE_COLUMNS`, not that the outer view is wrong.
+- **Views belong to the file, not the connection.** `store.connect()` therefore
+  rebuilds them only when `sqlite_master` disagrees with the source registry, under
+  `store._SCHEMA_LOCK`. It used to drop and recreate both on every call, which the
+  web app — a connection per request across FastAPI's threadpool — turned into
+  `view jobs_core already exists` on page load, and could also drop `jobs` out from
+  under a connection querying it. Adding unconditional DDL back to `connect()`
+  reintroduces both. See CJ-052.
 - **SQLite orders every INTEGER before every TEXT.** `strftime('%s','now')` returns
   TEXT, so any `int_column < strftime(...)` is unconditionally true without a `CAST`.
   This shipped once as an always-expired flag.

@@ -207,3 +207,85 @@ def test_prune_keeps_user_state(conn):
     conn.commit()
     S.prune_stale(conn, 30, dry_run=False)
     assert conn.execute("SELECT COUNT(*) FROM user_state").fetchone()[0] == 1
+
+
+# --- prune protects what you invested in --------------------------------------
+#
+# The daily workflow prunes the PUBLISHED corpus automatically so it stays under
+# Vercel's 250 MB bundle limit (ADR-006 addendum). That corpus carries no marks,
+# so keep_marked costs nothing there. It matters locally, where a prune would
+# otherwise delete the record of a job you already applied to.
+
+
+def _aged_ids(conn) -> dict[int, str]:
+    """source_job_id keyed by whole days old."""
+    return {r["days_old"]: r["source_job_id"]
+            for r in conn.execute("SELECT source_job_id, days_old FROM jobs")}
+
+
+def test_prune_keeps_a_stale_job_you_applied_to(conn):
+    """Losing the listing loses the record of what you applied to -- the mark
+    survives but points at nothing."""
+    f = FakeFetcher({1: _mixed_page(1, [400, 500])})
+    crawl_slice(f, conn, "ai-engineer", "anywhere", max_pages=1, cutoff_ts=None)
+    ids = _aged_ids(conn)
+    S.set_status(conn, ids[400], "applied")
+    conn.commit()
+
+    out = S.prune_stale(conn, 30, dry_run=False)
+
+    assert out["removed"] == 1, "both stale jobs were removed"
+    kept = {r[0] for r in conn.execute("SELECT source_job_id FROM job_raw")}
+    assert ids[400] in kept, "the applied job was deleted"
+    assert ids[500] not in kept, "the unmarked stale job should still go"
+
+
+def test_prune_keeps_a_stale_job_you_shortlisted(conn):
+    f = FakeFetcher({1: _mixed_page(1, [400])})
+    crawl_slice(f, conn, "ai-engineer", "anywhere", max_pages=1, cutoff_ts=None)
+    jid = conn.execute("SELECT source_job_id FROM job_raw").fetchone()[0]
+    S.set_status(conn, jid, "shortlisted")
+    conn.commit()
+
+    S.prune_stale(conn, 30, dry_run=False)
+    assert conn.execute("SELECT COUNT(*) FROM job_raw").fetchone()[0] == 1
+
+
+def test_prune_still_removes_a_stale_hidden_job(conn):
+    """`hidden` means stop showing me this, not I invested in this. user_state
+    keeps the mark either way, so the row is not worth the bytes."""
+    f = FakeFetcher({1: _mixed_page(1, [400])})
+    crawl_slice(f, conn, "ai-engineer", "anywhere", max_pages=1, cutoff_ts=None)
+    jid = conn.execute("SELECT source_job_id FROM job_raw").fetchone()[0]
+    S.set_status(conn, jid, "hidden")
+    conn.commit()
+
+    S.prune_stale(conn, 30, dry_run=False)
+    assert conn.execute("SELECT COUNT(*) FROM job_raw").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM user_state").fetchone()[0] == 1
+
+
+def test_prune_dry_run_counts_marked_jobs_as_kept(conn):
+    """The dry run has to predict the apply, or --apply surprises you."""
+    f = FakeFetcher({1: _mixed_page(1, [400, 500])})
+    crawl_slice(f, conn, "ai-engineer", "anywhere", max_pages=1, cutoff_ts=None)
+    S.set_status(conn, _aged_ids(conn)[400], "applied")
+    conn.commit()
+
+    assert S.prune_stale(conn, 30)["would_remove"] == 1
+
+
+def test_prune_still_keeps_unknown_age_jobs(conn):
+    """ADR-006 unchanged: unknown age is not old. keep_marked must not disturb
+    the NULL handling that protects them."""
+    f = FakeFetcher({1: _mixed_page(1, [400])})
+    crawl_slice(f, conn, "ai-engineer", "anywhere", max_pages=1, cutoff_ts=None)
+    S.upsert_job(conn, "no-date", "acme", {"id": "no-date", "title": "AI Engineer"},
+                 source="wellfound")
+    conn.commit()
+    assert conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE days_old IS NULL").fetchone()[0] == 1
+
+    S.prune_stale(conn, 30, dry_run=False)
+    assert conn.execute(
+        "SELECT COUNT(*) FROM job_raw WHERE native_id='no-date'").fetchone()[0] == 1
