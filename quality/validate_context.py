@@ -7,14 +7,23 @@ Implements the mechanical checks from
 
 Exit 0 = clean. Exit 1 = drift found, with the reason on stderr.
 
-Paths that the manifest lists as `status: proposed` are excluded from the dead-path
-check. A proposed file is *supposed* not to exist yet -- that distinction is the whole
-point of the status field, and flagging it would train everyone to ignore this script.
+Two kinds of path are excluded from the dead-path check, both because they are
+*supposed* not to exist:
+
+  * anything the manifest lists as `status: proposed` -- that distinction is the whole
+    point of the status field;
+  * anything git ignores. `wellfound-probe/cache/` and `jobsearch/jobs.db` are
+    generated, documented, and absent from a fresh checkout. Without this the script
+    passes on a developer machine and fails in CI, which is the worst possible split:
+    the failure lands on someone who did not cause it and cannot reproduce it.
+
+Flagging either would train everyone to ignore this script.
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,6 +43,36 @@ SECRET_RE = re.compile(
     r"|BEGIN [A-Z ]*PRIVATE KEY|://[^\s/]+:[^\s@]+@"
 )
 AGENTS_MAX_LINES = 200
+
+
+def git_ignored(paths: set[str]) -> set[str]:
+    """Which of these does git deliberately ignore?
+
+    Asks git rather than parsing .gitignore: git is the authority, and it handles
+    negations, directory-only patterns and nested ignore files correctly. Works on
+    paths that do not exist, which is exactly the CI case.
+
+    Degrades to "nothing is ignored" if git is unavailable, so a missing git makes
+    the check stricter rather than silently blind.
+    """
+    if not paths:
+        return set()
+    probes = sorted({q for p in paths for q in (p, p + "/")})
+    try:
+        proc = subprocess.run(
+            ["git", "check-ignore", "--stdin"],
+            cwd=ROOT, input=chr(10).join(probes),
+            capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    # Exit 0 = some matched, 1 = none matched, 128 = not a repo / git error.
+    if proc.returncode not in (0, 1):
+        return set()
+    # check-ignore echoes the paths back exactly as fed, so these are
+    # already the forward-slash forms the docs use.
+    hits = {line.strip().rstrip("/")
+            for line in proc.stdout.splitlines() if line.strip()}
+    return {p for p in paths if p in hits}
 
 
 def proposed_paths() -> set[str]:
@@ -63,18 +102,21 @@ def main() -> int:
     warns: list[str] = []
     future = proposed_paths()
     files = docs()
+    missing: list[tuple[Path, str]] = []
 
     for d in files:
         text = d.read_text(encoding="utf-8", errors="replace")
         rel = d.relative_to(ROOT)
 
-        # Dead paths -- highest hit rate of any check.
+        # Dead paths -- highest hit rate of any check. Collected rather than
+        # reported inline: whether a missing path is *generated* takes one batched
+        # call to git, made once after every doc has been read.
         for raw in set(PATH_RE.findall(text)):
             p = raw.rstrip(".,;:)").rstrip("/")
             if "*" in p or p in future:
                 continue
             if not any((ROOT / c / p).exists() for c in ("", "jobsearch", "wellfound-probe")):
-                errs.append(f"dead path  {rel}: {p}")
+                missing.append((rel, p))
 
         # Relative links resolve.
         for href in LINK_RE.findall(text):
@@ -109,6 +151,14 @@ def main() -> int:
         if n > AGENTS_MAX_LINES:
             errs.append(f"AGENTS.md is {n} lines (> {AGENTS_MAX_LINES}); split it")
 
+    # A missing path that git ignores is generated, not dead -- it is absent from a
+    # fresh checkout by design. Resolving this here, in one batched call, is what
+    # stops the script passing locally and failing in CI.
+    generated = git_ignored({p for _, p in missing})
+    for rel, p in missing:
+        if p not in generated:
+            errs.append(f"dead path  {rel}: {p}")
+
     for w in warns:
         print(f"warn: {w}")
     for e in errs:
@@ -118,7 +168,7 @@ def main() -> int:
         print(f"\n{len(errs)} error(s), {len(warns)} warning(s)", file=sys.stderr)
         return 1
     print(f"context valid  ({len(files)} docs, {len(future)} proposed paths excluded, "
-          f"{len(warns)} warning(s))")
+          f"{len(generated)} generated path(s) excluded, {len(warns)} warning(s))")
     return 0
 
 

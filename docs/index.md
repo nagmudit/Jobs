@@ -57,7 +57,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 |---|---|
 | [`../quality/test-manifest.yaml`](../quality/test-manifest.yaml) | Capabilities, journeys, tests, and the open-gap ledger |
 | [`../quality/validate_manifest.py`](../quality/validate_manifest.py) | Manifest validation. Run it before claiming a gap is closed |
-| [`../quality/validate_context.py`](../quality/validate_context.py) | Drift checks on these docs: dead paths, broken links, secrets, bloat |
+| [`../quality/validate_context.py`](../quality/validate_context.py) | Drift checks on these docs: dead paths, broken links, secrets, bloat. Paths git ignores are treated as generated, not dead — they are absent from a fresh checkout by design |
 | [testing/report.md](testing/report.md) | 2026-09-03 audit: verdict, exposures, sequence |
 
 ## In flight
