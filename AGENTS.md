@@ -77,7 +77,9 @@ background; re-runs inside `cache_ttl_hours` are cheap.
 
 All verified 2026-09-06. There is no lint or typecheck configured — don't claim one ran.
 CI (`.github/workflows/ci.yml`) runs the suite on 3.11 and 3.14, both validators,
-and the suite again with outbound traffic blocked. It also runs daily, because a
+and the suite again inside a network namespace with no route out (never an
+`iptables -P OUTPUT DROP` — that also severs the runner's own control channel and
+hangs the job). It also runs daily, because a
 dated fixture can go red with no commit to blame.
 
 ## Conduct rules — these are not style preferences

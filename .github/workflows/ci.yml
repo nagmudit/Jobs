@@ -34,6 +34,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -71,6 +72,7 @@ jobs:
 
   governance:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -91,7 +93,15 @@ jobs:
     # The suite must never reach the network: a test that quietly depends on a
     # live third party would both flake and generate unpoliced traffic. This
     # proves it rather than asserting it in a comment.
+    #
+    # The block is a NETWORK NAMESPACE, not an iptables policy. `iptables -P
+    # OUTPUT DROP` also severed the runner agent's own control channel to
+    # GitHub, so the job stopped reporting, hung, and was eventually killed with
+    # "the hosted runner lost communication with the server" -- 45 minutes to
+    # learn nothing. A namespace can only affect the process inside it, so that
+    # failure mode is gone by construction rather than by tuning rules.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -100,9 +110,37 @@ jobs:
       - name: Install
         working-directory: jobsearch
         run: pip install -r requirements.txt
+
+      # Positive control. Without it a namespace that silently failed to isolate
+      # would let this job pass while proving nothing -- the same vacuous-pass
+      # trap the testing contract warns about, one layer up.
+      #
+      # The interpreter is resolved OUTSIDE sudo and passed in by absolute path:
+      # sudo resets PATH via secure_path, so `python` inside the namespace would
+      # not be the one setup-python installed, if it resolved at all.
+      - name: Prove the isolation actually isolates
+        run: |
+          set -euo pipefail
+          PYBIN="$(command -v python)"
+          echo "interpreter: $PYBIN"
+          cat > /tmp/probe.py <<'PY'
+          import socket, sys
+          try:
+              socket.create_connection(("1.1.1.1", 443), timeout=5)
+          except OSError as e:
+              print(f"outbound blocked as intended: {type(e).__name__}")
+              sys.exit(0)
+          print("NETWORK REACHABLE -- isolation failed; this job would pass vacuously")
+          sys.exit(1)
+          PY
+          sudo unshare --net -- bash -c "ip link set lo up; '$PYBIN' /tmp/probe.py"
+
+      # Runs as root inside the namespace. Deliberate: dropping back to `runner`
+      # means another PATH/environment hop for no benefit, and the workspace is
+      # discarded at the end of the job anyway.
       - name: Run the suite with outbound traffic blocked
         working-directory: jobsearch
         run: |
-          sudo iptables -P OUTPUT DROP
-          sudo iptables -A OUTPUT -o lo -j ACCEPT
-          python -m pytest tests -q
+          set -euo pipefail
+          PYBIN="$(command -v python)"
+          sudo unshare --net -- bash -c "ip link set lo up; cd '$PWD' && '$PYBIN' -m pytest tests -q"
