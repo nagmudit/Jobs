@@ -534,7 +534,13 @@ async function loadMeta() {
     if (m.max_age_days) $('#max_days').value = m.max_age_days;
     state.ageInit = true;
   }
-  $('#c-crawl').textContent = m.last_crawl ? m.last_crawl.slice(0, 16).replace('T', ' ') : '–';
+  /* Stored UTC (store.now()), rendered LOCAL. Printing the raw string made a
+     corpus fetched at 21:40 IST read as "16:10", which looks hours stale to
+     anyone not doing UTC arithmetic in their head. The UTC value stays in the
+     tooltip, because that is what the database and the CI logs show. */
+  const lc = $('#c-crawl');
+  lc.textContent = fmtLocal(m.last_crawl);
+  lc.title = m.last_crawl ? `${m.last_crawl} (UTC, as stored)` : 'never';
   $('#c-mit').innerHTML = m.counts.mitigations
     ? `<strong style="color:var(--bad)">${m.counts.mitigations} mitigations</strong>`
     : '<span style="color:var(--good)">0 mitigations</span>';
@@ -548,6 +554,16 @@ async function loadMeta() {
      <td class="num">${s.reached}/${s.total_claimed ?? '?'}</td>
      <td class="num" style="color:${s.recovery != null && s.recovery < .5 ? 'var(--warn)' : 'inherit'}">
      ${s.recovery ?? '–'}</td></tr>`).join('');
+}
+
+/* An ISO-8601 UTC timestamp shown in the viewer's own timezone. */
+function fmtLocal(iso) {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso).slice(0, 16).replace('T', ' ');
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())} ${d.toLocaleString(undefined, {month: 'short'})} `
+       + `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function msg(t) { $('#msg').textContent = t; if (t) setTimeout(() => {
