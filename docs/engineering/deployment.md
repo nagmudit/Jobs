@@ -181,6 +181,31 @@ Actions runners use shared cloud IP ranges that Cloudflare treats more harshly t
 home connection, so Wellfound may mitigate more often here than it does locally. The
 other six sources are unaffected either way. How often is unknown until it runs.
 
+## The site is stale but the run was green
+
+Almost always: `VERCEL_DEPLOY_HOOK` is not set.
+
+Vercel bakes the corpus into the bundle at **build** time, so publishing the release
+changes nothing until something triggers a rebuild. The corpus is a release asset, not a
+commit, so Vercel's git integration never fires on its own — the workflow has to poke
+the deploy hook.
+
+A run with no hook still publishes the corpus and still passes, because the corpus is
+genuinely updated and the next successful deploy picks it up. It now emits a
+`::warning::` on the run summary saying the site was not updated, rather than a line in
+the log.
+
+Check the run summary for either:
+
+```
+- Corpus published: 61 MB
+- ✅ Vercel rebuild triggered.
+```
+
+or the warning. To fix, add the secret under Settings → Secrets and variables → Actions,
+then re-run the workflow or trigger a Vercel redeploy by hand — the release asset is
+already current, so a rebuild alone is enough.
+
 ## Timing
 
 `cron: "30 8 * * *"` is **08:30 UTC = 14:00 IST**. GitHub cron has no timezone. Scheduled

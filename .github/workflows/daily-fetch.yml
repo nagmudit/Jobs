@@ -116,17 +116,33 @@ jobs:
         run: |
           gh release create corpus --title "Corpus" --notes "Rebuilt automatically." 2>/dev/null || true
           gh release upload corpus corpus.db --clobber
-          echo "Published $(wc -c < corpus.db) bytes."
+          bytes=$(wc -c < corpus.db)
+          echo "Published ${bytes} bytes."
+          {
+            echo "## Daily fetch"
+            echo "- Corpus published: **$((bytes / 1000000)) MB**"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Vercel rebuilds, pulling the asset above into the bundle.
+      # Vercel bakes the corpus into the bundle at BUILD time, so publishing the
+      # release changes nothing on the site until a rebuild is triggered. A
+      # missing hook therefore means a green run that silently did not update
+      # anything -- which is how it was first noticed, by a human wondering why
+      # the site was stale. It is a ::warning:: annotation now, visible on the
+      # run summary, not a line buried in a log nobody reads.
+      #
+      # Not a failure: the corpus IS published and the next successful deploy
+      # picks it up. Failing here would cry wolf on a run that did its job.
       - name: Trigger the Vercel deploy
         if: always() && steps.fetch.outcome == 'success'
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "VERCEL_DEPLOY_HOOK not set -- skipping deploy." >&2
+            echo "::warning title=Site not updated::Corpus published, but VERCEL_DEPLOY_HOOK is not set, so Vercel was not rebuilt and the site still serves the previous corpus. Add the secret under Settings -> Secrets and variables -> Actions."
+            echo "- :warning: **Site NOT updated** - \`VERCEL_DEPLOY_HOOK\` is unset, so Vercel was never rebuilt." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           curl -fsS -X POST "$HOOK" > /dev/null
           echo "Deploy triggered."
+          echo "- :white_check_mark: Vercel rebuild triggered." >> "$GITHUB_STEP_SUMMARY"
