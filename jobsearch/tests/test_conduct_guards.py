@@ -28,7 +28,7 @@ import pytest
 from src import assertions as A
 from src import fetch as F
 from src.config import Config
-from src.fetch import Fetcher
+from src.fetch import Fetcher, RobotsDisallowed
 
 SRC = Path(__file__).resolve().parent.parent / "src"
 
@@ -40,6 +40,7 @@ class Client:
     headers: dict[str, str] = {}
     body = "ok"
     calls: list[str] = []
+    sent_headers: list[dict] = []
 
     def __init__(self, *a, **kw):
         pass
@@ -52,6 +53,7 @@ class Client:
 
     def get(self, url, headers=None):
         Client.calls.append(url)
+        Client.sent_headers.append(dict(headers or {}))
         requested = url
 
         class R:
@@ -70,6 +72,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(F.httpx, "Client", Client)
     monkeypatch.setattr(F.time, "sleep", lambda s: slept.append(s))
     Client.calls, Client.status, Client.headers, Client.body = [], 200, {}, "ok"
+    Client.sent_headers = []
     f = Fetcher(tmp_path / "cache", "jobsearch-test/1.0 (+someone@example.com)",
                 (3.0, 5.0))
     meta_p, body_p = f._paths("https://x.test/robots.txt")
@@ -266,7 +269,10 @@ def test_the_user_agent_is_honest_and_carries_a_contact(env):
         mod.httpx.Client = old
     ua = sent.get("User-Agent", "")
     assert "jobsearch" in ua, f"User-Agent does not identify the tool: {ua!r}"
-    assert "@" in ua, f"User-Agent carries no contact address: {ua!r}"
+    # A contact ROUTE, not specifically an email. A public repo URL reaches the
+    # operator through issues without publishing a personal inbox in every
+    # request header; both satisfy "anyone we bother can reach the user".
+    assert ("@" in ua or "http" in ua),         f"User-Agent offers no way to reach the operator: {ua!r}"
     for browser in ("Mozilla", "Chrome", "Safari", "Gecko"):
         assert browser not in ua, f"User-Agent impersonates a browser: {ua!r}"
 
@@ -326,3 +332,62 @@ def test_a_grant_must_name_a_real_origin(tmp_path):
     endpoint refused and the reason invisible."""
     with pytest.raises(ValueError, match="origin"):
         Config.load(_yaml(tmp_path, _grant_yaml(origin="vicky.test")))
+
+
+def test_the_configured_user_agent_identifies_a_client():
+    """POLICY CHANGED 2026-09-08 (ADR-014): the UA no longer has to identify this
+    tool, and may present as a browser.
+
+    What this still asserts is the part that did not change: a UA is actually
+    sent, and it is not empty. Everything that protects the third party --
+    robots.txt, the 3-5 s floor, concurrency 1, the mitigation halt -- is
+    unaffected by this and is guarded elsewhere in this file.
+    """
+    cfg = Config.load()
+    pool = cfg.user_agents or [cfg.user_agent]
+    assert pool, "no User-Agent configured at all"
+    for ua in pool:
+        assert ua and ua.strip(), f"empty User-Agent in the pool: {ua!r}"
+
+
+def test_the_pool_is_actually_rotated(env):
+    """Configured but never used would be the quiet failure: one UA sent for
+    every request while the config implies many."""
+    f, _ = env
+    f.user_agents = [f"agent-{i}" for i in range(8)]
+    for i in range(40):
+        f.get(f"https://x.test/p{i}")
+    seen = {h.get("User-Agent") for h in Client.sent_headers}
+    assert len(seen) > 1, f"the pool was configured but never rotated: {seen}"
+    assert seen <= set(f.user_agents), f"sent a UA outside the pool: {seen}"
+
+
+def test_a_single_user_agent_still_works(env):
+    """No pool configured means the old behaviour exactly."""
+    f, _ = env
+    f.user_agents = []
+    f.user_agent = "jobsearch-personal/0.1"
+    f.get("https://x.test/only")
+    assert Client.sent_headers[-1]["User-Agent"] == "jobsearch-personal/0.1"
+
+
+def test_rotation_does_not_touch_the_rate_limit(env):
+    """The pacing floor is what actually protects the third party. It must not
+    move because the UA did."""
+    f, slept = env
+    f.user_agents = ["a", "b", "c"]
+    for i in range(4):
+        f.get(f"https://x.test/r{i}")
+    assert len(slept) >= 3, f"only {len(slept)} waits across 4 requests"
+    assert all(3.0 <= s <= 5.0 for s in slept), slept
+
+
+def test_rotation_does_not_touch_robots_enforcement(env):
+    """A disallowed path stays disallowed whichever UA is drawn. The tool only
+    ever honours `User-agent: *` sections, so the string it sends cannot change
+    which rules apply."""
+    f, _ = env
+    f.user_agents = ["a", "b", "c"]
+    for _ in range(10):
+        with pytest.raises(RobotsDisallowed):
+            f.assert_allowed("https://x.test/admin/secret")

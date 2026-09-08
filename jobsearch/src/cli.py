@@ -31,7 +31,8 @@ def _wire(cfg: Config):
     conn = S.connect(cfg.db_path)
     f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds(),
-                    robots_overrides=cfg.robots_overrides)
+                    robots_overrides=cfg.robots_overrides,
+                    user_agents=cfg.user_agents)
     f.on_response = lambda r: (S.log_request(conn, r), conn.commit())
     return conn, f
 

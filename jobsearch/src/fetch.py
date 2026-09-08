@@ -94,10 +94,18 @@ class Fetcher:
     def __init__(self, cache_dir: Path, user_agent: str,
                  delay_range: tuple[float, float] = (3.0, 5.0),
                  listing_ttl: float | None = None,
-                 robots_overrides: list[dict] | None = None):
+                 robots_overrides: list[dict] | None = None,
+                 user_agents: list[str] | None = None):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.user_agent = user_agent
+        # A pool, drawn from per request. Empty means "always `user_agent`",
+        # which is the original behaviour. Policy change of 2026-09-08, ADR-014.
+        #
+        # This changes nothing that protects the site being fetched: robots.txt
+        # is still enforced, the 3-5 s floor and concurrency 1 still hold, and a
+        # mitigation still halts the crawl. Only the header string varies.
+        self.user_agents = list(user_agents or [])
         self.delay_range = delay_range
         # How stale a LISTING may be before it is re-fetched. Callers that fetch
         # listings pass `max_age=fetcher.listing_ttl` explicitly, so which
@@ -233,6 +241,10 @@ class Fetcher:
                 return True, "override"
         return best[1], best[2]
 
+    def _pick_user_agent(self) -> str:
+        """One UA per request, drawn from the pool when one is configured."""
+        return random.choice(self.user_agents) if self.user_agents else self.user_agent
+
     def _overridden(self, url: str) -> dict | None:
         """The declared grant covering this URL, if any.
 
@@ -274,7 +286,7 @@ class Fetcher:
         self._throttle()
         t0 = time.monotonic()
         headers = {
-            "User-Agent": self.user_agent,
+            "User-Agent": self._pick_user_agent(),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
         }

@@ -282,7 +282,8 @@ class CrawlJob:
             conn = S.connect(cfg.db_path)
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds(),
-                    robots_overrides=cfg.robots_overrides)
+                    robots_overrides=cfg.robots_overrides,
+                    user_agents=cfg.user_agents)
             f.on_response = lambda r: self._note_response(r, conn)
             use = names or sources_for(cfg)
             for role in roles:
@@ -326,7 +327,8 @@ class CrawlJob:
             conn = S.connect(cfg.db_path)
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds(),
-                    robots_overrides=cfg.robots_overrides)
+                    robots_overrides=cfg.robots_overrides,
+                    user_agents=cfg.user_agents)
             f.on_response = lambda r: self._note_response(r, conn)
             reg = SRC.registry()
             for name in names:
@@ -360,7 +362,8 @@ class CrawlJob:
             conn = S.connect(cfg.db_path)
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds(),
-                    robots_overrides=cfg.robots_overrides)
+                    robots_overrides=cfg.robots_overrides,
+                    user_agents=cfg.user_agents)
             f.on_response = lambda r: self._note_response(r, conn)
             run_at = S.now()
             for role in roles:
@@ -642,7 +645,8 @@ def create_app(cfg: Config) -> FastAPI:
             conn = db()
             f = Fetcher(cfg.cache_dir, cfg.user_agent, cfg.delay_range,
                     listing_ttl=cfg.cache_ttl_seconds(),
-                    robots_overrides=cfg.robots_overrides)
+                    robots_overrides=cfg.robots_overrides,
+                    user_agents=cfg.user_agents)
             # Enrichment runs in the request, not in CrawlJob -- no heartbeat
             # state to feed, just the request log.
             f.on_response = lambda r: (S.log_request(conn, r), conn.commit())

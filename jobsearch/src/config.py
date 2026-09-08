@@ -81,6 +81,8 @@ class Config:
     max_pages_per_slice: int = 20
     delay_range: tuple[float, float] = (3.0, 5.0)
     user_agent: str = "jobsearch-personal/0.1"
+    # A pool rotated per request. Empty means always `user_agent`. ADR-014.
+    user_agents: list[str] = field(default_factory=list)
     yield_floor: int = 1
     # Jobs older than this are not ingested, not enriched, and not shown.
     # 0 or null disables the cutoff entirely.
@@ -128,6 +130,8 @@ class Config:
             max_pages_per_slice=int(raw.get("max_pages_per_slice", 20)),
             delay_range=(float(dr[0]), float(dr[1])),
             user_agent=str(raw.get("user_agent") or "jobsearch-personal/0.1"),
+            user_agents=[str(u).strip() for u in (raw.get("user_agents") or [])
+                         if str(u).strip()],
             yield_floor=int(raw.get("yield_floor", 1)),
             # Absent key keeps the 30-day default; an explicit 0/null disables
             # the cutoff. Those are different intents and must not collapse.

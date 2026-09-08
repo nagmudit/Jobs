@@ -3,7 +3,7 @@
 Design rules from the brief:
   * every raw response lands in cache/ keyed by a hash of the URL
   * re-runs MUST hit the cache, not the network (--refresh to override)
-  * 1 request per 3-5s, concurrency 1, honest UA with a contact string
+  * 1 request per 3-5s, concurrency 1, honest UA (contact optional, off by default)
   * fail loudly: no bare excepts, errors are recorded and re-surfaced
 
 Errors are cached too. A 403 from Cloudflare is *evidence*, and re-fetching it
@@ -28,12 +28,17 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "cache"
 
-# Honest identification, per the hard constraints. No spoofing of a real
-# browser's UA string -- this is a declared research probe.
-CONTACT = os.environ.get("PROBE_CONTACT", "nagmudit@users.noreply.github.com")
+# Declares itself as a research probe and never spoofs a browser. It carries NO
+# contact by default: nothing here should tie back to a person or an account
+# (owner's decision, 2026-09-08). Set PROBE_CONTACT to add one back for a run.
+#
+# This module is frozen research and is not executed by `jobsearch/`; the string
+# is edited here only so a public repo does not carry an identifier.
+CONTACT = os.environ.get("PROBE_CONTACT", "").strip()
 USER_AGENT = (
-    f"wellfound-feasibility-probe/0.1 (personal job-search research; "
-    f"contact: {CONTACT}; +https://github.com/local/wellfound-probe)"
+    "wellfound-feasibility-probe/0.1 (personal job-search research"
+    + (f"; contact: {CONTACT}" if CONTACT else "")
+    + ")"
 )
 
 MIN_DELAY = 3.0

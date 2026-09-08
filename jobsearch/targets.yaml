@@ -29,7 +29,32 @@ max_pages_per_slice: 20
 # Seconds between requests to Wellfound. Concurrency is always 1.
 delay_range: [3.0, 5.0]
 
-user_agent: "jobsearch-personal/0.1 (+nagmudit@users.noreply.github.com)"
+# Fallback when `user_agents` below is empty.
+user_agent: "jobsearch-personal/0.1"
+
+# A pool, drawn from at random on every request (ADR-014, 2026-09-08). Carries
+# no name, address or account link -- that was the point of the change.
+#
+# This changes ONLY the header string. Everything that protects the site being
+# fetched is untouched and still enforced in code: robots.txt, the 3-5 s floor,
+# concurrency 1, and halting on the first Cloudflare mitigation.
+#
+# Worth knowing when reading a mitigation: httpx's TLS fingerprint and header
+# ordering do not change with the string, so these do not make the client look
+# like the browsers they name. Empty this list to go back to one honest UA.
+user_agents:
+  # Windows
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"
+  - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0"
+  # macOS
+  - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+  - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  - "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.6; rv:131.0) Gecko/20100101 Firefox/131.0"
+  # Linux
+  - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  - "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
+  - "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
 yield_floor: 1
 

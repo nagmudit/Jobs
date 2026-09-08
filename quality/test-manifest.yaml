@@ -324,6 +324,20 @@ journeys:
       not normalised. Two of its postings carry no apply link at all.
     release_blocking: false
 
+  - id: CJ-059
+    name: UA rotation changes the header only, never a protection
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      The pool is cosmetic and must stay that way. A rotation that silently also
+      relaxed the 3-5s floor, concurrency 1 or robots enforcement would turn a
+      header change into real unpoliced load on a third party -- and because
+      every guard here is invisible when working, that regression would ship
+      green. Also guards the quiet failure of a pool configured but never drawn
+      from, which reads as rotating while sending one string forever.
+    release_blocking: true
+
   - id: CJ-023
     name: Age cutoff drops stale jobs at ingest, keeps unknown-age jobs
     capability: CAP-STORE
@@ -1064,6 +1078,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_fetch_progress.py
     command: python -m pytest tests/test_fetch_progress.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-014
+    name: UA pool rotates per request; rate limit and robots unaffected
+    journey: CJ-059
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_conduct_guards.py
+    command: python -m pytest tests/test_conduct_guards.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

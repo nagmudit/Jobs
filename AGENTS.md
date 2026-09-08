@@ -97,10 +97,14 @@ for everyone using it.
   it. Never bypass the check any other way. See ADR-013.
 - **3–5 s between requests, concurrency 1.** `src/config.py` rejects a `delay_range`
   floor below 3.0 s at load time. Do not remove that guard.
-- **No anti-bot evasion, ever.** No proxies, no CAPTCHA services, no stealth plugins,
-  no fingerprint spoofing, no UA spoofing. The User-Agent is honest and carries a
-  contact address. If something only works by defeating a challenge, it does not go in
-  this repo.
+- **No proxies, no CAPTCHA services, no stealth plugins, no TLS/fingerprint spoofing.**
+  If something only works by defeating a challenge, it does not go in this repo.
+- **The User-Agent is a rotating pool** (`user_agents` in `targets.yaml`), drawn from
+  per request, carrying no name, address or account link. This was a deliberate policy
+  change on 2026-09-08 — the rule previously forbade it. See ADR-014, which records the
+  trade-offs, including that it does not make the client look like those browsers
+  (httpx's TLS fingerprint is unchanged) and that it removes the ability to ask a site
+  owner for permission the way ADR-013 did. Empty the list to revert.
 - **Halt on the first mitigation.** `cf-ray` and `cf-mitigated` are logged for every
   response. A non-`None` mitigation or a 403/429 raises `MitigationDetected` and stops
   the crawl. Never retry through it, never add a backoff-and-continue path.
@@ -158,8 +162,9 @@ line budget that keeps this file readable.
 
 ## Never
 
-- Commit secrets or `.env` values. The `user_agent` in `targets.yaml` carries a real
-  email — that is deliberate and public-facing, but don't add anything else personal.
+- Commit secrets, `.env` values, or anything personal. The repo is public, and the
+  `user_agent` in `targets.yaml` goes out in every request header and sits in public
+  git history — keep it free of names, addresses and account links.
 - Commit `jobs.db` or `cache/` (both gitignored). They are large and regenerable.
 - Claim tests passed without running them.
 - Weaken an assertion or a conduct guard to make something pass.

@@ -52,6 +52,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-011](architecture/decisions/ADR-011-cache-freshness.md) | Listings expire from the cache; a cached mitigation never does |
 | [ADR-012](architecture/decisions/ADR-012-cross-currency-salary.md) | Salary sorts on an approximate USD value, displays the native one |
 | [ADR-013](architecture/decisions/ADR-013-out-of-band-robots-permission.md) | A site owner's permission overrides robots only when declared with its evidence |
+| [ADR-014](architecture/decisions/ADR-014-rotating-user-agents.md) | The User-Agent is a rotating pool; what that does and does not change |
 
 ## Quality
 
