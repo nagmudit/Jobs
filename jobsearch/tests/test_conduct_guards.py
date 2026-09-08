@@ -269,3 +269,60 @@ def test_the_user_agent_is_honest_and_carries_a_contact(env):
     assert "@" in ua, f"User-Agent carries no contact address: {ua!r}"
     for browser in ("Mozilla", "Chrome", "Safari", "Gecko"):
         assert browser not in ua, f"User-Agent impersonates a browser: {ua!r}"
+
+
+# --- ADR-013: out-of-band robots permissions ----------------------------------
+
+
+def _yaml(tmp_path, extra: str) -> Path:
+    p = tmp_path / "t.yaml"
+    p.write_text("roles: [x]\nlocations: [anywhere]\n" + extra, encoding="utf-8")
+    return p
+
+
+GRANT = {
+    "origin": "https://vicky.test",
+    "prefix": "/api/opportunities",
+    "granted_by": "site owner, informal",
+    "granted_on": "2026-09-08",
+    "note": "owner agreed to a personal daily fetch",
+}
+
+
+def _grant_yaml(**overrides) -> str:
+    """Serialised from a dict, not spliced out of a text block. Dropping a line
+    from raw YAML silently breaks the list structure instead of dropping the
+    field, which made this test pass for the wrong reason."""
+    import yaml as _y
+
+    g = {**GRANT, **overrides}
+    g = {k: v for k, v in g.items() if v is not None}
+    return _y.safe_dump({"robots_overrides": [g]}, sort_keys=False)
+
+
+def test_a_complete_grant_loads(tmp_path):
+    cfg = Config.load(_yaml(tmp_path, _grant_yaml()))
+    assert len(cfg.robots_overrides) == 1
+    assert cfg.robots_overrides[0]["prefix"] == "/api/opportunities"
+
+
+@pytest.mark.parametrize("drop", ["origin", "prefix", "granted_by",
+                                  "granted_on", "note"])
+def test_a_grant_missing_its_evidence_is_refused(tmp_path, drop):
+    """The whole point of the mechanism is that the justification is not
+    optional. A grant with no `granted_by` is a bypass flag with a comment, and
+    it must not load."""
+    with pytest.raises(ValueError, match=drop):
+        Config.load(_yaml(tmp_path, _grant_yaml(**{drop: None})))
+
+
+def test_no_overrides_is_the_default(tmp_path):
+    """Absent key means no exceptions -- robots.txt governs everything."""
+    assert Config.load(_yaml(tmp_path, "")).robots_overrides == []
+
+
+def test_a_grant_must_name_a_real_origin(tmp_path):
+    """A bare host or a path fragment would silently never match, leaving the
+    endpoint refused and the reason invisible."""
+    with pytest.raises(ValueError, match="origin"):
+        Config.load(_yaml(tmp_path, _grant_yaml(origin="vicky.test")))

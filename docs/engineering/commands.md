@@ -28,6 +28,7 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Expand Ashby for a role | `python -m src.cli fetch --roles <role> --sources ashby` | ✅ ran, 73/88 companies |
 | Ingest all API sources (no role) | `python -m src.cli ingest` | ✅ ran |
 | Ingest one source | `python -m src.cli ingest --sources himalayas` | ✅ ran, 500 kept / 478 new |
+| Ingest vickybytes | `python -m src.cli ingest --sources vickybytes` | ✅ ran 2026-09-08, 316 claimed / 76 kept / 236 stale |
 | Prune stale (dry run) | `python -m src.cli prune` | ✅ ran, reported 1747/2941 |
 | Prune stale (delete) | `python -m src.cli prune --apply` | ✅ ran on a copy, removed 1883/6266, kept marked |
 | Widen the age cutoff | `python -m src.cli crawl --no-resume --max-age-days 90` | ⚠️ not run |

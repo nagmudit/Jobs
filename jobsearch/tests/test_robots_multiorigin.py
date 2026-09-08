@@ -106,3 +106,83 @@ def test_assert_allowed_names_the_origin(f):
     _seed(f, "https://b.test", STRICT)
     with pytest.raises(RobotsDisallowed, match="b.test"):
         f.assert_allowed("https://b.test/jobs")
+
+
+# --- out-of-band permission overrides ------------------------------------------
+#
+# vickybytes.com's robots.txt says `Disallow: /api`, and its owner separately
+# agreed to let this tool read /api/opportunities. That is a real permission but
+# an out-of-band one, so it is DECLARED in targets.yaml with its evidence rather
+# than resolved by loosening the check. robots.txt is still fetched, still
+# parsed, and still governs every other path on that host and every other host.
+#
+# These tests exist to stop the mechanism drifting into a general bypass, which
+# is the only way it could become one.
+
+VICKY = ("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /auth/\n"
+         "Disallow: /api\n")
+
+GRANT = [{
+    "origin": "https://vicky.test",
+    "prefix": "/api/opportunities",
+    "granted_by": "site owner, informal",
+    "granted_on": "2026-09-08",
+    "note": "owner agreed to a personal daily fetch of this one endpoint",
+}]
+
+
+@pytest.fixture
+def granted(tmp_path):
+    return Fetcher(tmp_path / "cache", "test-agent/1.0", (3.0, 5.0),
+                   robots_overrides=GRANT)
+
+
+def test_the_declared_prefix_is_permitted(granted):
+    _seed(granted, "https://vicky.test", VICKY)
+    ok, _ = granted.allowed("https://vicky.test/api/opportunities")
+    assert ok, "the granted endpoint is still refused"
+    granted.assert_allowed("https://vicky.test/api/opportunities")
+
+
+def test_every_other_disallowed_path_on_that_host_is_still_refused(granted):
+    """The override must flip ONE prefix, not the host."""
+    _seed(granted, "https://vicky.test", VICKY)
+    for path in ("/admin/x", "/auth/login", "/api", "/api/users"):
+        with pytest.raises(RobotsDisallowed):
+            granted.assert_allowed(f"https://vicky.test{path}")
+
+
+def test_the_same_prefix_on_another_host_is_refused(granted):
+    """Permission was granted by one site's owner. It is not transferable."""
+    _seed(granted, "https://other.test", VICKY)
+    with pytest.raises(RobotsDisallowed):
+        granted.assert_allowed("https://other.test/api/opportunities")
+
+
+def test_an_override_cannot_be_used_to_crawl_blind(tmp_path):
+    """The naukri.com protection (ADR-007) must survive.
+
+    A host whose robots.txt cannot be read still raises, even for a path an
+    override would otherwise permit -- otherwise declaring an override becomes a
+    way to skip reading robots.txt at all.
+    """
+    f = Fetcher(tmp_path / "cache", "test-agent/1.0", (3.0, 5.0),
+                robots_overrides=GRANT)
+    _seed(f, "https://vicky.test", "", status=403)
+    with pytest.raises(RuntimeError, match="could not read robots.txt"):
+        f.allowed("https://vicky.test/api/opportunities")
+
+
+def test_no_overrides_behaves_exactly_as_before(f):
+    """The default path is untouched: same fetcher, same rules, still refused."""
+    _seed(f, "https://vicky.test", VICKY)
+    with pytest.raises(RobotsDisallowed):
+        f.assert_allowed("https://vicky.test/api/opportunities")
+
+
+def test_an_allowed_path_is_not_reported_as_an_override(granted):
+    """`/blog` was always allowed. Reporting it as overridden would make the
+    override look load-bearing where it is not."""
+    _seed(granted, "https://vicky.test", VICKY)
+    ok, rule = granted.allowed("https://vicky.test/blog/post")
+    assert ok and rule != "override"

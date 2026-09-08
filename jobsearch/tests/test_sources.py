@@ -55,6 +55,7 @@ def test_all_sources_registered():
     assert set(SRC.registry()) == {
         "wellfound", "remoteok", "himalayas",
         "greenhouse", "ashby", "workable", "lever",
+        "vickybytes",
     }
 
 

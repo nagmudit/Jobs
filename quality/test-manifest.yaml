@@ -296,6 +296,34 @@ journeys:
       that listing and leave the user_state row pointing at nothing.
     release_blocking: false
 
+  - id: CJ-057
+    name: An out-of-band robots permission is narrow, evidenced and revocable
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      A mechanism that lets a declared grant override robots.txt is one refactor
+      away from being a general bypass. If it applied before the robots fetch it
+      would permit crawling a host whose robots.txt cannot be read; if it matched
+      on prefix alone it would carry one site owner's permission onto every other
+      host; if the evidence fields were optional it would be an off switch with an
+      empty comment beside it.
+    release_blocking: true
+
+  - id: CJ-058
+    name: vickybytes maps a mixed opportunity feed without inventing facts
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Its `type` field is the WORK MODE (onsite/hybrid/remote), not the kind of
+      posting -- reading it as a posting kind discards 88% of the feed, and
+      treating its unstated value as onsite invents a fact that puts rows in the
+      wrong filter. It also sends '' where other sources send null, and trailing
+      spaces in location, both of which become present-but-empty facet values if
+      not normalised. Two of its postings carry no apply link at all.
+    release_blocking: false
+
   - id: CJ-023
     name: Age cutoff drops stale jobs at ingest, keeps unknown-age jobs
     capability: CAP-STORE
@@ -896,6 +924,18 @@ tests:
     merge_blocking: true
     owner: mudit
 
+  - id: STORE-017
+    name: vickybytes work-mode mapping, null hygiene, local role filter, drift guards
+    journey: CJ-058
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_vickybytes.py
+    command: python -m pytest tests/test_vickybytes.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
   - id: STORE-016
     name: prune spares marked jobs; export vacuums; sync carries pruned marks back
     journey: CJ-056
@@ -1024,6 +1064,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_fetch_progress.py
     command: python -m pytest tests/test_fetch_progress.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-013
+    name: Robots override is per-origin, prefix-scoped, cannot crawl blind, needs evidence
+    journey: CJ-057
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_robots_multiorigin.py
+    command: python -m pytest tests/test_robots_multiorigin.py tests/test_conduct_guards.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

@@ -57,6 +57,32 @@ max_age_days: 30
 
 # Other platforms. Each has its own shape; see src/sources/.
 # Wellfound uses the roles x locations above and is always enabled.
+# --- out-of-band robots permissions -------------------------------------------
+#
+# Paths a site's OWNER has agreed we may fetch even though their robots.txt
+# disallows them. This is NOT a bypass: robots.txt is still fetched and parsed,
+# and still governs every other path on that host and every other host. An entry
+# here can only flip one declared prefix from disallowed to allowed. See ADR-013.
+#
+# Every field is required and `Config.load` refuses a grant missing any of them.
+# A permission with no record of who gave it is indistinguishable from someone
+# quietly switching the check off.
+#
+# To REVOKE: delete the entry. The fetcher refuses the path again immediately --
+# no code change, no redeploy.
+robots_overrides:
+  - origin: https://vickybytes.com
+    prefix: /api/opportunities
+    granted_by: "vickybytes.com site owner, asked and agreed via the repo owner"
+    granted_on: 2026-09-08
+    note: >
+      Their robots.txt carries `Disallow: /api`, and the job listings are only
+      reachable through /api/opportunities -- the sitemap lists 67 blog and
+      marketing pages and no listings at all. The owner agreed to a personal
+      daily fetch of this one endpoint. INFORMAL: a plain yes, no written terms
+      and no stated rate limit, so our own 3-5s pacing and concurrency 1 still
+      apply -- those are our floor, not theirs to waive.
+
 sources:
   remoteok:
     enabled: true
@@ -86,6 +112,17 @@ sources:
   # Cost is real and unbounded by design: one cold role fetch across all sources
   # runs ~1,100 requests / 75-95 min at the mandated 3-5 s, Ashby dominating
   # because it needs a detail fetch per posting. Run it in the background.
+  # One request returns the whole feed -- no pagination, no query parameters, so
+  # the role filter is applied locally (ADR-009). Reachable only because its
+  # owner granted permission; see robots_overrides above and ADR-013.
+  #
+  # Measured 2026-09-08: 316 entries, median age 76d, 24% inside the 30-day
+  # cutoff, 40 inside a week. Stale-heavy but live, and it costs one request.
+  vickybytes:
+    enabled: true
+    targets:
+      - {}
+
   greenhouse:
     enabled: true
   ashby:

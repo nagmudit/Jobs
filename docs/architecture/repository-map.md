@@ -54,6 +54,7 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `sources/wellfound.py` | Core view only (ingest lives in `crawl.py`) | — |
 | `sources/remoteok.py` | `/api` ingest + core view | `assertions`, `store` |
 | `sources/himalayas.py` | `/jobs/api` offset paging + core view | `assertions`, `store` |
+| `sources/vickybytes.py` | One `/api/opportunities` call + core view; runs only under a declared robots grant (ADR-013) | `assertions`, `store`, `relevance` |
 | `enrich.py` | Detail pages: JSON-LD + rendered comp | `fetch`, `store` |
 | `cli.py` | Argument parsing and command dispatch | everything |
 | `web/app.py` | FastAPI; all filtering in SQL | `store`, `enrich`, `fetch` |

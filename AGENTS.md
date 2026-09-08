@@ -1,7 +1,7 @@
 # Jobs — Agent Instructions
 
 A personal job-search corpus tool. `jobsearch/` pulls listings from Wellfound,
-RemoteOK, Himalayas and company ATS boards (Greenhouse, Ashby, Workable, Lever) into SQLite and serves a local filter/sort UI with apply links. `wellfound-probe/` is the completed research that established *how* to
+RemoteOK, Himalayas, vickybytes and company ATS boards (Greenhouse, Ashby, Workable, Lever) into SQLite and serves a local filter/sort UI with apply links. `wellfound-probe/` is the completed research that established *how* to
 read Wellfound at all — frozen evidence, not a live component.
 
 There is no scorer, recommender, or auto-apply here, by design. The user filters; the
@@ -90,6 +90,11 @@ for everyone using it.
 
 - **`robots.txt` is enforced in code**, in `src/fetch.py`. `/_jobs/` is disallowed.
   Re-verify before crawling any new path family; don't assume.
+- **A site owner's out-of-band permission is honoured only when declared** in
+  `targets.yaml` under `robots_overrides`, with who granted it and when. It flips one
+  path prefix on one origin, never a host and never a pattern; robots.txt is still
+  read, an unreadable one still refuses to crawl blind, and deleting the entry revokes
+  it. Never bypass the check any other way. See ADR-013.
 - **3–5 s between requests, concurrency 1.** `src/config.py` rejects a `delay_range`
   floor below 3.0 s at load time. Do not remove that guard.
 - **No anti-bot evasion, ever.** No proxies, no CAPTCHA services, no stealth plugins,

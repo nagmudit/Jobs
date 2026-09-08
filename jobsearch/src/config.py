@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -17,6 +18,49 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGETS_PATH = ROOT / "targets.yaml"
 DB_PATH = ROOT / "jobs.db"
 CACHE_DIR = ROOT / "cache"
+
+
+# Every field is required. The mechanism exists to make an out-of-band
+# permission auditable; a grant that does not say who gave it, when, or why is
+# indistinguishable from someone quietly switching the robots check off.
+OVERRIDE_FIELDS = ("origin", "prefix", "granted_by", "granted_on", "note")
+
+
+def _validated_overrides(raw: Any) -> list[dict]:
+    """Check robots_overrides at LOAD time, like the delay_range floor.
+
+    Refusing here means a malformed grant can never reach `Fetcher` and quietly
+    fail to match -- which would look exactly like the endpoint being refused,
+    with the reason invisible.
+    """
+    if not raw:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("robots_overrides must be a list of grants")
+    out: list[dict] = []
+    for i, g in enumerate(raw):
+        if not isinstance(g, dict):
+            raise ValueError(f"robots_overrides[{i}] is not a mapping")
+        for k in OVERRIDE_FIELDS:
+            if not str(g.get(k) or "").strip():
+                raise ValueError(
+                    f"robots_overrides[{i}] is missing {k!r}. A robots exception "
+                    f"must record its origin, prefix, who granted it, when, and "
+                    f"why -- see ADR-013."
+                )
+        origin = str(g["origin"]).strip()
+        if not origin.startswith(("http://", "https://")) or origin.rstrip("/") != origin:
+            raise ValueError(
+                f"robots_overrides[{i}] origin {origin!r} must be a scheme+host "
+                f"with no trailing slash, e.g. https://example.com"
+            )
+        prefix = str(g["prefix"]).strip()
+        if not prefix.startswith("/"):
+            raise ValueError(
+                f"robots_overrides[{i}] prefix {prefix!r} must start with '/'")
+        out.append({**g, "origin": origin, "prefix": prefix,
+                    "granted_on": str(g["granted_on"])})
+    return out
 
 
 def _env_path(var: str, default: Path) -> Path:
@@ -50,6 +94,10 @@ class Config:
     # Detail pages are never aged out, and a cached mitigation never expires
     # at all. 0 or null restores the old permanent cache. See ADR-011.
     cache_ttl_hours: float | None = 6.0
+    # Paths a site OWNER has agreed we may fetch despite robots.txt disallowing
+    # them. Empty by default: robots.txt governs everything unless a human
+    # granted an exception and it was written down here. See ADR-013.
+    robots_overrides: list[dict] = field(default_factory=list)
 
     # default_factory, not a bare default: the env is read per-Config, so a
     # test (or a systemd unit) can set it without reimporting the module.
@@ -100,6 +148,8 @@ class Config:
 
         if max_age_days is not None:
             cfg.max_age_days = max_age_days if max_age_days > 0 else None
+
+        cfg.robots_overrides = _validated_overrides(raw.get("robots_overrides"))
 
         if cfg.delay_range[0] < 3.0:
             raise ValueError(

@@ -16,6 +16,7 @@ The repository is the source of truth. Start here, read only what your task touc
 | Area | Read |
 |---|---|
 | Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) |
+| A site that disallows what you need | [ADR-013](architecture/decisions/ADR-013-out-of-band-robots-permission.md), `jobsearch/targets.yaml` `robots_overrides` |
 | Adding another job platform | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md), `jobsearch/src/sources/` |
 | Fetching a role from every source | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md), `jobsearch/src/roles.py` |
 | ATS boards (Greenhouse, Ashby, Workable) | [ADR-010](architecture/decisions/ADR-010-ats-boards-company-scoped.md), `jobsearch/src/ats.py` |
@@ -50,6 +51,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-010](architecture/decisions/ADR-010-ats-boards-company-scoped.md) | ATS boards expand companies; they cannot be role-searched |
 | [ADR-011](architecture/decisions/ADR-011-cache-freshness.md) | Listings expire from the cache; a cached mitigation never does |
 | [ADR-012](architecture/decisions/ADR-012-cross-currency-salary.md) | Salary sorts on an approximate USD value, displays the native one |
+| [ADR-013](architecture/decisions/ADR-013-out-of-band-robots-permission.md) | A site owner's permission overrides robots only when declared with its evidence |
 
 ## Quality
 

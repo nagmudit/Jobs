@@ -93,7 +93,8 @@ def _is_mitigation(status: int | None, headers: dict) -> bool:
 class Fetcher:
     def __init__(self, cache_dir: Path, user_agent: str,
                  delay_range: tuple[float, float] = (3.0, 5.0),
-                 listing_ttl: float | None = None):
+                 listing_ttl: float | None = None,
+                 robots_overrides: list[dict] | None = None):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.user_agent = user_agent
@@ -107,6 +108,16 @@ class Fetcher:
         # robots.txt to another host -- potentially permitting a fetch that host
         # forbids. Every origin gets its own fetch and its own rules.
         self._robots: dict[str, list[tuple[bool, str]]] = {}
+        # Out-of-band permissions: paths a site's OWNER has agreed we may fetch
+        # even though robots.txt disallows them. Declared in targets.yaml with
+        # who granted it and when (see ADR-013), never inferred.
+        #
+        # This is not a bypass and must not become one. robots.txt is still
+        # fetched and still parsed; an entry here can only flip a DISALLOW to
+        # allow, for one declared prefix on one declared origin. Everything else
+        # on that host, and every other host, is unaffected.
+        self.robots_overrides = list(robots_overrides or [])
+        self._announced: set[str] = set()
         # Filled by the caller (crawl/enrich) so every response lands in request_log.
         self.on_response = None
 
@@ -206,7 +217,37 @@ class Fetcher:
                     best = (score, is_allow, pattern)
         if best is None:
             return True, None
+        if not best[1]:
+            # Only ever applied to a REFUSAL, and only after robots.txt has been
+            # read -- so an unreadable robots.txt still raises above, and a
+            # declared override can never become a way to crawl blind (ADR-007).
+            grant = self._overridden(url)
+            if grant is not None:
+                key = f"{grant['origin']}{grant['prefix']}"
+                if key not in self._announced:
+                    self._announced.add(key)
+                    print(f"robots override in use: {key} "
+                          f"(granted {grant.get('granted_on')} by "
+                          f"{grant.get('granted_by')}) -- see ADR-013",
+                          flush=True)
+                return True, "override"
         return best[1], best[2]
+
+    def _overridden(self, url: str) -> dict | None:
+        """The declared grant covering this URL, if any.
+
+        Matched on exact origin plus path prefix. Not a glob: a grant is a thing
+        a person agreed to, and widening it by pattern is how a narrow permission
+        turns into a broad one nobody re-checked.
+        """
+        p = urlparse(url)
+        origin = f"{p.scheme}://{p.netloc}"
+        path = p.path or "/"
+        for g in self.robots_overrides:
+            prefix = g.get("prefix")
+            if prefix and g.get("origin") == origin and path.startswith(prefix):
+                return g
+        return None
 
     def assert_allowed(self, url: str) -> None:
         ok, rule = self.allowed(url)
