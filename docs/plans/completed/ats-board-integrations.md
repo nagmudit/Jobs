@@ -1,7 +1,7 @@
 ---
-status: active
+status: completed
 created: 2026-09-04
-last_updated: 2026-09-06
+last_updated: 2026-09-09
 areas: [jobsearch/src/ats.py, jobsearch/src/sources, jobsearch/src/roles.py]
 ---
 

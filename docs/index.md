@@ -67,15 +67,18 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 
 [plans/active/](plans/active/) — read before touching an area with an open plan.
 
-- [ats-board-integrations.md](plans/active/ats-board-integrations.md) — integrating the
-  four ATS boards one provider at a time. Greenhouse and Ashby done; **Workable next**.
 - [close-conduct-test-gaps.md](plans/active/close-conduct-test-gaps.md) — the conduct
-  layer is untested; this closes it and adds CI.
+  layer is untested; this closes it and adds CI. **Still open:** GAP-004 (crawl slice
+  loop) and GAP-012 (web endpoint guards) are the last two P0s.
+- [application-analytics.md](plans/active/application-analytics.md) — a dated history of
+  status changes, and the handful of numbers it answers.
 
 [plans/completed/](plans/completed/) — what was done and what it left behind.
 
 - [role-fetch-across-sources.md](plans/completed/role-fetch-across-sources.md) — one
   role-driven fetch across every source. See ADR-009.
+- [ats-board-integrations.md](plans/completed/ats-board-integrations.md) — all four ATS
+  providers. Dover stays unplanned: 2 companies, too small to justify a fifth.
 - [connect-concurrency.md](plans/completed/connect-concurrency.md) — `store.connect()`
   raced itself creating views; the UI 500'd on load. Read it before adding DDL to
   `connect()`.

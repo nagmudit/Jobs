@@ -575,7 +575,7 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/status")
     def status(s: StatusIn):
-        if s.status not in ("new", "shortlisted", "applied", "hidden"):
+        if s.status not in S.STATUSES:
             raise HTTPException(400, f"bad status {s.status!r}")
         conn = db()
         S.set_status(conn, s.job_id, s.status, s.note)
@@ -653,6 +653,16 @@ def create_app(cfg: Config) -> FastAPI:
             return enrich_ids(f, conn, e.ids, max_age_days=cfg.max_age_days)
         finally:
             enrich_lock.release()
+
+    @app.get("/api/stats")
+    def stats():
+        """The application funnel and its dates.
+
+        Read from `status_event`, not `user_state`: an outcome recorded later
+        overwrites the current state, so counting current state would lose the
+        application that preceded it.
+        """
+        return S.application_stats(db())
 
     @app.get("/api/estimate")
     def estimate(n: int):

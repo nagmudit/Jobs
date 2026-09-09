@@ -21,7 +21,7 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Discover role slugs | `python -m src.cli roles --location bangalore` | ⚠️ not run — makes live requests |
 | Enrich specific jobs | `python -m src.cli enrich --ids 123,456` | ✅ ran, 3 enriched |
 | Enrich next N unenriched | `python -m src.cli enrich --limit 25` | ⚠️ not run |
-| Stats | `python -m src.cli stats` | ✅ ran |
+| Stats (corpus + application funnel) | `python -m src.cli stats` | ✅ ran 2026-09-09 |
 | **Fetch a role from every source** | `python -m src.cli fetch --roles artificial-intelligence-engineer` | ✅ ran, 3 sources |
 | Fetch several roles | `python -m src.cli fetch --roles a,b --sources remoteok` | ✅ ran |
 | Expand ATS boards for a role | `python -m src.cli fetch --roles <role> --sources greenhouse` | ✅ ran, 47/55 companies |

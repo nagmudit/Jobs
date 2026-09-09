@@ -136,6 +136,11 @@ Things that will mislead you if nobody says them:
   not date-ordered, so paging must continue past all-stale pages. See ADR-006.
 - **`CREATE TABLE IF NOT EXISTS` does not add columns.** New columns go in
   `store.MIGRATIONS` (additive only) or an existing database breaks on first query.
+- **`user_state` is current state; `status_event` is history.** The first is one
+  mutable row per job and is what every filter and facet reads. The second is
+  append-only and is the only place a date survives an outcome being recorded later.
+  `set_status` writes both; `import_user_state` replays with `record=False` so a sync
+  does not re-date the history it is restoring. See `docs/plans/active/application-analytics.md`.
 - **`jobs` is three layers deep**: `job_raw` → `jobs_core` (UNION ALL per source) →
   `jobs`. A missing column error usually means a source view drifted from
   `CORE_COLUMNS`, not that the outer view is wrong.

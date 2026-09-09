@@ -338,6 +338,20 @@ journeys:
       from, which reads as rotating while sending one string forever.
     release_blocking: true
 
+  - id: CJ-060
+    name: The application history is durable, accurate and never published
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      user_state is one mutable row per job, so recording an outcome overwrites
+      the date the job was applied to -- silently and unrecoverably. Three ways
+      the history dies: never written, wiped by the next corpus sync, or re-dated
+      to today by replaying marks through set_status. And one way it leaks: the
+      corpus is published to a public repo daily, so a dated log of every job the
+      owner applied to must be stripped before upload.
+    release_blocking: false
+
   - id: CJ-023
     name: Age cutoff drops stale jobs at ingest, keeps unknown-age jobs
     capability: CAP-STORE
@@ -934,6 +948,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_store_concurrency.py
     command: python -m pytest tests/test_store_concurrency.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-018
+    name: Status history survives outcomes and syncs, and never reaches the published corpus
+    journey: CJ-060
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_application_analytics.py
+    command: python -m pytest tests/test_application_analytics.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

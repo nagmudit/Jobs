@@ -54,6 +54,16 @@ th:hover{color:var(--fg)}
 tbody tr:hover{background:var(--panel2)}
 tr.applied{opacity:.55}
 tr.shortlisted td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+tr.interviewing td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+tr.offer td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+tr.offer{font-weight:600}
+tr.rejected{opacity:.4}
+tr.rejected td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+/* One line of numbers, not a dashboard. */
+#appstats{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;
+  font-size:11px;color:var(--dim);margin-top:6px;line-height:1.6}
+#appstats b{color:var(--fg);font-size:12px}
+#appstats .sep{opacity:.4}
 .desc{white-space:pre-wrap;font-size:12px;color:var(--dim);max-height:340px;
   overflow:auto;padding:8px 10px;background:var(--panel2);border-radius:6px;
   border:1px solid var(--line)}
@@ -82,6 +92,7 @@ td.acts{white-space:nowrap}
   <span class="stat">enriched <strong id="c-enr">–</strong></span>
   <span class="stat">last crawl <strong id="c-crawl">–</strong></span>
   <span class="stat" id="c-mit"></span>
+  <div id="appstats" style="width:100%"></div>
   <span style="flex:1"></span>
   <span id="msg" class="msg"></span>
 </header>
@@ -284,9 +295,12 @@ function rowHtml(r) {
                                 : String(r.expires_at || '').slice(0,10)) : '—'}</td>
     <td class="acts">
       <a class="sbtn" href="${esc(r.apply_url)}" target="_blank" rel="noopener">Apply</a>
-      <button class="sbtn" data-st="shortlisted">★</button>
-      <button class="sbtn" data-st="applied">✓</button>
-      <button class="sbtn" data-st="hidden">✕</button>
+      <button class="sbtn" data-st="shortlisted" title="Shortlist">★</button>
+      <button class="sbtn" data-st="applied" title="Applied">✓</button>
+      <button class="sbtn" data-st="interviewing" title="Interviewing">☎</button>
+      <button class="sbtn" data-st="offer" title="Offer">🏆</button>
+      <button class="sbtn" data-st="rejected" title="Rejected">✖</button>
+      <button class="sbtn" data-st="hidden" title="Hide">✕</button>
     </td></tr>`;
 }
 
@@ -329,6 +343,7 @@ function wireRows() {
     tr.querySelectorAll('button[data-st]').forEach(b => b.onclick = async () => {
       const next = tr.className === b.dataset.st ? 'new' : b.dataset.st;
       await post('/api/status', {job_id: id, status: next});
+      loadStats();
       const r = state.rows.find(x => x.source_job_id === id);
       if (r) r.status = next;
       tr.className = next;
@@ -509,6 +524,35 @@ $('#enrich').onclick = async () => {
   loadMeta(); refresh();
 };
 
+/* Six numbers on one line. Read from status_event, so an outcome recorded today
+   never erases the application it followed. Deliberately not a chart: if a
+   number needs one to be read, it is the wrong number for this tool. */
+async function loadStats() {
+  let s;
+  try { s = await fetch('/api/stats').then(r => r.json()); } catch { return; }
+  const el = $('#appstats');
+  if (!s || !s.applied_total) {
+    el.innerHTML = '<span>No applications tracked yet — mark one ✓ to start.</span>';
+    return;
+  }
+  const f = s.funnel || {};
+  const pct = Math.round(100 * (s.responded || 0) / s.applied_total);
+  const reply = s.median_days_to_reply == null ? '' :
+    ` <span class="sep">·</span> median <b>${s.median_days_to_reply}d</b> to reply`;
+  const src = (s.by_source || []).slice(0, 4)
+    .map(r => `${esc(r.source)} ${r.n}`).join(', ');
+  el.innerHTML =
+    `applied <b>${s.applied_7d}</b> in 7d <span class="sep">·</span> ` +
+    `<b>${s.applied_30d}</b> in 30d <span class="sep">·</span> ` +
+    `<b>${s.applied_total}</b> all time` +
+    ` <span class="sep">|</span> shortlisted <b>${f.shortlisted || 0}</b> → ` +
+    `applied <b>${f.applied || 0}</b> → interviewing <b>${f.interviewing || 0}</b> → ` +
+    `offer <b>${f.offer || 0}</b> / rejected <b>${f.rejected || 0}</b>` +
+    ` <span class="sep">|</span> replied <b>${s.responded || 0}</b>/${s.applied_total}` +
+    ` (${pct}%)${reply}` +
+    (src ? ` <span class="sep">|</span> ${src}` : '');
+}
+
 async function loadMeta() {
   const m = await fetch('/api/meta').then(r => r.json());
   state.meta = m;
@@ -570,7 +614,7 @@ function msg(t) { $('#msg').textContent = t; if (t) setTimeout(() => {
   if ($('#msg').textContent === t) $('#msg').textContent = ''; }, 15000); }
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
-loadMeta().then(() => { loadRows(); loadFacets(); pollCrawl(); });
+loadMeta().then(() => { loadRows(); loadFacets(); pollCrawl(); loadStats(); });
 </script>
 </body>
 </html>

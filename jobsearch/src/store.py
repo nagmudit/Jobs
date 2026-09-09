@@ -26,11 +26,11 @@ import re
 import sqlite3
 import threading
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def now() -> str:
@@ -93,6 +93,18 @@ CREATE TABLE IF NOT EXISTS user_state (
   status        TEXT,
   note          TEXT,
   updated_at    TEXT
+);
+
+-- Append-only history of every status change. `user_state` holds the CURRENT
+-- state and is overwritten in place, so without this the date a job was applied
+-- to is destroyed the moment its outcome is recorded. Never updated, never
+-- deleted except by `clear_events` when producing a publishable corpus.
+CREATE TABLE IF NOT EXISTS status_event (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_job_id TEXT NOT NULL,
+  status        TEXT NOT NULL,
+  note          TEXT,
+  at            TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS job_location (
@@ -167,6 +179,8 @@ CREATE INDEX IF NOT EXISTS ix_prov_job    ON job_provenance(source_job_id);
 CREATE INDEX IF NOT EXISTS ix_prov_role   ON job_provenance(role_slug);
 CREATE INDEX IF NOT EXISTS ix_prov_loc    ON job_provenance(location);
 CREATE INDEX IF NOT EXISTS ix_state       ON user_state(status);
+CREATE INDEX IF NOT EXISTS ix_event_job   ON status_event(source_job_id);
+CREATE INDEX IF NOT EXISTS ix_event_at    ON status_event(status, at);
 CREATE INDEX IF NOT EXISTS ix_jobloc_loc  ON job_location(location);
 CREATE INDEX IF NOT EXISTS ix_jobloc_job  ON job_location(source_job_id);
 """
@@ -311,6 +325,20 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
                 ALTER TABLE company_raw_v2 RENAME TO company_raw;
             """)
             applied.append("v2:company_raw composite pk")
+    if _user_version(conn) < 3:
+        # v2 -> v3: `status_event` is new, so marks made before it have no
+        # history. Seed one event each from user_state.updated_at, which is the
+        # only date those rows carry. Guarded on absence so a partial run and a
+        # reconnect are both safe.
+        n = conn.execute(
+            "INSERT INTO status_event (source_job_id,status,note,at) "
+            "SELECT u.source_job_id, u.status, u.note, u.updated_at FROM user_state u "
+            "WHERE u.status IS NOT NULL AND NOT EXISTS "
+            "(SELECT 1 FROM status_event e WHERE e.source_job_id = u.source_job_id)"
+        ).rowcount
+        if n:
+            applied.append(f"v3:seeded {n} status events")
+
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
     return applied
@@ -491,12 +519,38 @@ def page_done(conn, slice_key: str, page: int) -> bool:
     return r is not None and r["status"] == "done"
 
 
-def set_status(conn, job_id: str, status: str, note: str | None = None) -> None:
+# The funnel, in order. `hidden` sits outside it -- "stop showing me this" is not
+# a stage of an application.
+FUNNEL = ("shortlisted", "applied", "interviewing", "offer", "rejected")
+STATUSES = ("new",) + FUNNEL + ("hidden",)
+# Anything after `applied` is the other side replying. Used to measure response
+# rate and time-to-reply.
+REPLY_STATUSES = ("interviewing", "offer", "rejected")
+
+
+def set_status(conn, job_id: str, status: str, note: str | None = None,
+               record: bool = True) -> None:
+    """Set the current state, and by default record the change.
+
+    Still the single writer of `user_state`, and now of `status_event` too. The
+    upsert keeps every existing query, filter and facet working unchanged; the
+    append is what makes the history answerable.
+
+    `record=False` is for REPLAYING state that already happened -- restoring
+    marks onto a freshly downloaded corpus. Those events are carried separately
+    and verbatim by `import_events`; appending here as well would invent a
+    second set dated today, which is the data loss this table exists to stop.
+    """
+    ts = now()
     conn.execute(
         "INSERT INTO user_state (source_job_id,status,note,updated_at) VALUES (?,?,?,?)"
         " ON CONFLICT(source_job_id) DO UPDATE SET status=excluded.status,"
         " note=COALESCE(excluded.note,user_state.note), updated_at=excluded.updated_at",
-        (job_id, status, note, now()))
+        (job_id, status, note, ts))
+    if record:
+        conn.execute(
+            "INSERT INTO status_event (source_job_id,status,note,at) VALUES (?,?,?,?)",
+            (job_id, status, note, ts))
 
 
 def rebuild_locations(conn) -> int:
@@ -519,6 +573,106 @@ def rebuild_locations(conn) -> int:
     return conn.execute("SELECT COUNT(*) FROM job_location").fetchone()[0]
 
 
+def applied_since(conn, days: int) -> int:
+    """Distinct jobs applied to within `days`.
+
+    Counts the EVENT, not `user_state`: a job applied to on Monday and rejected
+    on Friday is still an application made this week, and the current state no
+    longer says so. DISTINCT because re-marking a job applied is a correction,
+    not a second application.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    return conn.execute(
+        "SELECT COUNT(DISTINCT source_job_id) FROM status_event "
+        "WHERE status = 'applied' AND at >= ?", (cutoff,)).fetchone()[0]
+
+
+def application_stats(conn) -> dict[str, Any]:
+    """The handful of numbers the UI shows. Deliberately small.
+
+    Everything derives from `status_event`, so an outcome recorded later never
+    erases the application that preceded it.
+    """
+    applied_total = conn.execute(
+        "SELECT COUNT(DISTINCT source_job_id) FROM status_event "
+        "WHERE status = 'applied'").fetchone()[0]
+
+    # Current state per job -- the funnel is "where does this stand now".
+    funnel = {st: 0 for st in FUNNEL}
+    for st, n in conn.execute(
+            "SELECT status, COUNT(*) FROM user_state GROUP BY status"):
+        if st in funnel:
+            funnel[st] = n
+
+    marks = ",".join("?" * len(REPLY_STATUSES))
+    responded = conn.execute(
+        f"SELECT COUNT(DISTINCT source_job_id) FROM status_event "
+        f"WHERE status IN ({marks}) AND source_job_id IN "
+        f"(SELECT source_job_id FROM status_event WHERE status = 'applied')",
+        REPLY_STATUSES).fetchone()[0]
+
+    # Days from the application to the FIRST reply, per job. Median rather than
+    # mean: one company that replied after eight months should not move it.
+    gaps = [r[0] for r in conn.execute(
+        # ROUND, not truncate: a reply 1.9 days later is 2 days, not 1, and
+        # truncation under-reports every gap by up to a whole day.
+        f"""SELECT CAST(ROUND(julianday(MIN(r.at)) - julianday(a.at)) AS INTEGER)
+            FROM (SELECT source_job_id, MIN(at) at FROM status_event
+                  WHERE status = 'applied' GROUP BY source_job_id) a
+            JOIN status_event r ON r.source_job_id = a.source_job_id
+             AND r.status IN ({marks}) AND r.at >= a.at
+            GROUP BY a.source_job_id""", REPLY_STATUSES) if r[0] is not None]
+    gaps.sort()
+    median = gaps[len(gaps) // 2] if gaps else None
+
+    by_source = [dict(r) for r in conn.execute(
+        "SELECT j.source AS source, COUNT(DISTINCT e.source_job_id) AS n "
+        "FROM status_event e JOIN job_raw j ON j.source_job_id = e.source_job_id "
+        "WHERE e.status = 'applied' GROUP BY j.source ORDER BY n DESC")]
+
+    return {
+        "applied_7d": applied_since(conn, 7),
+        "applied_30d": applied_since(conn, 30),
+        "applied_total": applied_total,
+        "funnel": funnel,
+        "responded": responded,
+        "median_days_to_reply": median,
+        "by_source": by_source,
+    }
+
+
+def export_events(conn) -> list[dict[str, Any]]:
+    """The history, for carrying across a corpus replacement."""
+    return [dict(r) for r in conn.execute(
+        "SELECT source_job_id, status, note, at FROM status_event ORDER BY id")]
+
+
+def import_events(conn, rows: list[dict[str, Any]]) -> int:
+    """Restore history into a fresh corpus.
+
+    Does NOT go through `set_status`: these are past events being replayed, and
+    re-dating them to now is exactly the data loss this table exists to prevent.
+    """
+    n = 0
+    for r in rows or []:
+        if not r.get("source_job_id") or not r.get("status") or not r.get("at"):
+            continue
+        conn.execute(
+            "INSERT INTO status_event (source_job_id,status,note,at) VALUES (?,?,?,?)",
+            (r["source_job_id"], r["status"], r.get("note"), r["at"]))
+        n += 1
+    return n
+
+
+def clear_events(conn) -> int:
+    """Drop the history. Only ever for a PUBLISHABLE copy -- the corpus is
+    published to a public repo, and this log says which jobs the owner applied
+    to and when."""
+    n = conn.execute("SELECT COUNT(*) FROM status_event").fetchone()[0]
+    conn.execute("DELETE FROM status_event")
+    return n
+
+
 def export_user_state(conn) -> list[dict[str, Any]]:
     """Every mark the user has made. The one user-owned table in the corpus.
 
@@ -536,7 +690,8 @@ def import_user_state(conn, rows: list[dict[str, Any]]) -> int:
     for r in rows or []:
         if not r.get("source_job_id") or not r.get("status"):
             continue
-        set_status(conn, r["source_job_id"], r["status"], r.get("note"))
+        set_status(conn, r["source_job_id"], r["status"], r.get("note"),
+                   record=False)
         n += 1
     return n
 
@@ -553,7 +708,7 @@ def clear_user_state(conn) -> int:
 # A pruned `hidden` row costs nothing -- user_state remembers the mark whether or
 # not the job exists -- but a pruned `applied` row destroys the only record of
 # what you applied to.
-INVESTED_STATUSES = ("applied", "shortlisted")
+INVESTED_STATUSES = ("applied", "shortlisted", "interviewing", "offer")
 
 
 JOB_TABLES = ("job_raw", "job_provenance", "job_detail", "job_location")

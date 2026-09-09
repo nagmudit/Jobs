@@ -178,6 +178,22 @@ def _print_stats(conn) -> None:
         print(f"  enriched      {row['enr'] or 0}/{n} ({100*(row['enr'] or 0)/n:.1f}%)")
         print(f"\n  shortlisted {row['sl'] or 0} | applied {row['ap'] or 0} | hidden {row['hd'] or 0}")
 
+    st = S.application_stats(conn)
+    if st["applied_total"]:
+        fn = st["funnel"]
+        print("\nAPPLICATIONS")
+        print(f"  last 7d       {st['applied_7d']}")
+        print(f"  last 30d      {st['applied_30d']}")
+        print(f"  all time      {st['applied_total']}")
+        print(f"  funnel        shortlisted {fn['shortlisted']} -> applied "
+              f"{fn['applied']} -> interviewing {fn['interviewing']} -> "
+              f"offer {fn['offer']} / rejected {fn['rejected']}")
+        pct = 100 * st["responded"] / st["applied_total"]
+        line = f"  responded     {st['responded']}/{st['applied_total']} ({pct:.0f}%)"
+        if st["median_days_to_reply"] is not None:
+            line += f", median {st['median_days_to_reply']}d to reply"
+        print(line)
+
     sl = conn.execute(
         "SELECT role_slug,location,total_claimed,jobs_recovered,pages_walked,"
         "stale_skipped,ended_reason FROM slice_stats ORDER BY run_at DESC, role_slug"
@@ -365,19 +381,26 @@ def cmd_sync(args, cfg: Config) -> int:
         return 2
 
     marks: list = []
+    events: list = []
     if Path(cfg.db_path).exists():
         local = S.connect(cfg.db_path)
         marks = S.export_user_state(local)
+        # The dated history goes across too. Without this every refresh of the
+        # published corpus silently wipes it -- and unlike a mark, an event
+        # cannot be re-created by clicking the button again.
+        events = S.export_events(local)
         local.close()
 
     if not args.apply:
-        print(f"Would merge {len(marks)} mark(s) into {incoming} and move it "
+        print(f"Would merge {len(marks)} mark(s) and {len(events)} event(s) "
+              f"into {incoming} and move it "
               f"to {cfg.db_path}, backing up the current corpus. "
               f"Re-run with --apply to do it.")
         return 0
 
     conn = S.connect(incoming)
     n = S.import_user_state(conn, marks)
+    e = S.import_events(conn, events)
     conn.commit()
     # The published corpus is pruned by age and knows nothing about marks, so a
     # job you applied to a month ago is simply absent from it. Bring those rows
@@ -406,7 +429,7 @@ def cmd_sync(args, cfg: Config) -> int:
             if side.exists():
                 side.unlink()
     shutil.move(str(incoming), str(db))
-    print(f"Synced. {n} mark(s) carried over, "
+    print(f"Synced. {n} mark(s) and {e} history event(s) carried over, "
           f"{carried} marked job(s) preserved from the previous corpus.")
     return 0
 
@@ -434,6 +457,9 @@ def cmd_export(args, cfg: Config) -> int:
 
     pub = S.connect(out)
     n = S.clear_user_state(pub)
+    # The corpus is published to a public repo. This log says which jobs the
+    # owner applied to and when -- strictly more revealing than the marks.
+    ev = S.clear_events(pub)
     # Commit BEFORE checkpointing or vacuuming: the DELETE holds a write
     # transaction, and both fail inside one with "database table is locked".
     pub.commit()
@@ -449,7 +475,8 @@ def cmd_export(args, cfg: Config) -> int:
         if side.exists():
             side.unlink()
 
-    print(f"Exported {out} ({out.stat().st_size} bytes), {n} mark(s) stripped.")
+    print(f"Exported {out} ({out.stat().st_size} bytes), "
+          f"{n} mark(s) and {ev} history event(s) stripped.")
     return 0
 
 
