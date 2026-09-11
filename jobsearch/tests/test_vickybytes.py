@@ -272,3 +272,19 @@ def test_an_empty_feed_is_not_an_error(conn):
 def test_an_http_error_reports_rather_than_raising(conn):
     r = VB.ingest(Feed([], status=503), conn, {})
     assert r["ended_reason"] == "http_503" and r["seen"] == 0
+
+
+def test_trailing_separators_are_stripped_from_location(conn):
+    """This feed ends locations with a dangling separator -- 'Bengaluru, India |'
+    renders the pipe straight into the table, and the same string becomes its own
+    location facet, distinct from the clean one."""
+    for i, loc in enumerate(["Bengaluru, India |", "India | ", "Hyderabad -",
+                             "Pune,", "Remote"], start=1):
+        VB.ingest(Feed([_entry(id=i, location=loc)]), conn, {})
+    got = [r["location_raw"] for r in _rows(conn)]
+    assert got == ["Bengaluru, India", "India", "Hyderabad", "Pune", "Remote"]
+
+
+def test_a_location_that_is_only_a_separator_becomes_null(conn):
+    VB.ingest(Feed([_entry(location=" | ")]), conn, {})
+    assert _rows(conn)[0]["location_raw"] is None

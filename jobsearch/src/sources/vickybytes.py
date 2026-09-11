@@ -170,8 +170,13 @@ SELECT
   NULL                                                     AS company_size_min,
   NULLIF(json_extract(j.raw_json,'$.shortDescription'),'') AS high_concept,
   (SELECT group_concat(value,', ') FROM json_each(j.raw_json,'$.tags')) AS badges,
-  -- Trailing spaces are common in this feed ('Gurugram ', 'Bangalore ').
-  NULLIF(trim(COALESCE(json_extract(j.raw_json,'$.location'),'')),'') AS location_raw,
+  -- This feed ends locations with a dangling separator as well as whitespace:
+  -- 'Bengaluru, India |', 'Gurugram ', 'Pune,'. Left alone the pipe renders
+  -- straight into the table, and the dirty string becomes its own location
+  -- facet sitting next to the clean one. Trimmed both ends, twice, because the
+  -- separator is usually followed by a space.
+  NULLIF(trim(trim(trim(trim(
+    COALESCE(json_extract(j.raw_json,'$.location'),'')), '|,-/;'))), '') AS location_raw,
   NULL                                                     AS remote_locations,
   -- `type` is the WORK MODE, not the kind of posting. 'job' means the poster
   -- never said, which is unknown rather than onsite -- so NULL, not 0.

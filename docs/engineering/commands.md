@@ -34,6 +34,7 @@ Every command below was run on 2026-09-03 unless marked otherwise. Run from
 | Widen the age cutoff | `python -m src.cli crawl --no-resume --max-age-days 90` | ⚠️ not run |
 | Serve UI | `python -m src.cli serve` | ✅ ran on :8013, UI + all API routes |
 | Serve UI read-only (as hosted) | `JOBSEARCH_READONLY=1 python -m src.cli serve` | ✅ ran, 4 crawl routes 404 |
+| **Check the UI in a real browser** | `python scripts/check_layout.py` (needs a running `serve` + playwright) | ✅ ran 2026-09-12, 13 checks |
 | Adopt a downloaded corpus (dry run) | `python -m src.cli sync /tmp/corpus.db` | ✅ ran |
 | Adopt a downloaded corpus | `python -m src.cli sync /tmp/corpus.db --apply` | ✅ ran on a copy, 2 marks carried |
 | Publishable copy, no user marks | `python -m src.cli export --out corpus.db` | ✅ ran, 6266 jobs / 0 marks |

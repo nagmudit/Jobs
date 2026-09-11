@@ -5,136 +5,319 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>jobsearch</title>
 <style>
+/* Monochrome, flat, dense.
+
+   No gradients anywhere and no colour cast on the surfaces -- greys only, per
+   the brief. Colour is reserved for two jobs and nothing else: semantic status
+   (good / bad / warn) and the focus ring, which is drawn in full-contrast ink so
+   even that is greyscale. The primary button is the ink inverted rather than a
+   brand hue, which keeps the whole page on one neutral ramp.
+
+   Chrome is one 40px row. Everything that used to sit in a tall header band is
+   now inline in it, and the sidebar collapses, because on a table of 4,000 rows
+   the rows are the product and the chrome is not. */
 :root{
-  --bg:#11131a; --panel:#171a23; --panel2:#1d212c; --line:#2a2f3d;
-  /* --dim is body text, so it carries the 4.5:1 rule, not the 3:1 one.
-     #8b93a7 on --panel measured 4.2:1; #9aa2b8 clears it. */
-  --fg:#e6e8ef; --dim:#9aa2b8; --accent:#5b9dff; --good:#3fb950; --warn:#d29922;
-  --bad:#f85149; --chip:#232838;
-  --radius:6px;
-  /* Measured from the real header (setHeaderOffset). It used to be a hardcoded
-     41px, which silently went wrong the moment a row was added to the header --
-     the sticky column heads then sat under it. */
+  --bg:#F4F4F4; --panel:#FFFFFF; --panel2:#EFEFEF; --raise:#FFFFFF;
+  --ink:#111111; --dim:#5C5C5C;
+  --line:#E0E0E0; --line-strong:#C7C7C7;
+  --accent:#111111; --on-accent:#FFFFFF;   /* primary = ink inverted */
+  --good:#0F7B52; --bad:#C62B38; --warn:#8A5A00;
+  --focus:#111111;
+  --radius:8px; --radius-sm:6px;
+  --shadow:0 1px 2px rgb(0 0 0 / 6%), 0 4px 12px -6px rgb(0 0 0 / 12%);
+  --aside-w:288px;
+  /* Measured from the real header. A hardcoded value silently breaks the moment
+     a row is added to the header -- the sticky column heads then sit under it. */
   --hdr:41px;
 }
-@media (prefers-color-scheme: light){
-  :root{ --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dfe3ea;
-    --fg:#12141a; --dim:#59607a; --chip:#e9edf5; }
+:root{ color-scheme:light }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark } }
+:root[data-theme="dark"]{ color-scheme:dark }
+
+/* Dark = neutral greys. No navy, no indigo, no tint. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0B0B; --panel:#141414; --panel2:#1B1B1B; --raise:#202020;
+    --ink:#ECECEC; --dim:#9B9B9B;
+    --line:#2A2A2A; --line-strong:#3A3A3A;
+    --accent:#ECECEC; --on-accent:#0B0B0B;
+    --good:#4ADE96; --bad:#FF7A85; --warn:#E9B949;
+    --focus:#ECECEC;
+    --shadow:0 1px 2px rgb(0 0 0 / 50%), 0 6px 18px -8px rgb(0 0 0 / 60%);
+  }
 }
+:root[data-theme="dark"]{
+  --bg:#0B0B0B; --panel:#141414; --panel2:#1B1B1B; --raise:#202020;
+  --ink:#ECECEC; --dim:#9B9B9B;
+  --line:#2A2A2A; --line-strong:#3A3A3A;
+  --accent:#ECECEC; --on-accent:#0B0B0B;
+  --good:#4ADE96; --bad:#FF7A85; --warn:#E9B949;
+  --focus:#ECECEC;
+  --shadow:0 1px 2px rgb(0 0 0 / 50%), 0 6px 18px -8px rgb(0 0 0 / 60%);
+}
+
 *{box-sizing:border-box}
-/* 14px/1.5 on a 12/14/16/18/24 scale. 16 is the general baseline; 14 is the
-   deliberate density choice for a table tool, and nothing drops below 12. */
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:14px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
-/* There was no focus ring anywhere on this page. */
+*{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border:2px solid transparent;
+  background-clip:content-box;border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:var(--dim);background-clip:content-box}
+::-webkit-scrollbar-corner{background:transparent}
+
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:13.5px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+
+/* Focus is 2px of full-contrast ink, offset clear of the control. Borders are
+   1px and low contrast, so focus can never be mistaken for one -- and it stays
+   greyscale. */
 :where(a,button,input,select,summary,[tabindex]):focus-visible{
-  outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  outline:2px solid var(--focus);outline-offset:2px;border-radius:var(--radius-sm)}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important;
     animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  button:active,.sbtn:active{transform:none !important}
 }
-.icon{width:16px;height:16px;flex:none;stroke-width:1.5;
-  vertical-align:-3px;pointer-events:none}
+.icon{width:15px;height:15px;flex:none;stroke-width:1.75;
+  vertical-align:-2px;pointer-events:none}
 .vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip-path:inset(50%);white-space:nowrap;border:0}
-header{position:sticky;top:0;z-index:20;background:var(--panel);
-  border-bottom:1px solid var(--line);padding:8px 12px;display:flex;gap:14px;
-  align-items:center;flex-wrap:wrap}
-header b{font-size:14px}
-.stat{color:var(--dim)}
-.stat strong{color:var(--fg)}
-main{display:grid;grid-template-columns:270px 1fr}
-aside{position:sticky;top:var(--hdr);max-height:calc(100vh - var(--hdr));overflow:auto;
-  padding:10px;border-right:1px solid var(--line);background:var(--panel)}
-aside h4{margin:14px 0 5px;font-size:11px;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between}
-aside h4:first-child{margin-top:0}
-input,select,button{font:inherit;color:var(--fg);background:var(--panel2);
-  border:1px solid var(--line);border-radius:5px;padding:5px 7px}
-input[type=text],input[type=number],input[type=search],select{width:100%}
-button{cursor:pointer;background:var(--chip)}
-button:hover{border-color:var(--accent)}
-button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-button:disabled{opacity:.5;cursor:not-allowed}
-label.ck{display:flex;gap:6px;align-items:center;padding:2px 0;cursor:pointer;
+
+/* --- chrome: one row ------------------------------------------------------ */
+header{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+  padding:0 12px;height:40px;background:var(--panel);
+  border-bottom:1px solid var(--line);white-space:nowrap;overflow-x:auto;
+  overflow-y:hidden;scrollbar-width:none}
+header::-webkit-scrollbar{display:none}
+header b{font-size:13px;font-weight:700;letter-spacing:-.01em;flex:none}
+/* The stats used to own two full rows. They are chips on the one row now, and
+   the strip scrolls sideways rather than wrapping, so chrome height is fixed. */
+.stat{color:var(--dim);font-size:11.5px;flex:none}
+.stat strong{color:var(--ink);font-weight:650;
+  font-variant-numeric:proportional-nums}
+.hsep{width:1px;height:16px;background:var(--line);flex:none}
+
+main{display:grid;grid-template-columns:var(--aside-w) minmax(0,1fr);
+  align-items:start}
+/* Collapsed, the aside leaves the flow entirely (display:none) so nothing inside
+   stays tabbable -- but that makes <section> the FIRST grid item, and it would
+   land in the now-0px first track. The template has to become single-column,
+   not just narrower. Setting only --aside-w:0 squashed the whole table into a
+   zero-width column.
+   minmax(0,1fr) rather than 1fr: a grid track's default min-width is auto, so a
+   wide table forces the track wider than the viewport instead of scrolling. */
+:root[data-aside="off"] main{grid-template-columns:minmax(0,1fr)}
+:root[data-aside="off"] aside{display:none}
+
+aside{position:sticky;top:var(--hdr);max-height:calc(100vh - var(--hdr));
+  overflow:auto;padding:12px;background:var(--panel);
+  border-right:1px solid var(--line)}
+aside h4{margin:16px 0 7px;font-size:10.5px;letter-spacing:.07em;font-weight:700;
+  text-transform:uppercase;color:var(--dim);display:flex;
   justify-content:space-between}
+aside h4:first-child{margin-top:0}
+
+input,select,button{font:inherit;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line-strong);border-radius:var(--radius-sm);
+  padding:5px 9px;font-weight:500}
+/* Full-width belongs to the sidebar's stacked controls. Applied globally it
+   also hit the toolbar's Sort/Rows selects, which then took the whole label
+   width and pushed their own text onto a line above -- a 67px toolbar for two
+   dropdowns. */
+aside input[type=text],aside input[type=number],aside input[type=search],
+aside select{width:100%}
+input[type=text],input[type=number],input[type=search]{width:100%}
+.bar select{width:auto;min-width:104px}
+.bar label{display:inline-flex;align-items:center;gap:6px;color:var(--dim);
+  font-size:11.5px;white-space:nowrap}
+input::placeholder{color:var(--dim)}
+button{cursor:pointer;transition:background .12s ease,border-color .12s ease}
+button:hover{background:var(--panel2);border-color:var(--dim)}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--accent);color:var(--on-accent);
+  border-color:var(--accent);font-weight:650}
+button.primary:hover{filter:brightness(1.25);border-color:var(--accent)}
+button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+/* Chrome controls: compact, icon-led. */
+.chip-btn{height:26px;padding:0 9px;font-size:11.5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:5px;flex:none}
+
+label.ck{display:flex;gap:6px;align-items:center;padding:2.5px 0;cursor:pointer;
+  justify-content:space-between}
+label.ck:hover .lbl{color:var(--ink)}
 label.ck span.n{color:var(--dim);font-variant-numeric:tabular-nums;font-size:11px}
 label.ck .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  display:flex;gap:6px;align-items:center;min-width:0}
+  display:flex;gap:7px;align-items:center;min-width:0}
 .multi{max-height:190px;overflow:auto;border:1px solid var(--line);
-  border-radius:5px;padding:4px 6px;background:var(--panel2)}
+  border-radius:var(--radius-sm);padding:6px 8px;background:var(--panel2)}
 .multi.short{max-height:130px}
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);
+
+/* The table is its own scroll region, in both axes.
+
+   `overflow-x:auto` alone was the trap: with the other axis `visible` the
+   browser computes it to `auto` as well, so the wrapper silently became a scroll
+   container -- and a sticky `th` cannot escape one. The header then positioned
+   against the WRAPPER, so `top:var(--hdr)` pushed it 40px down, leaving a dead
+   band above it and breaking sticky-on-scroll entirely.
+
+   Owning the scroll is the fix rather than the workaround: the chrome and the
+   sidebar stay put, only rows move, and the header sticks to the top of its own
+   pane with top:0. */
+main > section{display:flex;flex-direction:column;min-width:0;
+  height:calc(100vh - var(--hdr))}
+.tablewrap{flex:1;min-height:0;overflow:auto}
+table{width:100%;min-width:1110px;border-collapse:collapse;table-layout:fixed}
+th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);
   vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-th{position:sticky;top:var(--hdr);background:var(--panel);z-index:10;
-  font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);
-  cursor:pointer;user-select:none}
-th:hover{color:var(--fg)}
-tbody tr:hover{background:var(--panel2)}
-tbody tr{scroll-margin-top:calc(var(--hdr) + 34px)}
-tr.applied{opacity:.55}
-tr.shortlisted td:first-child{box-shadow:inset 3px 0 0 var(--good)}
-tr.interviewing td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+/* Every column but Title is a fixed px width; Title is left unspecified so it
+   absorbs whatever is left and grows with the viewport.
+
+   Mixing percentages with px over-specified the table: the declared widths came
+   to more than the table width, so the browser scaled them ALL down and the
+   154px Actions column rendered at 95px -- which is what was clipping the Apply
+   button to "Ap...". Fixed widths plus one elastic column cannot over-specify. */
+.c-company{width:150px} .c-size{width:60px}   .c-loc{width:140px}
+.c-remote{width:84px}   .c-salary{width:120px} .c-equity{width:64px}
+.c-age{width:46px}      .c-expires{width:76px}
+/* 3 buttons + 2 gaps + cell padding. Measured, not guessed: at 150px the third
+   button ran 31px past the table edge. */
+.c-acts{width:172px}
+/* top:0 -- the pane is the scroll container now, not the viewport. */
+th{position:sticky;top:0;background:var(--panel);z-index:10;
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);
+  font-weight:700;cursor:pointer;user-select:none;
+  border-bottom:1px solid var(--line-strong)}
+th:hover{color:var(--ink)}
+tbody tr{scroll-margin-top:34px}
+tbody tr:nth-child(even){background:var(--panel2)}
+tbody tr:hover{background:var(--raise)}
+/* State reads as a bar in the gutter, and the row also carries its status as a
+   class -- colour is never the only signal. */
+tr.applied{opacity:.6}
+tr.shortlisted td:first-child{box-shadow:inset 3px 0 0 var(--ink)}
+tr.interviewing td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
 tr.offer td:first-child{box-shadow:inset 3px 0 0 var(--good)}
-tr.offer{font-weight:600}
-tr.rejected{opacity:.4}
+tr.offer{font-weight:650}
+tr.rejected{opacity:.42}
 tr.rejected td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
-/* The tray. The point of the whole flow: the question comes here instead of the
-   user going back to find the row. */
-#tray{border-bottom:1px solid var(--line);background:var(--panel2)}
+
+/* The tray: the one thing on the page that wants acting on. */
+#tray{background:var(--panel);border-bottom:1px solid var(--line);
+  position:sticky;top:var(--hdr);z-index:15}
 #tray[hidden]{display:none}
-#tray .tray-head{display:flex;gap:8px;align-items:center;padding:8px 12px;
-  font-size:13px}
-#tray .tray-head b{font-size:14px}
-#tray ul{list-style:none;margin:0;padding:0 12px 10px;display:grid;gap:8px;
-  max-height:40vh;overflow:auto}
+#tray .tray-head{display:flex;gap:9px;align-items:center;padding:7px 12px}
+#tray .tray-head b{font-size:12px;font-weight:700}
+#tray ul{list-style:none;margin:0;padding:0 12px 9px;display:grid;gap:6px;
+  max-height:38vh;overflow:auto}
 #tray li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
-  padding:8px 10px;background:var(--panel);border:1px solid var(--line);
+  padding:7px 10px;background:var(--panel2);border:1px solid var(--line);
   border-radius:var(--radius)}
 #tray .who{min-width:0;flex:1}
 #tray .who .t{display:block;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;font-weight:500}
-#tray .who .c{color:var(--dim);font-size:12px}
-#tray .acts{display:flex;gap:8px;flex:none}
+  white-space:nowrap;font-weight:600}
+#tray .who .c{color:var(--dim);font-size:11.5px}
+#tray .acts{display:flex;gap:6px;flex:none}
 
-/* One line of numbers, not a dashboard. */
-#appstats{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;
-  font-size:12px;color:var(--dim);margin-top:4px;line-height:1.6;width:100%}
+/* One line of numbers, inline in the chrome. Renders nothing at all when there
+   is nothing to say -- an empty state does not deserve a row of its own. */
+#appstats{display:flex;gap:10px;align-items:baseline;font-size:11.5px;
+  color:var(--dim);flex:none}
+#appstats:empty{display:none}
 /* Proportional figures, NOT tabular: equal-width digits make a standalone value
    like 121 look loose. tabular-nums is for columns that align (.num below). */
-#appstats b{color:var(--fg);font-size:14px;font-variant-numeric:proportional-nums}
-#appstats .sep{opacity:.45}
-#appstats .grp{display:flex;gap:5px;align-items:baseline}
-.desc{white-space:pre-wrap;font-size:12px;color:var(--dim);max-height:340px;
-  overflow:auto;padding:8px 10px;background:var(--panel2);border-radius:6px;
-  border:1px solid var(--line)}
-a{color:var(--accent)}
-.pill{display:inline-block;padding:1px 6px;border-radius:9px;background:var(--chip);
-  font-size:11px;color:var(--dim)}
-.bar{display:flex;gap:6px;align-items:center;padding:6px 12px;
+#appstats b{color:var(--ink);font-weight:700;
+  font-variant-numeric:proportional-nums}
+#appstats .sep{opacity:.35}
+#appstats .grp{display:flex;gap:4px;align-items:baseline}
+
+.desc{white-space:pre-wrap;font-size:12.5px;color:var(--ink);max-height:340px;
+  overflow:auto;padding:10px 12px;background:var(--panel2);
+  border-radius:var(--radius);border:1px solid var(--line)}
+a{color:var(--ink);text-underline-offset:2px;text-decoration-color:var(--line-strong)}
+a:hover{text-decoration-color:currentColor}
+.pill{display:inline-block;padding:0 6px;border-radius:99px;
+  background:var(--panel2);border:1px solid var(--line);
+  font-size:10.5px;font-weight:600;color:var(--dim)}
+.bar{display:flex;gap:8px;align-items:center;padding:7px 12px;
   border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-.msg{color:var(--warn)}
-/* 28px box with 8px gaps. The 44pt guidance is the native-touch one (the
-   skill's own scope note); this is a pointer-first dense table, so the box is
-   sized to stay comfortably clickable without shredding row density. */
+.msg{color:var(--warn);font-weight:600;font-size:11.5px;flex:none}
+
+/* 26px box with 6px gaps. The 44pt guidance is the native-touch one (the
+   skill's own scope note); this is a pointer-first dense table. */
 .sbtn{display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  min-height:28px;min-width:28px;padding:4px 8px;font-size:12px;
-  border-radius:var(--radius);transition:border-color .15s,background .15s}
-td.acts{white-space:nowrap}
-td.acts .row-actions{display:flex;gap:8px;align-items:center}
+  min-height:26px;min-width:26px;padding:4px 8px;font-size:11.5px;font-weight:600;
+  border-radius:var(--radius-sm);background:var(--panel)}
+.sbtn:hover{background:var(--panel2)}
+.sbtn.apply{background:var(--accent);color:var(--on-accent);
+  border-color:var(--accent);font-weight:650}
+.sbtn.apply:hover{filter:brightness(1.25);background:var(--accent)}
+/* The global td rule clips with an ellipsis, which was truncating the Apply
+   button to "Ap...". Actions opt out of it. */
+td.acts{white-space:nowrap;overflow:visible;text-overflow:clip}
+td.acts .row-actions{display:flex;gap:6px;align-items:center}
+td.acts .row-actions > *{flex:none}
 /* The inline half of the confirmation. The tray is the other half. */
-.confirm{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--warn)}
+.confirm{display:flex;gap:6px;align-items:center;font-size:11.5px;
+  font-weight:600;color:var(--ink)}
 .confirm .sbtn{min-width:auto}
-.sbtn.yes{border-color:var(--good);color:var(--good)}
-.sbtn.no{border-color:var(--line)}
+.sbtn.yes{background:var(--good);color:#FFFFFF;border-color:var(--good)}
+.sbtn.no{background:var(--panel)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-#trunc td{font-size:11px;color:var(--dim);padding:2px 4px}
-.crawlbox{border:1px solid var(--line);border-radius:6px;padding:8px;
+#trunc td{font-size:10.5px;color:var(--dim);padding:2px 5px}
+.crawlbox{border:1px solid var(--line);border-radius:var(--radius);padding:10px;
   background:var(--panel2)}
-.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
-.dot.on{background:var(--good)} .dot.off{background:var(--line)}
-.linkish{background:none;border:none;color:var(--accent);padding:0;font-size:11px}
+.dot{width:7px;height:7px;border-radius:99px;display:inline-block;flex:none}
+.dot.on{background:var(--good)} .dot.off{background:var(--line-strong)}
+.linkish{background:none;border:none;color:var(--dim);padding:0;font-size:10.5px;
+  font-weight:600;text-decoration:underline}
+.linkish:hover{background:none;color:var(--ink)}
+progress{width:100%;height:6px;border:1px solid var(--line);border-radius:99px;
+  background:var(--panel2);overflow:hidden}
+progress::-webkit-progress-bar{background:transparent}
+progress::-webkit-progress-value{background:var(--ink)}
+progress::-moz-progress-bar{background:var(--ink)}
+
+/* Drop columns by how little they carry, widest-first. Size and Equity are
+   empty for most rows; Expires is empty wherever the source publishes none.
+   Title, Company, Location, Salary and Actions survive to the narrowest width --
+   they are what the row is for. */
+@media (max-width: 1250px){
+  .c-size,.c-equity,
+  th:nth-child(3),td:nth-child(3),
+  th:nth-child(7),td:nth-child(7){display:none}
+  table{min-width:990px}
+}
+@media (max-width: 1050px){
+  .c-expires,th:nth-child(9),td:nth-child(9){display:none}
+  table{min-width:910px}
+}
+@media (max-width: 820px){
+  .c-remote,th:nth-child(5),td:nth-child(5){display:none}
+  table{min-width:810px}
+}
+
+/* Below 900px the sidebar floats over the table rather than taking a column --
+   so it covers Title and Company, the two things the row is for. An overlay that
+   hides content needs a way out that is not "find the button you came from":
+   a scrim to click, and Escape. */
+#scrim{display:none}
+@media (max-width: 900px){
+  main{grid-template-columns:minmax(0,1fr)}
+  aside{position:fixed;top:var(--hdr);left:0;bottom:0;width:min(320px,86vw);
+    z-index:25;box-shadow:var(--shadow);
+    border-right:1px solid var(--line-strong);max-height:none}
+  :root[data-aside="off"] aside{display:none}
+  :root:not([data-aside="off"]) #scrim{display:block;position:fixed;
+    inset:var(--hdr) 0 0 0;z-index:24;background:rgb(0 0 0 / 45%);border:0}
+  .bar{padding:7px 10px}
+  th,td{padding:6px 7px}
+}
+@media (max-width: 560px){
+  header{gap:8px;padding:0 8px}
+  /* The brand is the one thing the window title already says. */
+  header b{display:none}
+  #tray ul{max-height:50vh}
+}
 </style>
 </head>
 <body>
@@ -157,17 +340,39 @@ td.acts .row-actions{display:flex;gap:8px;align-items:center}
   <symbol id="i-no" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     stroke-linecap="round" stroke-linejoin="round">
     <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 5h18M6 12h12M10 19h4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4
+    M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>
+  </symbol>
 </defs></svg>
 <header>
+  <button id="aside-toggle" class="chip-btn" type="button"
+          aria-controls="side" aria-expanded="true">
+    <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
+    <span>Filters</span>
+  </button>
   <b>jobsearch</b>
+  <span class="hsep"></span>
   <span class="stat">corpus <strong id="c-total">–</strong></span>
   <span class="stat">matching <strong id="c-match">–</strong></span>
   <span class="stat">enriched <strong id="c-enr">–</strong></span>
-  <span class="stat">last crawl <strong id="c-crawl">–</strong></span>
+  <span class="stat">crawl <strong id="c-crawl">–</strong></span>
   <span class="stat" id="c-mit"></span>
-  <div id="appstats" style="width:100%"></div>
-  <span style="flex:1"></span>
+  <span class="hsep"></span>
+  <div id="appstats"></div>
+  <span style="flex:1;min-width:8px"></span>
   <span id="msg" class="msg"></span>
+  <button id="theme" class="chip-btn" type="button" title="Switch theme"></button>
 </header>
 
 <!-- Everything waiting on an answer, in one place. The row never has to be
@@ -183,8 +388,10 @@ td.acts .row-actions{display:flex;gap:8px;align-items:center}
   <ul id="tray-list"></ul>
 </section>
 
+<button id="scrim" type="button" tabindex="-1" aria-label="Close filters"></button>
+
 <main>
-<aside>
+<aside id="side">
   <h4 id="fetch_head">Roles — pick, then fetch</h4>
   <div class="crawlbox" id="fetch_panel">
     <div class="multi short" id="f-fetchroles"></div>
@@ -260,11 +467,17 @@ td.acts .row-actions{display:flex;gap:8px;align-items:center}
     <button id="enrich" class="primary">Enrich filtered results</button>
   </div>
 
+  <div class="tablewrap" tabindex="0" role="region" aria-label="Job results">
   <table id="grid">
+    <!-- Widths live here: <col> beats th/td width in a fixed-layout table.
+         Title has none, so it absorbs the remainder and grows with the window;
+         everything else is fixed, which is what stops the declared widths being
+         scaled down as a group. -->
     <colgroup>
-      <col style="width:25%"><col style="width:13%"><col style="width:7%">
-      <col style="width:14%"><col style="width:8%"><col style="width:11%">
-      <col style="width:5%"><col style="width:5%"><col style="width:8%"><col style="width:9%">
+      <col><col class="c-company"><col class="c-size">
+      <col class="c-loc"><col class="c-remote"><col class="c-salary">
+      <col class="c-equity"><col class="c-age"><col class="c-expires">
+      <col class="c-acts">
     </colgroup>
     <thead><tr>
       <th data-s="title">Title</th><th data-s="company">Company</th>
@@ -274,6 +487,7 @@ td.acts .row-actions{display:flex;gap:8px;align-items:center}
     </tr></thead>
     <tbody></tbody>
   </table>
+  </div>
 </section>
 </main>
 
@@ -631,7 +845,9 @@ async function loadStats() {
   try { s = await fetch('/api/stats').then(r => r.json()); } catch { return; }
   const el = $('#appstats');
   if (!s || !s.applied_total) {
-    el.innerHTML = '<span>No applications tracked yet — open a job with Apply, then confirm it above.</span>';
+    // Nothing to say, so say nothing: `#appstats:empty` collapses it out of the
+    // chrome rather than spending a row on a sentence about having no data.
+    el.innerHTML = '';
     return;
   }
   const f = s.funnel || {};
@@ -645,8 +861,8 @@ async function loadStats() {
   const g = (label, val, extra = '') =>
     `<span class="grp">${label} <b>${val}</b>${extra}</span>`;
   el.innerHTML =
-    g('applied', s.applied_7d, ' in 7d') + g('', s.applied_30d, ' in 30d') +
-    g('', s.applied_total, ' all time') +
+    g('applied', s.applied_7d, '/7d') + g('', s.applied_30d, '/30d') +
+    g('', s.applied_total, ' total') +
     `<span class="sep">|</span>` +
     g('shortlisted', f.shortlisted || 0) + g('→ applied', f.applied || 0) +
     g('→ interviewing', f.interviewing || 0) + g('→ offer', f.offer || 0) +
@@ -702,6 +918,64 @@ async function loadPending() {
       refresh();
     });
   });
+  setHeaderOffset();
+}
+
+/* The sidebar collapses. On a table of a few thousand rows the rows are the
+   product; filters are a tool you reach for, not furniture that owns a fifth of
+   the viewport permanently. Collapsed removes the panel from the DOM tree
+   entirely (display:none), so nothing inside it stays tabbable. */
+function applyAside(open) {
+  document.documentElement.setAttribute('data-aside', open ? 'on' : 'off');
+  const btn = $('#aside-toggle');
+  if (btn) btn.setAttribute('aria-expanded', String(open));
+  try { localStorage.setItem('aside', open ? 'on' : 'off'); } catch {}
+  setHeaderOffset();
+}
+
+function readAside() {
+  try {
+    const v = localStorage.getItem('aside');
+    if (v) return v === 'on';
+  } catch {}
+  // Narrow viewports start collapsed: 288px of filters on a 900px screen leaves
+  // no room for the thing being filtered.
+  return innerWidth > 900;
+}
+
+/* Theme: system / light / dark.
+
+   Three states, not two. "System" is a real choice -- it tracks the OS and keeps
+   tracking it when the OS flips at sunset -- so it stays the default rather than
+   being collapsed into whichever mode the OS happened to be in on first load.
+
+   The attribute on <html> is what the stylesheet keys off; the media query
+   supplies the system case. Stored per browser, which is the right scope: this
+   is a display preference, not corpus data. */
+const THEMES = [
+  {id: 'system', icon: 'i-auto', label: 'System'},
+  {id: 'light',  icon: 'i-sun',  label: 'Light'},
+  {id: 'dark',   icon: 'i-moon', label: 'Dark'},
+];
+
+function readTheme() {
+  try { return localStorage.getItem('theme') || 'system'; } catch { return 'system'; }
+}
+
+function applyTheme(id) {
+  const t = THEMES.find(x => x.id === id) || THEMES[0];
+  // No attribute for 'system': its absence is what lets the media query decide.
+  if (t.id === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t.id);
+  try { localStorage.setItem('theme', t.id); } catch {}
+  const btn = $('#theme');
+  if (btn) {
+    btn.innerHTML = `${ico(t.icon)}<span>${t.label}</span>`;
+    // The label is visible, so the button needs no aria-label -- but it does
+    // need to say what pressing it will DO, which the label alone does not.
+    const next = THEMES[(THEMES.indexOf(t) + 1) % THEMES.length];
+    btn.title = `Theme: ${t.label}. Switch to ${next.label}.`;
+  }
   setHeaderOffset();
 }
 
@@ -772,6 +1046,32 @@ function fmtLocal(iso) {
 function msg(t) { $('#msg').textContent = t; if (t) setTimeout(() => {
   if ($('#msg').textContent === t) $('#msg').textContent = ''; }, 15000); }
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+$('#aside-toggle').onclick = () =>
+  applyAside(document.documentElement.getAttribute('data-aside') !== 'on');
+/* Only reachable while the scrim is displayed, i.e. while the sidebar is an
+   overlay. On wide screens it is display:none and cannot be hit. */
+$('#scrim').onclick = () => applyAside(false);
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  // Escape closes the overlay, never the docked sidebar -- collapsing the
+  // sidebar out from under someone on a wide screen is not what Escape means.
+  if (innerWidth <= 900 && document.documentElement.getAttribute('data-aside') !== 'off') {
+    applyAside(false);
+    $('#aside-toggle').focus();
+  }
+});
+applyAside(readAside());
+
+$('#theme').onclick = () => {
+  const i = THEMES.findIndex(x => x.id === readTheme());
+  applyTheme(THEMES[(i + 1) % THEMES.length].id);
+};
+/* Follow the OS while in system mode -- including a flip at sunset with the page
+   left open. Only the offset needs recomputing; the CSS switches itself. */
+matchMedia('(prefers-color-scheme: dark)')
+  .addEventListener('change', () => { if (readTheme() === 'system') setHeaderOffset(); });
+applyTheme(readTheme());
 
 $('#tray-toggle').onclick = e => {
   const list = $('#tray-list'), open = list.hidden;
