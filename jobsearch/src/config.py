@@ -96,6 +96,9 @@ class Config:
     # Detail pages are never aged out, and a cached mitigation never expires
     # at all. 0 or null restores the old permanent cache. See ADR-011.
     cache_ttl_hours: float | None = 6.0
+    # Days after applying before the UI asks "any news?". Low enough to still be
+    # actionable, high enough not to nag.
+    followup_days: int = 10
     # Paths a site OWNER has agreed we may fetch despite robots.txt disallowing
     # them. Empty by default: robots.txt governs everything unless a human
     # granted an exception and it was written down here. See ADR-013.
@@ -143,6 +146,7 @@ class Config:
             # explicit 0/null disables the TTL. Different intents.
             cache_ttl_hours=((float(raw["cache_ttl_hours"]) or None)
                              if "cache_ttl_hours" in raw else 6.0),
+            followup_days=int(raw.get("followup_days") or 10),
         )
         # CLI overrides win over the file.
         if roles:

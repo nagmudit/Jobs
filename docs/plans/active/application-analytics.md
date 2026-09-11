@@ -1,7 +1,7 @@
 ---
 status: active
 created: 2026-09-09
-last_updated: 2026-09-09
+last_updated: 2026-09-11
 areas: [jobsearch/src/store.py, jobsearch/src/cli.py, jobsearch/src/web]
 ---
 
@@ -69,6 +69,42 @@ Charts, per-round tracking, reminders or follow-up nudges, goals, CSV export,
 company-level CRM. If a number needs a chart to be read, it is the wrong number
 for this tool.
 
+## 2026-09-11 — the capture problem, and the page
+
+Marking status per row was never going to be used: it needs a trip back and a
+hunt for the row. **The Apply click is now the trigger.** It records `opened`
+(not `applied` — opening is not applying), and a tray at the top asks "did you
+apply?" so the row never has to be found. Answering yes dates the application at
+the **open** time, so confirming on Thursday something opened on Monday does not
+move it into the wrong week. Applications with no outcome after
+`followup_days` (10) get "any news?" in the same tray; "Not yet" snoozes.
+
+`opened`, `skipped` and `nudged` are event-only — never in `user_state`, so every
+filter, facet and the funnel are untouched. `/api/event` refuses funnel statuses
+so an application can never be logged without also setting current state.
+
+Row controls went from six to three (Apply · Shortlist · Hide); outcomes are
+answered in the tray where the context already is.
+
+**The page**, against the repo's `ui-ux-pro-max` skill:
+
+- Emoji controls (☎ 🏆 ✖, added 2026-09-09) replaced with an inline SVG sprite —
+  the skill's priority-4 anti-pattern. Zero emoji remain.
+- First focus rings on the page; `prefers-reduced-motion`; `scroll-margin-top` so
+  the sticky header cannot hide a focused row (WCAG 2.2 focus-not-obscured).
+- Body 13px → 14px/1.5; `--dim` raised to clear 4.5:1 in both themes.
+- **A real bug fixed:** `aside` and `th` hardcoded `top:41px`. Adding the stats
+  row on 2026-09-09 made the header taller, so the sticky column heads had been
+  sitting *under* it since. Now measured into `--hdr` on load and resize.
+- Stat values use proportional figures, not `tabular-nums` — per the `dataviz`
+  skill, equal-width digits make a standalone number look loose; tabular is for
+  columns that align.
+
+Not taken from the skill, deliberately: its `--design-system` pattern was
+"Enterprise Gateway" (mega menu, client logos, Contact Sales) — a B2B landing
+pattern with nothing to do with a single-user tool. Its Google-Fonts suggestion
+was dropped too; this page is served locally and from a cold-start function.
+
 ## Remaining
 
 - Numbers are whole-corpus; they do not respect the active filters. Deliberate for
@@ -76,6 +112,10 @@ for this tool.
   clicked. Revisit if it turns out to be wanted.
 - No per-source response *rate* (only application counts by source). Needs more
   data before it would mean anything.
+- **Visual rendering and screen-reader behaviour are unverified.** The checklist
+  was audited against the source, not against a browser or a real AT.
+- The tray polls only on load and after an answer. If the page is left open for
+  days, a follow-up that becomes due will not appear until a reload.
 
 ## Done when
 

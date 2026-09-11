@@ -527,6 +527,29 @@ STATUSES = ("new",) + FUNNEL + ("hidden",)
 # rate and time-to-reply.
 REPLY_STATUSES = ("interviewing", "offer", "rejected")
 
+# Recorded in the log ONLY -- never written to `user_state`. Opening a posting is
+# not applying to it, and if these moved current state the row would change
+# colour, leave the default view, and land in the funnel. They exist so the tool
+# can ask "did you apply?" instead of making the user come back and find the row.
+#
+#   opened   the Apply link was followed; awaiting an answer
+#   skipped  answered "no, I did not apply"
+#   nudged   answered "no news yet"; quiets the follow-up for another window
+WORKFLOW_STATUSES = ("opened", "skipped", "nudged")
+
+
+def record_event(conn, job_id: str, status: str, note: str | None = None,
+                 at: str | None = None) -> None:
+    """Append to the history WITHOUT changing current state.
+
+    `at` lets a confirmation be filed under the moment the posting was actually
+    opened. Confirming on Thursday something opened on Monday is a Monday
+    application; re-dating it to now would quietly move it into the wrong week.
+    """
+    conn.execute(
+        "INSERT INTO status_event (source_job_id,status,note,at) VALUES (?,?,?,?)",
+        (job_id, status, note, at or now()))
+
 
 def set_status(conn, job_id: str, status: str, note: str | None = None,
                record: bool = True) -> None:
@@ -671,6 +694,78 @@ def clear_events(conn) -> int:
     n = conn.execute("SELECT COUNT(*) FROM status_event").fetchone()[0]
     conn.execute("DELETE FROM status_event")
     return n
+
+
+def pending_confirmations(conn) -> list[dict[str, Any]]:
+    """Postings opened but not yet answered, newest first.
+
+    Carries enough to render the question on its own -- the whole point is that
+    the row never has to be found again.
+    """
+    return [dict(r) for r in conn.execute(
+        """
+        WITH last_open AS (
+          SELECT source_job_id, MAX(at) AS at FROM status_event
+          WHERE status = 'opened' GROUP BY source_job_id
+        )
+        SELECT o.source_job_id, o.at, j.title, j.company, j.apply_url, j.source
+        FROM last_open o JOIN jobs j ON j.source_job_id = o.source_job_id
+        WHERE NOT EXISTS (
+          SELECT 1 FROM status_event e
+          WHERE e.source_job_id = o.source_job_id
+            AND e.status IN ('applied','skipped') AND e.at >= o.at
+        )
+        ORDER BY o.at DESC
+        """)]
+
+
+def pending_followups(conn, days: int) -> list[dict[str, Any]]:
+    """Applications old enough to be worth asking about, with no outcome yet.
+
+    A `nudged` event inside the window quiets it -- that is what "not yet" does,
+    so the same question is not asked every single day.
+    """
+    marks = ",".join("?" * len(REPLY_STATUSES))
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    return [dict(r) for r in conn.execute(
+        f"""
+        WITH applied AS (
+          SELECT source_job_id, MIN(at) AS at FROM status_event
+          WHERE status = 'applied' GROUP BY source_job_id
+        )
+        SELECT a.source_job_id, a.at, j.title, j.company, j.apply_url, j.source,
+               CAST(ROUND(julianday('now') - julianday(a.at)) AS INTEGER) AS days_ago
+        FROM applied a JOIN jobs j ON j.source_job_id = a.source_job_id
+        WHERE a.at <= ?
+          AND NOT EXISTS (SELECT 1 FROM status_event e
+                          WHERE e.source_job_id = a.source_job_id
+                            AND e.status IN ({marks}))
+          AND NOT EXISTS (SELECT 1 FROM status_event n
+                          WHERE n.source_job_id = a.source_job_id
+                            AND n.status = 'nudged' AND n.at >= ?)
+        ORDER BY a.at ASC
+        """, (cutoff, *REPLY_STATUSES, cutoff))]
+
+
+def confirm_application(conn, job_id: str, applied: bool) -> None:
+    """Answer "did you apply?" for a posting that was opened.
+
+    Yes promotes it to a real application, dated at the OPEN time so the weekly
+    count reflects when the work happened rather than when it was confirmed. No
+    records a skip, which is what removes it from the queue.
+    """
+    if not applied:
+        record_event(conn, job_id, "skipped")
+        return
+    opened_at = conn.execute(
+        "SELECT MAX(at) FROM status_event WHERE source_job_id = ? AND status = 'opened'",
+        (job_id,)).fetchone()[0]
+    # set_status for the current state, then re-date the event it just wrote.
+    set_status(conn, job_id, "applied")
+    if opened_at:
+        conn.execute(
+            "UPDATE status_event SET at = ? WHERE id = (SELECT MAX(id) FROM status_event"
+            " WHERE source_job_id = ? AND status = 'applied')", (opened_at, job_id))
 
 
 def export_user_state(conn) -> list[dict[str, Any]]:

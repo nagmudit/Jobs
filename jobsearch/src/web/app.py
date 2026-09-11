@@ -83,6 +83,18 @@ class Filters(BaseModel):
     offset: int = 0
 
 
+class EventIn(BaseModel):
+    job_id: str
+    # Workflow statuses only. `applied` and the outcomes must travel via
+    # /api/confirm or /api/status, which also set current state.
+    status: str = "opened"
+
+
+class ConfirmIn(BaseModel):
+    job_id: str
+    applied: bool
+
+
 class StatusIn(BaseModel):
     job_id: str
     status: str
@@ -653,6 +665,49 @@ def create_app(cfg: Config) -> FastAPI:
             return enrich_ids(f, conn, e.ids, max_age_days=cfg.max_age_days)
         finally:
             enrich_lock.release()
+
+    @app.post("/api/event")
+    def event(e: EventIn):
+        """Record a workflow step without changing current state.
+
+        `opened` is the Apply link being followed -- not an application. The
+        difference is the whole design: that click happens anyway, so it costs
+        nothing, and it is what lets the tool ask the question later instead of
+        expecting the user to come back and find the row. `nudged` is "no news
+        yet", which quiets the follow-up for another window.
+
+        Restricted to WORKFLOW_STATUSES on purpose: routing `applied` through
+        here would log an application while leaving current state untouched.
+        """
+        if e.status not in S.WORKFLOW_STATUSES:
+            raise HTTPException(
+                400, f"{e.status!r} is not a workflow status. "
+                     f"Use /api/confirm or /api/status for {S.FUNNEL}.")
+        conn = db()
+        if not conn.execute("SELECT 1 FROM jobs WHERE source_job_id = ?",
+                            (e.job_id,)).fetchone():
+            raise HTTPException(404, f"unknown job {e.job_id!r}")
+        S.record_event(conn, e.job_id, e.status)
+        conn.commit()
+        return {"ok": True, "status": e.status}
+
+    @app.post("/api/confirm")
+    def confirm(c: ConfirmIn):
+        """Answer "did you apply?"."""
+        conn = db()
+        if not conn.execute("SELECT 1 FROM jobs WHERE source_job_id = ?",
+                            (c.job_id,)).fetchone():
+            raise HTTPException(404, f"unknown job {c.job_id!r}")
+        S.confirm_application(conn, c.job_id, applied=c.applied)
+        conn.commit()
+        return {"ok": True, "applied": c.applied}
+
+    @app.get("/api/pending")
+    def pending():
+        """Everything waiting on an answer, in one place."""
+        conn = db()
+        return {"confirm": S.pending_confirmations(conn),
+                "followup": S.pending_followups(conn, cfg.followup_days)}
 
     @app.get("/api/stats")
     def stats():

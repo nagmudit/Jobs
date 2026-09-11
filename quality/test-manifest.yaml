@@ -352,6 +352,21 @@ journeys:
       owner applied to must be stripped before upload.
     release_blocking: false
 
+  - id: CJ-061
+    name: Recording an application costs no extra trip back to the row
+    capability: CAP-FILTER
+    priority: P1
+    facing: user
+    blast_radius: >
+      The previous design needed the user to return, find the row again and pick
+      one of six small buttons. Nobody does that, so the funnel stays empty and
+      every number built on it is fiction. The Apply click now records that the
+      posting was OPENED and the question is asked in a tray. Two ways that goes
+      wrong: an `opened` event reaching user_state would move the row out of the
+      default view and into the funnel; and dating the confirmation at answer
+      time rather than open time silently moves applications into the wrong week.
+    release_blocking: false
+
   - id: CJ-023
     name: Age cutoff drops stale jobs at ingest, keeps unknown-age jobs
     capability: CAP-STORE
@@ -948,6 +963,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_store_concurrency.py
     command: python -m pytest tests/test_store_concurrency.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-019
+    name: Open/confirm/nudge flow; workflow statuses stay out of the funnel
+    journey: CJ-061
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_confirm_flow.py
+    command: python -m pytest tests/test_confirm_flow.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit
