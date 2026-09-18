@@ -94,9 +94,9 @@ sub-partitioning. Observed on a real run:
 ## Storage
 
 Raw first. The Apollo node is stored verbatim in `job_raw.raw_json`; every filterable
-column is derived in the `jobs` view via `json_extract` plus the functions in
-`src/derive.py`. Improving a salary regex re-derives every row on the next query — no
-migration, no re-crawl.
+column is derived via `json_extract` plus the functions in `src/derive.py`, stored in
+`job_derived` for speed, and read through the `jobs` view. Improving a salary regex
+re-derives every row on the next connect — no migration, no re-crawl (ADR-015).
 
 `user_state` is keyed separately from `job_raw` so shortlist/applied/hidden survive
 re-crawls that rewrite job rows.

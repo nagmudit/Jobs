@@ -238,6 +238,14 @@ overflowing their cell), which is now checked separately.
 - **Screen-reader behaviour is unverified.** Layout, sticky behaviour and the
   theme control are now measured in a real browser; contrast is computed. Nothing
   has been driven with an actual screen reader.
+- 2026-09-18: the tray's Hide button did nothing. `#tray ul{display:grid}` outranked
+  the UA `[hidden]` rule; fixed with `#tray ul[hidden]{display:none}`, and
+  `scripts/check_layout.py` now measures the collapse (verified red without the fix).
+- 2026-09-18: UI slowness measured — server-bound, not browser-bound. Each filter
+  change costs `/api/jobs` ~0.5–1 s (632 KB, descriptions for 100 rows) plus
+  `/api/facets` ~0.7 s, because the `jobs` view re-derives every column through
+  Python UDFs on ~11 full scans per click over 6.3k rows. Tracked in
+  [ui-query-speed.md](ui-query-speed.md).
 - The tray polls only on load and after an answer. If the page is left open for
   days, a follow-up that becomes due will not appear until a reload.
 

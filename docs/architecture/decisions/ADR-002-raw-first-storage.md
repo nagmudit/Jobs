@@ -1,6 +1,6 @@
 # ADR-002: Store raw Apollo nodes, derive filterable columns in a SQL view
 
-**Status:** accepted · **Date:** 2026-09-03
+**Status:** accepted, amended by [ADR-015](ADR-015-stored-derivation.md) · **Date:** 2026-09-03
 
 ## Context
 
@@ -46,7 +46,8 @@ migration, no backfill, no stale derived table.
 - `raw_json` duplicates data that also appears in derived columns. At ~1,800 jobs the
   database is a few MB; irrelevant at this scale.
 - Derivation runs per row per query. Fine at this size; would need materialising well
-  before 10⁶ rows.
+  before 10⁶ rows. *(2026-09-18: it was needed at 6×10³. ADR-015 stores the result
+  in `job_derived` behind the same view, kept exact by triggers.)*
 - Unparseable values return `NULL`, never a guess, and the raw string is always kept
   alongside — an unparsed value is strictly better than a silently wrong one.
 

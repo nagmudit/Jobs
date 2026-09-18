@@ -42,7 +42,7 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `fetch.py` | **The only network egress.** robots, rate limit, disk cache, cf logging | `assertions` |
 | `parse.py` | `__NEXT_DATA__` → Apollo → raw nodes. No normalisation | `assertions` |
 | `assertions.py` | The four corpus-integrity guards | nothing internal |
-| `store.py` | Schema, writers, the `jobs` view, `rebuild_locations`, `migrate`, `prune_stale`. `connect()` is concurrency-safe and rebuilds views only when stale | `derive` |
+| `store.py` | Schema, writers, the `job_derived` table + its triggers and the `jobs` view over it, `rebuild_locations`, `migrate`, `prune_stale`. `connect()` is concurrency-safe and rebuilds views only when stale | `derive` |
 | `derive.py` | salary/equity/size parsing, registered as SQLite functions | nothing internal |
 | `crawl.py` | Wellfound slice loop, telemetry, resume | `fetch`, `parse`, `store`, `assertions` |
 | `roles.py` | `fetch_role` — one role across every source, with `filter_mode` | `crawl`, `sources`, `store` |
@@ -84,7 +84,7 @@ Six probe modules (P1–P6) behind `python -m src.run --probe <id>`, plus `REPOR
 | Roles/locations being crawled | `jobsearch/targets.yaml` |
 | Rate limiting, robots, cache | `jobsearch/src/fetch.py` |
 | Why a crawl stopped | `slice_stats.ended_reason`, or `src/crawl.py` |
-| A new filterable column | `store.py` `VIEWS` + maybe `derive.py`. **Not** a re-crawl |
+| A new filterable column | `store.py` `CREATE_DERIVE_VIEW` **and** `CREATE_OUTER_VIEW` + maybe `derive.py`. **Not** a re-crawl; the next connect rebuilds `job_derived` |
 | Real job locations (Pune, SF) | `job_location` table, rebuilt by `store.rebuild_locations` |
 | Which URL shape a slice uses | `fetch.search_url` — `anywhere` / `remote` / a place |
 | Facet options and cascading | `web/app.py::facets`, built on `_clauses` per dimension |
@@ -115,8 +115,10 @@ Things that will mislead you if nobody says them:
 - **The `jobs` view calls Python.** `salary_min`, `salary_max`, `equity_max`,
   `size_label`, `size_min`, `remote_label` are Python functions registered on the
   connection in `store.connect()`. Open the DB with plain `sqlite3` on the command
-  line and **every query against `jobs` fails with "no such function"**. Use
-  `store.connect()`.
+  line and **every query against `jobs` fails with "no such function"** — and since
+  ADR-015 so does every write to `job_raw`, `company_raw`, `job_detail` or
+  `job_provenance`, because their triggers derive. Use `store.connect()`, or
+  `derive.register(conn)` first.
 - **`location: remote` is not a location.** It maps to `/role/r/{role}`, a different
   page type whose GraphQL args carry `remote: true` instead of a location member.
   Handled in `fetch.search_url`.

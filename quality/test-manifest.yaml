@@ -664,6 +664,19 @@ journeys:
       mid-query against it.
     release_blocking: true
 
+  - id: CJ-062
+    name: The stored derivation answers exactly as deriving per query would
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      job_derived exists for speed only (ADR-015). A row it fails to refresh,
+      a derive.py change it never picks up, or a status stored in it instead of
+      joined live all return HTTP 200 with plausible, wrong rows -- the stale
+      read ADR-002 rejected materialising for. Storing user state in it would
+      also ship the owner's marks in the public corpus.
+    release_blocking: false
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -1378,6 +1391,42 @@ tests:
     command: python -m pytest tests/test_enrich.py -q
     triggers: [pull_request]
     merge_blocking: false
+    owner: mudit
+
+  - id: STORE-020
+    name: jobs over job_derived matches the pre-ADR-015 per-query view, row for row
+    journey: CJ-062
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_derived_table.py
+    command: python -m pytest tests/test_derived_table.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-021
+    name: Every input write reaches job_derived with no rebuild; a derivation change rebuilds on connect
+    journey: CJ-062
+    priority: P1
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_derived_table.py
+    command: python -m pytest tests/test_derived_table.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-022
+    name: job_derived stores neither user state nor clock-relative values
+    journey: CJ-062
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_derived_table.py
+    command: python -m pytest tests/test_derived_table.py -q
+    triggers: [pull_request]
+    merge_blocking: true
     owner: mudit
 
 # ---------------------------------------------------------------------------

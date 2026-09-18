@@ -197,6 +197,13 @@ def _clauses(f: Filters) -> list[tuple[str, str, list[Any]]]:
     return out
 
 
+def _list_columns(conn: sqlite3.Connection) -> list[str]:
+    """The `jobs` columns a row list carries. Read from the view, not listed,
+    so a column added there reaches the UI without a second edit here."""
+    return [d[0] for d in conn.execute("SELECT * FROM jobs LIMIT 0").description
+            if d[0] != "description"]
+
+
 def _where(f: Filters, exclude: str | None = None) -> tuple[str, list[Any]]:
     parts = [(sql, p) for dim, sql, p in _clauses(f) if dim != exclude]
     if not parts:
@@ -522,8 +529,30 @@ def create_app(cfg: Config) -> FastAPI:
         conn = db()
         out: dict[str, Any] = {}
 
+        # The text search is the one filter no facet excludes, and the only one
+        # that reads `description` -- ~30 MB of text at 6k jobs. Matched once
+        # into a temp table rather than re-scanned by each of the eight queries
+        # below; that was 670 ms of a search-as-you-type request.
+        base = f
+        if f.q:
+            conn.execute("DROP TABLE IF EXISTS temp.q_hits")
+            # ONLY the text clause: every other filter, hide_expired and the
+            # hidden-status default included, still applies per query below.
+            q_sql, q_params = _where(Filters(q=f.q, show_hidden=True,
+                                             hide_expired=False))
+            conn.execute(f"CREATE TEMP TABLE q_hits AS "
+                         f"SELECT j.source_job_id FROM jobs j{q_sql}", q_params)
+            base = f.model_copy(update={"q": None})
+
+        def _where_f(exclude: str | None = None) -> tuple[str, list[Any]]:
+            where, p = _where(base, exclude=exclude)
+            if f.q:
+                where += (" AND " if where else " WHERE ") + (
+                    "j.source_job_id IN (SELECT source_job_id FROM temp.q_hits)")
+            return where, p
+
         def simple(dim: str, col: str, limit: int = 400):
-            where, p = _where(f, exclude=dim)
+            where, p = _where_f(dim)
             rows = conn.execute(
                 f"SELECT {col} AS v, COUNT(*) n FROM jobs j{where} "
                 f"{'AND' if where else 'WHERE'} {col} IS NOT NULL AND {col} <> '' "
@@ -531,7 +560,7 @@ def create_app(cfg: Config) -> FastAPI:
             out[dim] = [{"value": r["v"], "count": r["n"]} for r in rows]
 
         # Location joins the derived table; everything else is a column.
-        where, p = _where(f, exclude="locations")
+        where, p = _where_f("locations")
         rows = conn.execute(
             f"SELECT l.location AS v, l.kind AS kind, COUNT(DISTINCT j.source_job_id) n "
             f"FROM jobs j JOIN job_location l ON l.source_job_id = j.source_job_id{where} "
@@ -549,19 +578,19 @@ def create_app(cfg: Config) -> FastAPI:
         simple("job_types", "job_type")
         simple("companies", "company", limit=300)
 
-        where, p = _where(f, exclude="roles")
+        where, p = _where_f("roles")
         rows = conn.execute(
             f"SELECT p.role_slug v, COUNT(DISTINCT p.source_job_id) n FROM job_provenance p "
             f"JOIN jobs j ON j.source_job_id = p.source_job_id{where} "
             f"GROUP BY v ORDER BY n DESC", p).fetchall()
         out["roles"] = [{"value": r["v"], "count": r["n"]} for r in rows]
 
-        where, p = _where(f, exclude="statuses")
+        where, p = _where_f("statuses")
         rows = conn.execute(
             f"SELECT status v, COUNT(*) n FROM jobs j{where} GROUP BY v", p).fetchall()
         out["statuses"] = [{"value": r["v"], "count": r["n"]} for r in rows]
 
-        where, p = _where(f)
+        where, p = _where_f()
         out["total"] = conn.execute(f"SELECT COUNT(*) FROM jobs j{where}", p).fetchone()[0]
         return out
 
@@ -573,10 +602,24 @@ def create_app(cfg: Config) -> FastAPI:
         n_enriched = conn.execute(
             f"SELECT COALESCE(SUM(enriched),0) FROM jobs j{where}", params).fetchone()[0]
         order = SORTS.get(f.sort, SORTS["posted"])
+        # Every column but `description`: at ~5 KB a row it was ~90% of the
+        # payload, and it is only read when a row is expanded (/api/job). The
+        # filter above still searches it -- it is only not sent.
+        cols = ", ".join(f"j.{c}" for c in _list_columns(conn))
         rows = conn.execute(
-            f"SELECT j.* FROM jobs j{where} ORDER BY {order} LIMIT ? OFFSET ?",
+            f"SELECT {cols} FROM jobs j{where} ORDER BY {order} LIMIT ? OFFSET ?",
             params + [min(f.limit, 500), f.offset]).fetchall()
         return {"total": total, "enriched": n_enriched, "rows": [dict(r) for r in rows]}
+
+    @app.get("/api/job")
+    def job(id: str):
+        """One row's description, fetched when the row is expanded. The id is a
+        query parameter because it carries a `:` (`"<source>:<native_id>"`)."""
+        r = db().execute("SELECT source_job_id, description FROM jobs "
+                         "WHERE source_job_id = ?", (id,)).fetchone()
+        if r is None:
+            raise HTTPException(404, f"no job {id!r}")
+        return dict(r)
 
     @app.post("/api/ids")
     def ids(f: Filters):

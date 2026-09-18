@@ -4,11 +4,14 @@ Raw first: each source's payload is persisted verbatim in `job_raw.raw_json`,
 and every filterable column is derived on top. Adding a source is a new module
 in `src/sources/` plus a view — storage does not change shape (ADR-002).
 
-Three layers:
+Layers:
 
     job_raw / company_raw     raw payloads, one row per job, namespaced by source
     jobs_core                 UNION ALL of each source's core view (ADR-007)
-    jobs                      jobs_core + provenance, detail, user_state, derived
+    job_derive  (view)        jobs_core + provenance, detail, derived scalars
+    job_derived (table)       job_derive, stored; kept exact by triggers (ADR-015)
+    jobs                      job_derived + user_state + clock-relative columns.
+                              The only one readers query.
 
 IDs are namespaced as `"<source>:<native_id>"`. RemoteOK id 1137286 and a
 Wellfound id would otherwise collide and silently overwrite each other. Keeping
@@ -21,6 +24,7 @@ must survive re-crawls that rewrite job rows.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -168,6 +172,12 @@ CREATE TABLE IF NOT EXISTS request_log (
   fetched_at   TEXT NOT NULL
 );
 
+-- Which derivation `job_derived` was built with. One row. See `_derived_stale`.
+CREATE TABLE IF NOT EXISTS derived_meta (
+  k TEXT PRIMARY KEY,
+  v TEXT NOT NULL
+);
+
 """
 
 # Indexes run AFTER migrate(): on a pre-existing database an index over a column
@@ -196,10 +206,13 @@ ADD_COLUMNS: list[tuple[str, str, str]] = [
     ("company_raw", "source", "TEXT NOT NULL DEFAULT 'wellfound'"),
 ]
 
-# The outer view. Everything source-specific lives in jobs_core; this layer adds
-# provenance, on-demand detail, user state, and the derived scalars.
-CREATE_OUTER_VIEW = """CREATE VIEW jobs AS
--- The outer layer exists only to add the cross-currency sort keys, which have
+# The derivation. Everything source-specific lives in jobs_core; this layer adds
+# provenance, on-demand detail and the derived scalars. It is a view so that
+# `job_derived` can be filled from it wholesale and refreshed from it one row at
+# a time -- the SQL exists exactly once. Nothing here may depend on the clock or
+# on user_state: those are joined live by `jobs` (ADR-015).
+CREATE_DERIVE_VIEW = """CREATE VIEW job_derive AS
+-- The outer select exists only to add the cross-currency sort keys, which have
 -- to be computed from `salary_min`/`salary_currency` after those are themselves
 -- derived. Approximate and for ORDERING ONLY -- the native figure and the raw
 -- string travel alongside and are what the UI displays.
@@ -207,13 +220,6 @@ SELECT *,
        salary_usd(salary_min, salary_currency) AS salary_usd_min,
        salary_usd(salary_max, salary_currency) AS salary_usd_max
 FROM (
-WITH prov AS (
-  SELECT source_job_id,
-         group_concat(DISTINCT role_slug) AS found_via_roles,
-         group_concat(DISTINCT location)  AS found_via_locations,
-         COUNT(*)                          AS n_slices
-  FROM job_provenance GROUP BY source_job_id
-)
 SELECT
   k.source, k.source_job_id, k.native_id, k.company_slug,
   k.title, k.company, k.company_size, k.company_size_min, k.high_concept, k.badges,
@@ -241,9 +247,84 @@ SELECT
   equity_max(d.equity_raw)                                 AS equity_max,
   k.posted_ts,
   datetime(k.posted_ts,'unixepoch')                        AS posted_at,
-  CAST((julianday('now') - julianday(datetime(k.posted_ts,'unixepoch'))) AS INTEGER) AS days_old,
   k.expires_ts,
   datetime(k.expires_ts,'unixepoch')                       AS expires_at,
+  COALESCE(d.description_full, k.description)              AS description,
+  k.ats_source, k.primary_role_title, k.auto_posted,
+  -- Correlated, not a grouped CTE joined in: a CTE is materialised over ALL of
+  -- job_provenance, which made refreshing one row cost 14 ms. Sorted, so the
+  -- order is stable rather than whatever the scan happened to produce.
+  (SELECT group_concat(role_slug) FROM (SELECT DISTINCT role_slug FROM job_provenance
+     WHERE source_job_id = k.source_job_id ORDER BY role_slug)) AS found_via_roles,
+  (SELECT group_concat(location) FROM (SELECT DISTINCT location FROM job_provenance
+     WHERE source_job_id = k.source_job_id ORDER BY location)) AS found_via_locations,
+  (SELECT NULLIF(COUNT(*),0) FROM job_provenance
+     WHERE source_job_id = k.source_job_id)                AS n_slices,
+  k.apply_url,
+  (d.source_job_id IS NOT NULL)                            AS enriched,
+  k.first_seen, k.last_seen
+FROM jobs_core k
+LEFT JOIN job_detail  d ON d.source_job_id = k.source_job_id
+)"""
+
+# What `job_derived` is indexed on: the filter and sort columns /api/jobs and
+# /api/facets touch. The unique id index is what the triggers refresh through.
+DERIVED_INDEXES = (
+    "CREATE UNIQUE INDEX ix_derived_id ON job_derived(source_job_id)",
+    "CREATE INDEX ix_derived_posted  ON job_derived(posted_ts)",
+    "CREATE INDEX ix_derived_source  ON job_derived(source)",
+    "CREATE INDEX ix_derived_company ON job_derived(company)",
+)
+
+# Keep `job_derived` exact on every write, inside the writer's own transaction.
+# A refresh call at each write site was the alternative, and the first site that
+# forgot one would serve stale rows -- the drift ADR-002 rejected materialising
+# for. A trigger cannot be forgotten.
+#
+# Each input maps to the rows it feeds: a job's raw row, detail row and
+# provenance feed that job; a company's raw row feeds every job of that company.
+_REFRESH_ONE = """
+  DELETE FROM job_derived WHERE source_job_id = {r}.source_job_id;
+  INSERT INTO job_derived SELECT * FROM job_derive WHERE source_job_id = {r}.source_job_id;"""
+_REFRESH_CO = """
+  DELETE FROM job_derived WHERE source_job_id IN (SELECT source_job_id FROM job_raw
+    WHERE company_slug = {r}.company_slug AND source = {r}.source);
+  INSERT INTO job_derived SELECT * FROM job_derive WHERE source_job_id IN
+    (SELECT source_job_id FROM job_raw
+     WHERE company_slug = {r}.company_slug AND source = {r}.source);"""
+
+
+def _triggers() -> list[str]:
+    out = []
+    for table, refresh in (("job_raw", _REFRESH_ONE), ("job_detail", _REFRESH_ONE),
+                           ("job_provenance", _REFRESH_ONE),
+                           ("company_raw", _REFRESH_CO)):
+        # UPDATE refreshes both sides: an update that changes the key would
+        # otherwise leave the old row behind (the v2 id migration did exactly that).
+        for op, rows in (("insert", ("NEW",)), ("update", ("OLD", "NEW")),
+                         ("delete", ("OLD",))):
+            body = "".join(refresh.format(r=r) for r in rows)
+            out.append(f"CREATE TRIGGER trg_derive_{table}_{op} "
+                       f"AFTER {op.upper()} ON {table} BEGIN{body}\nEND")
+    return out
+
+
+TRIGGERS = _triggers()
+
+# The view every reader queries. Same columns, same order as before ADR-015:
+# `job_derived` plus the two things that cannot be stored. User state, because a
+# click changes it and it must never reach a published corpus; and anything
+# computed against the clock, which a stored copy would get wrong by tomorrow.
+CREATE_OUTER_VIEW = """CREATE VIEW jobs AS
+SELECT
+  k.source, k.source_job_id, k.native_id, k.company_slug,
+  k.title, k.company, k.company_size, k.company_size_min, k.high_concept, k.badges,
+  k.location_raw, k.remote_locations, k.remote, k.remote_config, k.remote_label,
+  k.job_type, k.salary_raw, k.salary_min, k.salary_max, k.salary_currency,
+  k.salary_period, k.equity_raw, k.equity_max,
+  k.posted_ts, k.posted_at,
+  CAST((julianday('now') - julianday(datetime(k.posted_ts,'unixepoch'))) AS INTEGER) AS days_old,
+  k.expires_ts, k.expires_at,
   -- Only meaningful where the source publishes an expiry (Himalayas does,
   -- Wellfound does not). NULL means unknown, never "not expired".
   -- CAST is load-bearing: strftime returns TEXT, and in SQLite's type ordering
@@ -252,19 +333,16 @@ SELECT
   CASE WHEN k.expires_ts IS NULL THEN NULL
        WHEN CAST(k.expires_ts AS INTEGER) < CAST(strftime('%s','now') AS INTEGER)
        THEN 1 ELSE 0 END                                     AS expired,
-  COALESCE(d.description_full, k.description)              AS description,
-  k.ats_source, k.primary_role_title, k.auto_posted,
-  p.found_via_roles, p.found_via_locations, p.n_slices,
+  k.description, k.ats_source, k.primary_role_title, k.auto_posted,
+  k.found_via_roles, k.found_via_locations, k.n_slices,
   k.apply_url,
   COALESCE(u.status,'new')                                 AS status,
   u.note                                                   AS note,
-  (d.source_job_id IS NOT NULL)                            AS enriched,
-  k.first_seen, k.last_seen
-FROM jobs_core k
-LEFT JOIN job_detail  d ON d.source_job_id = k.source_job_id
-LEFT JOIN user_state  u ON u.source_job_id = k.source_job_id
-LEFT JOIN prov        p ON p.source_job_id = k.source_job_id
-)"""
+  k.enriched,
+  k.first_seen, k.last_seen,
+  k.salary_usd_min, k.salary_usd_max
+FROM job_derived k
+LEFT JOIN user_state u ON u.source_job_id = k.source_job_id"""
 
 
 def _user_version(conn) -> int:
@@ -369,7 +447,7 @@ def _stored_view(conn: sqlite3.Connection, name: str) -> str | None:
 
 
 def _views_stale(conn: sqlite3.Connection, core_sql: str) -> bool:
-    """True when either view is missing or no longer matches the registry.
+    """True when any view is missing or no longer matches the registry.
 
     A source whose CORE_VIEW_SQL changed leaves a view that still builds and
     still queries -- it just answers with the old shape. Comparing against
@@ -377,7 +455,35 @@ def _views_stale(conn: sqlite3.Connection, core_sql: str) -> bool:
     read.
     """
     return (_stored_view(conn, "jobs_core") != _norm(core_sql)
+            or _stored_view(conn, "job_derive") != _norm(CREATE_DERIVE_VIEW)
             or _stored_view(conn, "jobs") != _norm(CREATE_OUTER_VIEW))
+
+
+def _derivation_hash(core_sql: str) -> str:
+    """Everything `job_derived`'s contents depend on that is code, not data.
+
+    The triggers keep the table exact under data changes. They cannot see a
+    change to how a column is derived -- a better salary regex in derive.py, a
+    source mapping a new field -- so that is caught here and answered with a
+    full rebuild, which keeps ADR-002's promise: improve a parser, and every
+    existing row is re-derived, with no migration and no backfill to remember.
+    """
+    from . import derive
+
+    h = hashlib.sha256()
+    for part in (core_sql, CREATE_DERIVE_VIEW, CREATE_OUTER_VIEW,
+                 *DERIVED_INDEXES, *TRIGGERS):
+        h.update(_norm(part).encode())
+    # Line endings normalised: git checks this file out as CRLF on Windows and
+    # LF on the Linux box that builds the published corpus, and a corpus synced
+    # from one to the other should not rebuild for a difference of '\r'.
+    h.update(Path(derive.__file__).read_bytes().replace(b"\r\n", b"\n"))
+    return h.hexdigest()
+
+
+def _derived_stale(conn: sqlite3.Connection, core_sql: str) -> bool:
+    row = conn.execute("SELECT v FROM derived_meta WHERE k='derivation'").fetchone()
+    return row is None or row[0] != _derivation_hash(core_sql)
 
 
 def _needs_migration(conn: sqlite3.Connection) -> bool:
@@ -398,14 +504,37 @@ def _needs_migration(conn: sqlite3.Connection) -> bool:
 def _build_schema(conn: sqlite3.Connection, core_sql: str) -> None:
     # Views must go BEFORE migrate(): a migration that rebuilds a table cannot
     # DROP it while a view still references it ("error in view jobs: no such
-    # table"). They are recreated from the source registry below.
+    # table"). They are recreated from the source registry below. The triggers
+    # go too: migrate() rewrites ids in place, and each rewrite would otherwise
+    # re-derive a row through a view that no longer exists.
     conn.execute("DROP VIEW IF EXISTS jobs")
+    conn.execute("DROP VIEW IF EXISTS job_derive")
     conn.execute("DROP VIEW IF EXISTS jobs_core")
+    for (name,) in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' "
+            "AND name LIKE 'trg_derive_%'").fetchall():
+        conn.execute(f"DROP TRIGGER {name}")
+    conn.commit()
     migrate(conn)
     conn.executescript(INDEXES)
     conn.execute(core_sql)
-    conn.execute(CREATE_OUTER_VIEW)
+    conn.execute(CREATE_DERIVE_VIEW)
     conn.commit()
+
+    # One transaction: WAL readers keep the previous snapshot until COMMIT, so
+    # nobody sees a half-filled table. About a second at 6k rows.
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("DROP TABLE IF EXISTS job_derived")
+        conn.execute("CREATE TABLE job_derived AS SELECT * FROM job_derive")
+        for sql in (*DERIVED_INDEXES, *TRIGGERS, CREATE_OUTER_VIEW):
+            conn.execute(sql)
+        conn.execute("INSERT OR REPLACE INTO derived_meta (k, v) VALUES ('derivation', ?)",
+                     (_derivation_hash(core_sql),))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
 
 
 def connect(path: Path | str) -> sqlite3.Connection:
@@ -427,7 +556,8 @@ def connect(path: Path | str) -> sqlite3.Connection:
     core_sql = sources.core_view_sql()
     with _SCHEMA_LOCK:
         conn.executescript(SCHEMA)  # idempotent, but still a writer
-        if _views_stale(conn, core_sql) or _needs_migration(conn):
+        if (_views_stale(conn, core_sql) or _needs_migration(conn)
+                or _derived_stale(conn, core_sql)):
             _build_schema(conn, core_sql)
 
     # Never conditional: the positional CORE_COLUMNS contract is checked on

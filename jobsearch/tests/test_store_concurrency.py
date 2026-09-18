@@ -16,6 +16,7 @@ import threading
 
 import pytest
 
+from src import derive
 from src import sources as SRC
 from src import store as S
 
@@ -146,7 +147,10 @@ def test_migration_runs_even_when_views_look_current(tmp_path):
     conn.close()
 
     # Rewind to a pre-v2 state while leaving the (current) views in place.
+    # derive's functions are registered because job_raw's triggers call them
+    # (ADR-015): a writer that bypasses store.connect() must still bring them.
     raw = sqlite3.connect(str(p))
+    derive.register(raw)
     raw.execute("UPDATE job_raw SET source_job_id = native_id")
     raw.execute("PRAGMA user_version = 1")
     raw.commit()

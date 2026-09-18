@@ -209,6 +209,8 @@ tr.rejected td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
 #tray .tray-head b{font-size:12px;font-weight:700}
 #tray ul{list-style:none;margin:0;padding:0 12px 9px;display:grid;gap:6px;
   max-height:38vh;overflow:auto}
+/* The id selector above outranks the UA's [hidden] rule, so restate it. */
+#tray ul[hidden]{display:none}
 #tray li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
   padding:7px 10px;background:var(--panel2);border:1px solid var(--line);
   border-radius:var(--radius)}
@@ -494,7 +496,7 @@ progress::-moz-progress-bar{background:var(--ink)}
 <script>
 const $ = s => document.querySelector(s);
 const state = {
-  offset: 0, sort: 'posted', meta: null, rows: [],
+  offset: 0, sort: 'posted', meta: null, rows: [], desc: {},
   sel: {locations:new Set(), roles:new Set(), remote:new Set(), sizes:new Set(),
         job_types:new Set(), companies:new Set(), statuses:new Set(),
         sources:new Set()},
@@ -644,7 +646,13 @@ function wireRows() {
       const r = state.rows.find(x => x.source_job_id === id);
       const d = document.createElement('tr');
       d.className = 'drawer';
-      d.innerHTML = `<td colspan="10"><div class="desc">${esc(r.description || '(no description)')}</div>
+      /* Descriptions are not in the row list (they were ~90% of its bytes), so
+         the first expand fetches one and keeps it. A failure says so in place;
+         the rest of the drawer does not depend on it. */
+      const cached = state.desc[id];
+      d.innerHTML = `<td colspan="10"><div class="desc">${
+        cached === undefined ? '<span class="pill">loading…</span>'
+                             : esc(cached || '(no description)')}</div>
         <div style="padding:6px 2px;color:var(--dim);font-size:11px">
         source <b>${esc(r.source)}</b> · found via <b>${esc(r.found_via_roles || '')}</b> · ${esc(r.job_type || '')}
         · ${esc(r.primary_role_title || '')} · locations: ${esc(r.location_raw || '—')}
@@ -652,6 +660,17 @@ function wireRows() {
         · ats: ${esc(r.ats_source || 'none')} · id ${esc(r.source_job_id)}
         · ${r.enriched ? 'enriched' : 'not enriched'}</div></td>`;
       tr.after(d);
+      if (cached !== undefined) return;
+      fetch('/api/job?id=' + encodeURIComponent(id))
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(j => {
+          state.desc[id] = j.description || '';
+          d.querySelector('.desc').textContent = j.description || '(no description)';
+        })
+        .catch(() => {
+          d.querySelector('.desc').innerHTML =
+            '<span style="color:var(--bad)">could not load the description</span>';
+        });
     };
     tr.querySelectorAll('button[data-st]').forEach(b => b.onclick = async () => {
       const next = tr.className === b.dataset.st ? 'new' : b.dataset.st;

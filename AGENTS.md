@@ -128,8 +128,9 @@ changing anything under `src/`. It was split out on 2026-09-06 because it outgre
 line budget that keeps this file readable.
 
 - **Store raw, derive later.** Apollo nodes go into `job_raw.raw_json` verbatim;
-  filterable columns are derived in the `jobs` view. Re-deriving is free, re-crawling
-  is not. See ADR-002.
+  filterable columns are derived from it and served by the `jobs` view (stored in
+  `job_derived`, kept exact by triggers). Re-deriving is free, re-crawling is not.
+  See ADR-002, ADR-015.
 - **The four assertions raise, never warn.** `SilentRoleFallback`, `PageWrap`,
   `YieldFloor`, `SchemaDrift` guard failures that return HTTP 200 with plausible data.
   Downgrading one to a log line silently corrupts the corpus. See ADR-003.

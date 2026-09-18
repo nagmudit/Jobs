@@ -27,7 +27,7 @@ The repository is the source of truth. Start here, read only what your task touc
 | Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/crawl.py` |
 | Locations, filters, facets | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/web/app.py` |
 | Job age, staleness, pruning | [ADR-006](architecture/decisions/ADR-006-age-cutoff.md), `jobsearch/src/config.py` |
-| Adding a filter or column | [ADR-002](architecture/decisions/ADR-002-raw-first-storage.md) — it is a view change, **not** a re-crawl |
+| Adding a filter or column | [ADR-002](architecture/decisions/ADR-002-raw-first-storage.md), [ADR-015](architecture/decisions/ADR-015-stored-derivation.md) — it is a view change, **not** a re-crawl |
 | Parsing Wellfound's payload | [ADR-001](architecture/decisions/ADR-001-static-http-over-atsfallback.md), `wellfound-probe/REPORT.md` |
 | Equity, detail pages, enrichment | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), `jobsearch/src/enrich.py` |
 | The UI | `jobsearch/src/web/app.py` (SQL filtering), `static/index.html` (everything else) |
@@ -53,6 +53,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-012](architecture/decisions/ADR-012-cross-currency-salary.md) | Salary sorts on an approximate USD value, displays the native one |
 | [ADR-013](architecture/decisions/ADR-013-out-of-band-robots-permission.md) | A site owner's permission overrides robots only when declared with its evidence |
 | [ADR-014](architecture/decisions/ADR-014-rotating-user-agents.md) | The User-Agent is a rotating pool; what that does and does not change |
+| [ADR-015](architecture/decisions/ADR-015-stored-derivation.md) | Derived columns are stored in `job_derived`, kept exact by triggers; `jobs` stays the view |
 
 ## Quality
 
@@ -72,6 +73,8 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
   loop) and GAP-012 (web endpoint guards) are the last two P0s.
 - [application-analytics.md](plans/active/application-analytics.md) — a dated history of
   status changes, and the handful of numbers it answers.
+- [ui-query-speed.md](plans/active/ui-query-speed.md) — store the derived columns
+  in a table and stop sending descriptions with every page of rows. Amends ADR-002.
 
 [plans/completed/](plans/completed/) — what was done and what it left behind.
 

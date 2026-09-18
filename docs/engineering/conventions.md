@@ -12,9 +12,15 @@ you cannot work without; this carries the rest. **Read both before changing
 `src/`.**
 
 - **Store raw, derive later.** Apollo nodes go into `job_raw.raw_json` verbatim.
-  Filterable columns are derived in the `jobs` view via `json_extract` plus the SQL
-  functions in `src/derive.py`. Never normalise at ingest — re-deriving is free,
-  re-crawling is not. See ADR-002.
+  Filterable columns are derived via `json_extract` plus the SQL functions in
+  `src/derive.py` (the `job_derive` view), stored in `job_derived`, and read through
+  the `jobs` view. Never normalise at ingest — re-deriving is free, re-crawling is
+  not. See ADR-002, ADR-015.
+- **Never write `job_derived` by hand, and never store user state or clock-relative
+  values in it.** Triggers on `job_raw`, `company_raw`, `job_detail` and
+  `job_provenance` keep it exact; a change to the derivation SQL or `derive.py` is
+  caught by the fingerprint in `connect()`. `status`, `note`, `days_old` and
+  `expired` are computed live in `jobs`. See ADR-015.
 - **The four assertions raise, never warn.** `SilentRoleFallback`, `PageWrap`,
   `YieldFloor`, `SchemaDrift` all guard failures that return HTTP 200 with plausible
   data. Downgrading one to a log line silently corrupts the corpus. See ADR-003.

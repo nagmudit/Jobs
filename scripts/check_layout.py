@@ -184,12 +184,62 @@ def check_theme(browser) -> None:
     ctx.close()
 
 
+def check_tray(browser) -> None:
+    """Hide must actually collapse the list. `#tray ul{display:grid}` once beat
+    the UA's `[hidden]` rule on specificity, so the button flipped its label and
+    the list stayed exactly where it was."""
+    print("\nTRAY")
+    page = browser.new_page(viewport={"width": 1200, "height": 800})
+    page.goto(URL, wait_until="networkidle")
+    if page.evaluate("() => document.querySelector('#tray').hidden"):
+        print("  skip nothing is waiting on you, so there is no tray to toggle")
+        page.close()
+        return
+    h = "() => Math.round(document.querySelector('#tray-list').getBoundingClientRect().height)"
+    seen = [page.evaluate(h)]
+    for _ in range(2):
+        page.click("#tray-toggle")
+        page.wait_for_timeout(100)
+        seen.append(page.evaluate(h))
+    ok = seen[0] > 0 and seen[1] == 0 and seen[2] == seen[0]
+    if not ok:
+        fails.append(f"tray list heights open/hidden/shown were {seen}")
+    print(f"  {'ok  ' if ok else 'FAIL'} list {seen[0]}px -> hide {seen[1]}px "
+          f"-> show {seen[2]}px")
+    page.close()
+
+
+def check_drawer(browser) -> None:
+    """Expanding a row must show its description. The row list stopped carrying
+    descriptions (ADR-015), so the drawer fetches one -- and a broken fetch
+    would render an empty drawer that looks like a job with no text."""
+    print("\nDRAWER")
+    page = browser.new_page(viewport={"width": 1200, "height": 800})
+    page.goto(URL, wait_until="networkidle")
+    page.click("#grid tbody tr .exp")
+    try:
+        page.wait_for_function(
+            "() => { const d = document.querySelector('tr.drawer .desc');"
+            " return d && !d.querySelector('.pill'); }", timeout=5000)
+    except Exception:  # noqa: BLE001 -- reported as a failure below
+        pass
+    text = page.evaluate(
+        "() => document.querySelector('tr.drawer .desc')?.textContent || ''")
+    ok = len(text.strip()) > 20 and "could not load" not in text
+    if not ok:
+        fails.append(f"drawer description did not load: {text[:60]!r}")
+    print(f"  {'ok  ' if ok else 'FAIL'} expanded row shows {len(text)} chars")
+    page.close()
+
+
 def main() -> int:
     with sync_playwright() as pw:
         b = launch(pw)
         check_layout(b)
         check_sticky(b)
         check_theme(b)
+        check_tray(b)
+        check_drawer(b)
         b.close()
     print()
     if fails:
