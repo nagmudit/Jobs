@@ -1,6 +1,8 @@
 # ADR-007: What multi-source costs, and robots is per-origin from now on
 
-**Status:** accepted (robots fix) · **proposed** (the rest) · **Date:** 2026-09-04
+**Status:** accepted (robots fix) · **proposed** (the rest) · **Date:** 2026-09-04 ·
+an unreadable robots.txt now also blocks that host for the rest of the run
+([ADR-016](ADR-016-per-host-halt.md))
 
 ## Context
 

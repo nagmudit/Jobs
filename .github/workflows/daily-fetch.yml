@@ -72,16 +72,39 @@ jobs:
             echo "No previous corpus -- starting cold."
           fi
 
-      # Exit 2 means a Cloudflare mitigation halted the crawl -- the conduct
-      # guard working. The corpus is still published below so the site serves a
-      # partial day, but the step fails so GitHub emails about it.
+      # Exit codes (src/cli.py):
+      #   0  clean.
+      #   3  finished, but some host refused us (a mitigation, or an unreadable
+      #      robots.txt). That host got no further request this run and every
+      #      other host was fetched (ADR-016). This step passes so the corpus
+      #      is published AND deployed; the last step then fails the job, so
+      #      GitHub still emails about it.
+      #   2  halted on an integrity error (our parsing cannot be trusted). The
+      #      corpus is still published below, but not deployed, and the job fails.
       #
       # DO NOT add a retry here. Retrying through a mitigation is the
       # backoff-and-continue path the design forbids (AGENTS.md, ADR-011).
       - name: Fetch
         id: fetch
         working-directory: jobsearch
-        run: python -m src.cli fetch ${{ inputs.roles && format('--roles {0}', inputs.roles) || '' }}
+        run: |
+          set +e
+          python -m src.cli fetch ${{ inputs.roles && format('--roles {0}', inputs.roles) || '' }} 2>&1 | tee ../fetch.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" = 3 ]; then
+            echo "::warning title=Hosts blocked::Some hosts refused this run and were skipped; every other host was fetched. See the job summary."
+            {
+              echo "## Blocked hosts"
+              echo "Each got no further request this run (ADR-016). The rest of the corpus is fresh."
+              echo '```'
+              sed -n '/^BLOCKED/,$p' ../fetch.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          exit "$rc"
 
       # Drop jobs past the age cutoff (targets.yaml max_age_days, 30). The
       # corpus grows every day and Vercel's serverless bundle limit is 250 MB.
@@ -146,3 +169,12 @@ jobs:
           curl -fsS -X POST "$HOOK" > /dev/null
           echo "Deploy triggered."
           echo "- :white_check_mark: Vercel rebuild triggered." >> "$GITHUB_STEP_SUMMARY"
+
+      # Last, so the corpus above is published and deployed first: a partial
+      # day beats yesterday's. Still a failure, because a block is exactly the
+      # thing a human needs to hear about.
+      - name: Fail if any host was blocked
+        if: always() && steps.fetch.outputs.rc == '3'
+        run: |
+          echo "::error title=Hosts blocked::A host refused this run. See the Blocked hosts section of the summary. If it persists for days, consider disabling that source in targets.yaml."
+          exit 1

@@ -73,6 +73,24 @@ class RobotsDisallowed(RuntimeError):
     """A path family robots.txt forbids. Raised rather than silently skipped."""
 
 
+class RobotsUnreadable(RuntimeError):
+    """A host whose robots.txt could not be read. Never crawled blind (ADR-007),
+    and blocked for the rest of the run (ADR-016)."""
+
+
+class HostBlocked(RuntimeError):
+    """This origin refused us earlier in the run, so nothing more is sent to it.
+
+    Raised by `Fetcher.get` before robots, throttle, cache or transport. It is
+    what keeps "carry on with the other hosts" from being a retry path: a caller
+    that catches this and tries again still sends nothing (ADR-016).
+    """
+
+    def __init__(self, origin: str, reason: str):
+        super().__init__(f"{origin} blocked earlier in this run: {reason}")
+        self.origin, self.reason = origin, reason
+
+
 # robots.txt is re-read daily. It was cached permanently, so a site could tighten
 # its rules and we would never see it. Longer than the listing TTL because rules
 # change rarely, short enough that we notice within a day -- and still readable
@@ -104,7 +122,8 @@ class Fetcher:
         #
         # This changes nothing that protects the site being fetched: robots.txt
         # is still enforced, the 3-5 s floor and concurrency 1 still hold, and a
-        # mitigation still halts the crawl. Only the header string varies.
+        # mitigation still stops all traffic to that host. Only the header
+        # string varies.
         self.user_agents = list(user_agents or [])
         self.delay_range = delay_range
         # How stale a LISTING may be before it is re-fetched. Callers that fetch
@@ -126,6 +145,12 @@ class Fetcher:
         # on that host, and every other host, is unaffected.
         self.robots_overrides = list(robots_overrides or [])
         self._announced: set[str] = set()
+        # Origins that refused us in this run -> why. Filled by get() on the
+        # first mitigation or unreadable robots.txt, and checked before anything
+        # else on every later call, so a blocked host gets no further request of
+        # any kind while other hosts carry on (ADR-016). Lives exactly as long as
+        # this Fetcher; across runs the sticky cached refusal takes over (ADR-011).
+        self.blocked: dict[str, str] = {}
         # Filled by the caller (crawl/enrich) so every response lands in request_log.
         self.on_response = None
 
@@ -191,7 +216,7 @@ class Fetcher:
             return self._robots[origin]
         resp = self._raw_get(f"{origin}/robots.txt", max_age=ROBOTS_TTL)
         if not resp.ok:
-            raise RuntimeError(
+            raise RobotsUnreadable(
                 f"{origin}: could not read robots.txt (HTTP {resp.status}); "
                 f"refusing to crawl blind"
             )
@@ -317,7 +342,21 @@ class Fetcher:
         `max_age` in seconds re-fetches a cache entry older than that. Listing
         callers pass `max_age=self.listing_ttl`; detail callers pass nothing.
         A cached mitigation ignores it and keeps halting -- see `_is_mitigation`.
+
+        A refusal blocks its ORIGIN for the rest of this Fetcher's life: the
+        exception is re-raised unchanged, and every later call to that origin
+        raises HostBlocked here, first, with nothing sent (ADR-016).
         """
+        origin = "{0.scheme}://{0.netloc}".format(urlparse(url))
+        if origin in self.blocked:
+            raise HostBlocked(origin, self.blocked[origin])
+        try:
+            return self._get(url, refresh, max_age)
+        except (RobotsUnreadable, A.MitigationDetected) as e:
+            self.blocked[origin] = f"{type(e).__name__}: {e}"
+            raise
+
+    def _get(self, url: str, refresh: bool, max_age: float | None) -> Response:
         self.assert_allowed(url)
         if refresh:
             meta_p, body_p = self._paths(url)

@@ -24,7 +24,7 @@ from . import store as S
 from .config import Config, TARGETS_PATH
 from .crawl import crawl, validate_role
 from .enrich import enrich_ids
-from .fetch import Fetcher, search_url
+from .fetch import Fetcher, HostBlocked, RobotsUnreadable, search_url
 
 
 def _wire(cfg: Config):
@@ -220,6 +220,27 @@ def _print_stats(conn) -> None:
     print(f"\n  mitigation events: {ev}")
 
 
+# Exit codes for fetch / ingest. The daily workflow reads them: it deploys on 0
+# and 3, and fails the job on anything but 0 so a block still sends an email.
+EXIT_OK, EXIT_HALTED, EXIT_BLOCKED = 0, 2, 3
+
+
+def _report_blocked(f: Fetcher) -> int:
+    """Name every host that refused us, and exit 3 if there was one.
+
+    A partial day is still a failure a human needs to hear about -- it only
+    stopped being a reason to throw away what the other hosts returned
+    (ADR-016).
+    """
+    if not f.blocked:
+        return EXIT_OK
+    print(f"\nBLOCKED -- {len(f.blocked)} host(s) refused us and got no further "
+          f"request this run (ADR-016):", file=sys.stderr)
+    for origin, reason in f.blocked.items():
+        print(f"  {origin}  {reason}", file=sys.stderr)
+    return EXIT_BLOCKED
+
+
 def cmd_fetch(args, cfg: Config) -> int:
     """Fetch one or more roles from every enabled source.
 
@@ -253,7 +274,7 @@ def cmd_fetch(args, cfg: Config) -> int:
         print(describe(res))
 
     _print_stats(conn)
-    return 0
+    return _report_blocked(f)
 
 
 def cmd_ingest(args, cfg: Config) -> int:
@@ -295,6 +316,11 @@ def cmd_ingest(args, cfg: Config) -> int:
                     on_page=lambda d: print(
                         f"    p{d['page']:<3} got={d['jobs']:<4} kept={d['kept']:<5} "
                         f"stale={d['stale_skipped']}"))
+            except (HostBlocked, RobotsUnreadable, A.MitigationDetected) as e:
+                # Scoped to this host (ADR-016). The Fetcher refuses it for the
+                # rest of the run; the other sources carry on.
+                print(f"    !! BLOCKED: {e}", file=sys.stderr)
+                continue
             except A.CorpusIntegrityError as e:
                 print(f"    !! HALTED: {type(e).__name__}: {e}", file=sys.stderr)
                 _print_stats(conn)
@@ -306,7 +332,7 @@ def cmd_ingest(args, cfg: Config) -> int:
 
     S.rebuild_locations(conn)
     _print_stats(conn)
-    return 0
+    return _report_blocked(f)
 
 
 def cmd_prune(args, cfg: Config) -> int:

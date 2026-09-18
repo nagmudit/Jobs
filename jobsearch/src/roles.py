@@ -32,8 +32,10 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from . import assertions as A
 from . import store as S
 from .config import Config
+from .fetch import HostBlocked, RobotsUnreadable
 
 WELLFOUND = "wellfound"
 
@@ -75,40 +77,35 @@ def fetch_role(
     categories = cfg.role_categories(role)
     out: list[dict[str, Any]] = []
 
-    for name in names:
+    def one(name: str) -> dict[str, Any]:
         if name not in reg:
-            out.append(_skipped(name, role, f"unknown source {name!r}"))
-            continue
+            return _skipped(name, role, f"unknown source {name!r}")
 
         if name == WELLFOUND:
             if role not in cfg.roles:
-                out.append(_skipped(name, role,
-                                    "not in targets.yaml roles; refusing to "
-                                    "crawl an unvalidated slug"))
-                continue
+                return _skipped(name, role,
+                                "not in targets.yaml roles; refusing to "
+                                "crawl an unvalidated slug")
             v = validate_role(fetcher, conn, role, "anywhere")
             if not v["valid"]:
                 # Never silently fall back to an unfiltered search.
-                out.append(_skipped(name, role, v["reason"] or "role not applied"))
-                continue
+                return _skipped(name, role, v["reason"] or "role not applied")
             r = crawl_slice(
                 fetcher, conn, role, "anywhere", cfg.max_pages_per_slice,
                 cfg.yield_floor, resume=True, cutoff_ts=cutoff,
                 on_page=lambda d: on_event and on_event({**d, "source": name}))
-            out.append({
+            return {
                 "source": name, "role": role, "filter_mode": "server",
                 "seen": r.jobs_seen, "new": r.jobs_new,
                 "stale_skipped": r.jobs_stale_skipped, "filtered_out": 0,
                 "pages": r.pages_walked, "claimed": r.total_claimed,
                 "ended_reason": r.ended_reason,
-            })
-            continue
+            }
 
         # ATS boards: company-scoped, so expand rather than search.
         if name in ATS_PROVIDERS:
-            out.append(_expand_ats(fetcher, conn, cfg, role, name,
-                                   keywords, cutoff, on_event))
-            continue
+            return _expand_ats(fetcher, conn, cfg, role, name,
+                               keywords, cutoff, on_event)
 
         # JSON-API sources.
         # RemoteOK: deliberately NO tag. Its tag endpoints return an archive
@@ -117,10 +114,9 @@ def fetch_role(
         # against the live feed instead. See src/sources/remoteok.py.
         tag = None if name == "remoteok" else cfg.role_query(role, name)
         if not keywords and name != WELLFOUND:
-            out.append(_skipped(name, role,
-                                "no keywords in role_map; a local filter with no "
-                                "keywords would keep everything"))
-            continue
+            return _skipped(name, role,
+                            "no keywords in role_map; a local filter with no "
+                            "keywords would keep everything")
 
         target = {"role": role, "tag": tag, "keywords": keywords,
                   "categories": categories, "name": role}
@@ -128,7 +124,7 @@ def fetch_role(
             fetcher, conn, target, cutoff_ts=cutoff,
             max_pages=cfg.source_max_pages(name),
             on_page=lambda d: on_event and on_event({**d, "source": name}))
-        out.append({
+        return {
             "source": name, "role": role,
             "filter_mode": r.get("filter_mode", "local"),
             "seen": r["seen"], "new": r["new"],
@@ -136,7 +132,17 @@ def fetch_role(
             "filtered_out": r.get("filtered_out", 0),
             "pages": r.get("pages", 0), "claimed": r.get("claimed"),
             "ended_reason": r.get("ended_reason"), "query": tag,
-        })
+        }
+
+    # A host refusing us is scoped to that source (ADR-016): the Fetcher has
+    # already blocked the origin, so nothing more reaches it this run, and the
+    # remaining sources carry on. Any other CorpusIntegrityError means our own
+    # parsing cannot be trusted and still halts everything (ADR-003).
+    for name in names:
+        try:
+            out.append(one(name))
+        except (HostBlocked, RobotsUnreadable, A.MitigationDetected) as e:
+            out.append(_blocked(name, role, e))
 
     S.rebuild_locations(conn)
     return out
@@ -222,6 +228,12 @@ def _skipped(source: str, role: str, reason: str) -> dict[str, Any]:
             "ended_reason": "skipped"}
 
 
+def _blocked(source: str, role: str, e: Exception) -> dict[str, Any]:
+    """A source whose host refused us. Its message names the origin."""
+    return {**_skipped(source, role, str(e)),
+            "filter_mode": "blocked", "ended_reason": "blocked"}
+
+
 def describe(results: list[dict[str, Any]]) -> str:
     """One line per source, for the CLI and the UI status box."""
     lines = []
@@ -232,6 +244,9 @@ def describe(results: list[dict[str, Any]]) -> str:
                 f"{r['pages']}/{r['claimed']} companies resolved "
                 f"({r['new']} new, {r['filtered_out']} off-role, "
                 f"{r['stale_skipped']} too old) [expand]")
+            continue
+        if r["filter_mode"] == "blocked":
+            lines.append(f"  {r['source']:10} blocked — {r.get('reason','')}")
             continue
         if r["filter_mode"] == "skipped":
             lines.append(f"  {r['source']:10} skipped — {r.get('reason','')}")

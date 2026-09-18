@@ -1,6 +1,8 @@
 # ADR-003: Silent-failure guards raise; they are never warnings
 
-**Status:** accepted · **Date:** 2026-09-03
+**Status:** accepted · **Date:** 2026-09-03 · `MitigationDetected`'s scope amended by
+[ADR-016](ADR-016-per-host-halt.md): it stops that host, not the run. The other
+assertions still halt everything.
 
 ## Context
 

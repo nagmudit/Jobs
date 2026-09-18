@@ -32,10 +32,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
+from .. import assertions as A
 from .. import store as S
 from ..config import Config
 from ..enrich import enrich_ids
-from ..fetch import Fetcher
+from ..fetch import Fetcher, HostBlocked, RobotsUnreadable
 from ..roles import ATS_PROVIDERS
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -242,6 +243,9 @@ class CrawlJob:
                 # working crawl from a hung one.
                 "requests": 0, "cached": 0, "last_at": None, "last_url": None,
                 "started_at": time.time(), "error": None, "finished_at": None,
+                # origin -> reason, for hosts that refused us this run. The
+                # Fetcher's own dict, so it fills live (ADR-016).
+                "blocked": {},
                 "mode": mode}
 
     def _note_response(self, resp: Any, conn: sqlite3.Connection) -> None:
@@ -311,6 +315,7 @@ class CrawlJob:
                     robots_overrides=cfg.robots_overrides,
                     user_agents=cfg.user_agents)
             f.on_response = lambda r: self._note_response(r, conn)
+            self.state["blocked"] = f.blocked
             use = names or sources_for(cfg)
             for role in roles:
                 self.state["current"] = role
@@ -356,15 +361,20 @@ class CrawlJob:
                     robots_overrides=cfg.robots_overrides,
                     user_agents=cfg.user_agents)
             f.on_response = lambda r: self._note_response(r, conn)
+            self.state["blocked"] = f.blocked
             reg = SRC.registry()
             for name in names:
                 self.state["current"] = name
                 mod = reg[name]
                 for target in cfg.source_targets(name):
-                    r = mod.ingest(
-                        f, conn, target, cutoff_ts=cfg.cutoff_ts(),
-                        max_pages=cfg.source_max_pages(name),
-                        on_page=lambda d, _n=name: self._note_event(d, source=_n))
+                    try:
+                        r = mod.ingest(
+                            f, conn, target, cutoff_ts=cfg.cutoff_ts(),
+                            max_pages=cfg.source_max_pages(name),
+                            on_page=lambda d, _n=name: self._note_event(d, source=_n))
+                    except (HostBlocked, RobotsUnreadable, A.MitigationDetected):
+                        # Recorded in f.blocked; the other sources carry on.
+                        continue
                     self.state["jobs_new"] += r["new"]
                     self.state["done"].append(
                         {"role": f"{name}:{r['target']}", "jobs": r["seen"],
@@ -391,6 +401,7 @@ class CrawlJob:
                     robots_overrides=cfg.robots_overrides,
                     user_agents=cfg.user_agents)
             f.on_response = lambda r: self._note_response(r, conn)
+            self.state["blocked"] = f.blocked
             run_at = S.now()
             for role in roles:
                 self.state["current"] = role

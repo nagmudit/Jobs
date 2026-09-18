@@ -15,7 +15,7 @@ The repository is the source of truth. Start here, read only what your task touc
 
 | Area | Read |
 |---|---|
-| Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) |
+| Anything that makes a network request | `AGENTS.md` conduct rules, then [decisions/ADR-003](architecture/decisions/ADR-003-assertions-raise.md) and [ADR-016](architecture/decisions/ADR-016-per-host-halt.md) |
 | A site that disallows what you need | [ADR-013](architecture/decisions/ADR-013-out-of-band-robots-permission.md), `jobsearch/targets.yaml` `robots_overrides` |
 | Adding another job platform | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md), `jobsearch/src/sources/` |
 | Fetching a role from every source | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md), `jobsearch/src/roles.py` |
@@ -54,6 +54,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-013](architecture/decisions/ADR-013-out-of-band-robots-permission.md) | A site owner's permission overrides robots only when declared with its evidence |
 | [ADR-014](architecture/decisions/ADR-014-rotating-user-agents.md) | The User-Agent is a rotating pool; what that does and does not change |
 | [ADR-015](architecture/decisions/ADR-015-stored-derivation.md) | Derived columns are stored in `job_derived`, kept exact by triggers; `jobs` stays the view |
+| [ADR-016](architecture/decisions/ADR-016-per-host-halt.md) | A mitigation or unreadable robots.txt stops that host for the rest of the run, not the whole run |
 
 ## Quality
 
@@ -75,6 +76,8 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
   status changes, and the handful of numbers it answers.
 - [ui-query-speed.md](plans/active/ui-query-speed.md) — store the derived columns
   in a table and stop sending descriptions with every page of rows. Amends ADR-002.
+- [per-host-halt.md](plans/active/per-host-halt.md) — a host that refuses us is
+  skipped for the rest of the run instead of ending it. ADR-016.
 
 [plans/completed/](plans/completed/) — what was done and what it left behind.
 

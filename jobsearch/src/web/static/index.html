@@ -786,15 +786,22 @@ async function pollCrawl() {
     if (!state.polling) state.polling = setInterval(pollCrawl, 2000);
   } else {
     $('#fetch').disabled = false;
-    if (s.error) box.innerHTML = `<b style="color:var(--bad)">halted:</b> ${esc(s.error)}`;
+    /* A blocked host is scoped (ADR-016): the run carried on without it, so it
+       is a warning above the results, not a "halted" that replaces them. */
+    const blocked = Object.entries(s.blocked || {}).map(([o, why]) =>
+      `<b style="color:var(--warn)">blocked:</b> ${esc(o)} — ${esc(why)}`).join('<br>');
+    if (s.error) box.innerHTML = `<b style="color:var(--bad)">halted:</b> ${esc(s.error)}` +
+      (blocked ? '<br>' + blocked : '');
     else if (s.done && s.done.length)
-      box.innerHTML = s.done.map(d => d.filter_mode === 'skipped'
-        ? `${esc(d.role)}: <i>skipped</i> — ${esc(d.reason || '')}`
+      box.innerHTML = (blocked ? blocked + '<br>' : '') + s.done.map(d =>
+        d.filter_mode === 'skipped' ? `${esc(d.role)}: <i>skipped</i> — ${esc(d.reason || '')}`
+        : d.filter_mode === 'blocked' ? `${esc(d.role)}: <i>blocked</i>`
         : `${esc(d.role)}: <b>${d.new}</b> new / ${d.jobs} kept` +
           (d.filtered_out ? `, ${d.filtered_out} off-role` : '') +
           (d.stale ? `, ${d.stale} too old` : '') +
           ` <span class="pill">${esc(d.filter_mode || '')}</span>`
       ).join('<br>');
+    else if (blocked) box.innerHTML = blocked;
     if (state.polling) {
       clearInterval(state.polling); state.polling = null;
       await loadMeta(); refresh();

@@ -74,7 +74,7 @@ journeys:
     release_blocking: true
 
   - id: CJ-002
-    name: Cloudflare mitigation halts the crawl and commits progress
+    name: A Cloudflare mitigation stops all traffic to that host and commits progress
     capability: CAP-CONDUCT
     priority: P0
     facing: system
@@ -676,6 +676,20 @@ journeys:
       read ADR-002 rejected materialising for. Storing user state in it would
       also ship the owner's marks in the public corpus.
     release_blocking: false
+
+  - id: CJ-063
+    name: A host that refused us gets no further request this run; other hosts carry on
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: >
+      Two ways to be wrong (ADR-016). Too strict, and one site blocking the
+      runner kills the whole day on every host -- the 2026-09-18 daily failure,
+      himalayas.app 403 on robots.txt. Too loose, and "carry on" becomes a retry
+      path: the blocked host is contacted again later in the run, in another
+      role or through another caller, which is exactly the retry-through-
+      mitigation the conduct rules forbid. The run must also still fail loudly.
+    release_blocking: true
 
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
@@ -1425,6 +1439,30 @@ tests:
     status: implemented
     location: jobsearch/tests/test_derived_table.py
     command: python -m pytest tests/test_derived_table.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-015
+    name: A mitigation or unreadable robots.txt blocks the origin; later calls send nothing
+    journey: CJ-063
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_host_block.py
+    command: python -m pytest tests/test_host_block.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-016
+    name: fetch/ingest continue past a blocked source, exit 3, and still halt on integrity errors
+    journey: CJ-063
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_host_block.py
+    command: python -m pytest tests/test_host_block.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

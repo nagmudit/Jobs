@@ -105,9 +105,13 @@ for everyone using it.
   trade-offs, including that it does not make the client look like those browsers
   (httpx's TLS fingerprint is unchanged) and that it removes the ability to ask a site
   owner for permission the way ADR-013 did. Empty the list to revert.
-- **Halt on the first mitigation.** `cf-ray` and `cf-mitigated` are logged for every
-  response. A non-`None` mitigation or a 403/429 raises `MitigationDetected` and stops
-  the crawl. Never retry through it, never add a backoff-and-continue path.
+- **Stop all traffic to a host on its first mitigation.** `cf-ray` and `cf-mitigated`
+  are logged for every response. A non-`None` mitigation or a 403/429/503 raises
+  `MitigationDetected`, and that origin gets **no further request of any kind** for the
+  rest of the run — enforced in `Fetcher.get`, which raises `HostBlocked` before
+  robots, throttle, cache or transport. Other hosts carry on; the run exits 3 and the
+  daily job still fails. Never retry through it, never add a backoff-and-continue
+  path. Integrity errors (`SchemaDrift` etc.) still halt everything. See ADR-016.
 - All network access goes through `Fetcher.get`. Adding a second path out to the
   network bypasses every rule above. There are **no exemptions** — `src/cli.py sync`
   takes a downloaded file path rather than fetching it, precisely so this stays true.
@@ -118,7 +122,8 @@ for everyone using it.
 - **robots.txt is cached per origin.** One `Fetcher` may span hosts; each host is
   judged by its own rules. Never collapse that cache — doing so lets one site's
   robots.txt permit a fetch another site forbids. A host whose robots.txt cannot be
-  read raises and is never crawled. See ADR-007.
+  read raises (`RobotsUnreadable`), is never crawled, and is blocked for the rest of
+  the run like a mitigation. See ADR-007, ADR-016.
 
 ## Conventions
 

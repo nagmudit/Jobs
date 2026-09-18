@@ -68,6 +68,7 @@ jobs:
           python -m pytest tests/test_conduct_guards.py \
                            tests/test_robots_multiorigin.py \
                            tests/test_fetch_cache.py \
+                           tests/test_host_block.py \
                            tests/test_assertions.py -q
 
   governance:
