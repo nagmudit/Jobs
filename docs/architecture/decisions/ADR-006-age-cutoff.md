@@ -79,7 +79,8 @@ This amends, and does not replace, the consequence above that reads *"Existing c
 are not touched automatically."*
 
 **What changed.** The tool now publishes a corpus daily for a hosted read-only UI
-(`docs/engineering/deployment.md`). Vercel's serverless bundle limit is 250 MB and the
+(`docs/engineering/deployment.md`). Vercel's serverless bundle limit is 250 MB *(2026-09-18: it is 225 MB per function,
+uncompressed; the corpus is now bundled gzipped, see `docs/engineering/deployment.md`)* and the
 corpus grows every day — 59.7 MB at the time of writing, with 1,883 of 6,266 jobs
 already past the cutoff. The daily workflow therefore runs `prune --apply` before
 publishing.

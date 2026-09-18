@@ -72,9 +72,13 @@ trigger cannot be forgotten, and it keeps rows appearing live during a
   server restart, which it needed anyway to load the new Python.
 - **The published corpus grew** from 59.3 MB to 100.5 MB (measured with
   `cli export`), mostly a second copy of each description, which search reads.
-  That is well under Vercel's 250 MB bundle limit. If it matters later, `export`
-  can drop `job_derived`; the hosted app's first `connect()` rebuilds it from raw
-  (~1 s per cold start), because the fingerprint is missing.
+  *Correction, 2026-09-18:* the limit that applies is Vercel's **225 MB per
+  function**, uncompressed, not 250 MB. The CI corpus reached 251.9 MB and the
+  deploy failed at 329 MB. Fixed by bundling the corpus gzipped (~4× smaller;
+  `scripts/vercel-build.sh`) and decompressing it into `/tmp` once per cold start
+  (`hosted.stage_corpus`, ~0.3 s per 100 MB). The table stays in the corpus, so
+  cold starts do not rebuild it. The GitHub release asset stays uncompressed, so
+  `sync` is unchanged. See `docs/engineering/deployment.md`.
 - `/api/jobs` no longer returns `description`. The drawer fetches it from
   `GET /api/job?id=…` and caches it for the page's life. Search still filters on
   it server-side.

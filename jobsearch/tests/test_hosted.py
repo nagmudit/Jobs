@@ -377,3 +377,63 @@ def test_hosted_app_serves_its_own_robots_and_noindex(tmp_path, monkeypatch):
     assert "Disallow: /" in r.text
     assert r.headers["content-type"].startswith("text/plain")
     assert client.get("/api/meta").headers["x-robots-tag"] == "noindex, nofollow"
+
+
+# --- the bundled corpus is gzipped --------------------------------------------
+#
+# 2026-09-18: the deploy failed at 329 MB against Vercel's 225 MB function limit.
+# The corpus (252 MB, twice its old size since ADR-015 stores the derivation)
+# is now bundled gzipped (~4x smaller) and decompressed once per cold start.
+
+
+def _corpus_gz(tmp_path):
+    import gzip
+    import shutil
+
+    src = tmp_path / "src.db"
+    c = S.connect(src)
+    S.upsert_company(c, "c", {"name": "C"})
+    for i in range(300):
+        S.upsert_job(c, str(i), "c", {"title": f"T{i}", "slug": f"t{i}",
+                                      "description": "x" * 4000})
+    c.commit()
+    c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    c.close()
+    bundled = tmp_path / "bundle" / "jobs.db"
+    bundled.parent.mkdir()
+    with open(src, "rb") as f, gzip.open(str(bundled) + ".gz", "wb") as g:
+        shutil.copyfileobj(f, g)
+    return src, bundled
+
+
+def test_stage_decompresses_a_gzipped_bundle(tmp_path):
+    from src import hosted
+
+    src, bundled = _corpus_gz(tmp_path)
+    assert not bundled.exists()
+    dest = hosted.stage_corpus(bundled, tmp_path / "tmp" / "jobs.db")
+    assert dest.read_bytes() == src.read_bytes()
+    c = S.connect(dest)
+    assert c.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 300
+
+
+def test_a_corrupt_gzip_raises_and_leaves_nothing_staged(tmp_path):
+    """The staged file doubles as the "already done" marker for warm starts, so a
+    half-written one would be served as the corpus. It must never exist."""
+    from src import hosted
+
+    _, bundled = _corpus_gz(tmp_path)
+    gz = bundled.with_name("jobs.db.gz")
+    gz.write_bytes(gz.read_bytes()[: gz.stat().st_size // 2])   # truncated
+    dest = tmp_path / "tmp" / "jobs.db"
+    with pytest.raises(Exception):
+        hosted.stage_corpus(bundled, dest)
+    assert not dest.exists()
+    assert not list(dest.parent.glob("*")), "a partial file was left behind"
+
+
+def test_no_corpus_at_all_says_where_it_should_come_from(tmp_path):
+    from src import hosted
+
+    with pytest.raises(RuntimeError, match="vercel-build.sh"):
+        hosted.stage_corpus(tmp_path / "jobs.db", tmp_path / "tmp" / "jobs.db")

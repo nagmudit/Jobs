@@ -492,7 +492,8 @@ def cmd_export(args, cfg: Config) -> int:
     # SQLite does not hand deleted pages back to the OS, so a pruned corpus is
     # exactly as large as an unpruned one until this runs. On the real corpus
     # this was the difference between 59.7 MB and 46.0 MB -- the whole reason
-    # pruning keeps the published file under Vercel's 250 MB bundle limit.
+    # pruning keeps the published file small. Vercel caps a function at 225 MB; the
+    # corpus is bundled gzipped for that reason (scripts/vercel-build.sh).
     pub.execute("VACUUM")
     pub.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     pub.close()

@@ -277,6 +277,10 @@ FastAPI `TestClient`:
 ## Log
 
 - 2026-09-18: plan written from the measurements above.
+- 2026-09-18: the Vercel deploy failed: a 251.9 MB corpus → 329 MB bundle against
+  a **225 MB** function limit (the 250 MB figure used above was wrong). Fixed by
+  bundling the corpus gzipped and decompressing it in `hosted.stage_corpus`; see
+  ADR-015's corrected consequence and `docs/engineering/deployment.md`.
 - 2026-09-18: implemented steps 1 and 2 as recorded under Deviations. Still open:
   the facets target (~20–40 ms over) and the payload target (159 KB). Neither is
   being pursued unless it is noticeable in use. Move this plan to `completed/`

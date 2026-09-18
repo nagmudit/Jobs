@@ -107,7 +107,8 @@ jobs:
           exit "$rc"
 
       # Drop jobs past the age cutoff (targets.yaml max_age_days, 30). The
-      # corpus grows every day and Vercel's serverless bundle limit is 250 MB.
+      # corpus grows every day, and Vercel caps a function at 225 MB (the corpus is
+      # bundled gzipped for that reason; see docs/engineering/deployment.md).
       #
       # Automatic here, and ONLY here: ADR-006 says existing corpora are not
       # touched automatically, and its safety net is that cache/ makes a prune

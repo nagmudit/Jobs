@@ -691,6 +691,19 @@ journeys:
       mitigation the conduct rules forbid. The run must also still fail loudly.
     release_blocking: true
 
+  - id: CJ-064
+    name: The hosted app stages a gzipped corpus, never a half-written one
+    capability: CAP-STORE
+    priority: P1
+    facing: user
+    blast_radius: >
+      Vercel caps a function at 225 MB uncompressed; the plain corpus passed that
+      on 2026-09-18 (251.9 MB) and the deploy failed, leaving the site on stale
+      data. The bundle now carries jobs.db.gz and stage_corpus decompresses it
+      per cold start. The staged file is also the warm-start marker, so a copy
+      cut short would be served as the corpus until the instance died.
+    release_blocking: false
+
   - id: CJ-017
     name: apply_url resolves to the correct live Wellfound posting
     capability: CAP-FILTER
@@ -1463,6 +1476,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_host_block.py
     command: python -m pytest tests/test_host_block.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: STORE-023
+    name: stage_corpus decompresses the gzipped bundle atomically; corrupt input stages nothing
+    journey: CJ-064
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_hosted.py
+    command: python -m pytest tests/test_hosted.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

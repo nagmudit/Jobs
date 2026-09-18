@@ -64,3 +64,11 @@ echo "Corpus is ${size} bytes"
 [ "$size" -gt 1000000 ] || { echo "corpus looks truncated (${size} bytes)" >&2; exit 1; }
 python3 -c "import sqlite3,sys; sqlite3.connect('jobsearch/jobs.db').execute('PRAGMA quick_check').fetchone()"
 echo "Corpus OK"
+
+# Bundle it gzipped. Vercel caps a function at 225 MB uncompressed, and the
+# corpus alone passed that on 2026-09-18 (252 MB once ADR-015 stored the
+# derivation). SQLite text compresses ~4x; src/hosted.py::stage_corpus
+# decompresses it into /tmp once per cold start. gzip removes the plain file, so
+# only the .gz reaches the bundle (vercel.json includes jobsearch/**).
+gzip -6 -f jobsearch/jobs.db
+echo "Bundled as jobs.db.gz: $(wc -c < jobsearch/jobs.db.gz) bytes"

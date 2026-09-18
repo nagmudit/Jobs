@@ -211,7 +211,20 @@ already current, so a rebuild alone is enough.
 `cron: "30 8 * * *"` is **08:30 UTC = 14:00 IST**. GitHub cron has no timezone. Scheduled
 runs are best-effort; 5–20 minutes late under load is normal.
 
-## Keeping under the 250 MB bundle limit
+## Keeping under the bundle limit
+
+Vercel caps a function at **225 MB uncompressed**, code and dependencies included
+(~78 MB of the bundle is dependencies). The corpus is therefore **bundled gzipped**:
+`scripts/vercel-build.sh` downloads `corpus.db`, runs `PRAGMA quick_check`, then
+`gzip`s it, so only `jobsearch/jobs.db.gz` reaches the bundle. At cold start
+`hosted.stage_corpus` decompresses it into `/tmp`, writing to a `.part` name and
+renaming, so a cut-short copy is never served. Measured 2026-09-18: 100.5 MB →
+24.5 MB, 0.3 s to decompress. The deploy that forced this failed at 329 MB with a
+251.9 MB corpus (ADR-015 roughly doubled it).
+
+Still bounded by `/tmp`, which holds the decompressed corpus plus its WAL. Vercel
+documents a size limit for `/tmp` (512 MB at the time of writing; **not verified
+here**). Watch the "Corpus published" size in the daily run's summary.
 
 The corpus grows every day. The workflow prunes jobs past `max_age_days` (30) and
 `export` runs `VACUUM`.
