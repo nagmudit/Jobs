@@ -24,6 +24,7 @@ import sqlite3
 import threading
 import time
 import traceback
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -195,6 +196,12 @@ def _clauses(f: Filters) -> list[tuple[str, str, list[Any]]]:
         out.append(("statuses", "status != 'hidden'", []))
 
     return out
+
+
+def _sort_key(s: str) -> str:
+    """Case- and accent-blind: "Åland" files under A, "berlin" under B."""
+    return "".join(c for c in unicodedata.normalize("NFKD", s)
+                   if not unicodedata.combining(c)).casefold()
 
 
 def _list_columns(conn: sqlite3.Connection) -> list[str]:
@@ -570,7 +577,13 @@ def create_app(cfg: Config) -> FastAPI:
             e = merged.setdefault(r["v"], {"value": r["v"], "count": 0, "kinds": []})
             e["count"] += r["n"]
             e["kinds"].append(r["kind"])
-        out["locations"] = sorted(merged.values(), key=lambda x: (-x["count"], x["value"]))
+        # Alphabetical, ignoring case and accents: with hundreds of places the
+        # list is scanned by name, and a count order scatters them. Plain string
+        # order would file "berlin" and "Åland Islands" after "Zurich". The SQL
+        # LIMIT above still keeps the 500 most common, so the cap drops rare
+        # places, not the tail of the alphabet.
+        out["locations"] = sorted(merged.values(),
+                                  key=lambda x: (_sort_key(x["value"]), x["value"]))
 
         simple("sources", "source")
         simple("remote", "remote_label")

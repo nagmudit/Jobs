@@ -140,3 +140,30 @@ def test_every_clause_declares_a_dimension():
 def test_hidden_still_excluded_by_default_and_is_a_dimension():
     dims = dict((d, s) for d, s, _ in _clauses(Filters()))
     assert "statuses" in dims and "status != 'hidden'" in dims["statuses"]
+
+
+def test_location_facet_is_alphabetical_not_by_count(tmp_path, monkeypatch):
+    """The list is scanned by name -- hundreds of places, so a count order puts
+    "Pune" wherever its count lands. Case-insensitive, so "berlin" does not sort
+    after every capitalised name; accent-blind, so "Åland" is not filed after
+    "Zurich"."""
+    from fastapi.testclient import TestClient
+
+    from src.config import Config
+    from src.web.app import create_app
+
+    conn = S.connect(tmp_path / "t.db")
+    S.upsert_company(conn, "c", {"name": "C"})
+    # Counts deliberately run against the alphabet: Zurich most, Austin least.
+    places = ["Zurich"] * 3 + ["berlin"] * 2 + ["Austin", "Åland Islands"]
+    for i, place in enumerate(places):
+        S.upsert_job(conn, str(i), "c", {"title": f"T{i}", "slug": f"t{i}",
+                                         "locationNames": [place]})
+    S.rebuild_locations(conn)
+    conn.close()
+
+    monkeypatch.setenv("JOBSEARCH_DB", str(tmp_path / "t.db"))
+    locs = TestClient(create_app(Config.load())).post(
+        "/api/facets", json={}).json()["locations"]
+    assert [x["value"] for x in locs] == ["Åland Islands", "Austin", "berlin", "Zurich"]
+    assert [x["count"] for x in locs] == [1, 1, 2, 3]
