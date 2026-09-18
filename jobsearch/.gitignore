@@ -6,6 +6,9 @@ jobs.db
 jobs.db-wal
 jobs.db-shm
 jobs.db.bak*
+# Written by scripts/vercel-build.sh at deploy time (the corpus, gzipped to fit
+# Vercel's 225 MB limit). A build artifact, never committed.
+jobs.db.gz
 *.bak-*
 *.log
 
