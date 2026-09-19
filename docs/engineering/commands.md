@@ -44,6 +44,7 @@ blocked host is listed under `BLOCKED` on stderr. Offline-tested 2026-09-18 in
 | Check the assist profile | `python -m src.cli profile check` | ✅ ran 2026-09-19, drift then clean |
 | Pin a resume | `python -m src.cli profile pin <file.pdf>` | ✅ ran 2026-09-19 |
 | Pending screening questions | `python -m src.cli answers pending` | ✅ ran 2026-09-19 |
+| Today's daily-fetch start time | `python scripts/daily_gate.py --event schedule --attempted 0` (repo root) | ✅ ran 2026-09-19 |
 | **Check Assist on live forms** (fake profile) | `python ../scripts/check_assist.py --pick` | ✅ ran 2026-09-19, 9 forms: every ATS host, uploads verified |
 | **Check the UI in a real browser** | `python scripts/check_layout.py` (needs a running `serve` + playwright) | ✅ ran 2026-09-12, 13 checks |
 | Adopt a downloaded corpus (dry run) | `python -m src.cli sync /tmp/corpus.db` | ✅ ran |
@@ -55,7 +56,7 @@ or claim one.
 
 `--roles` / `--locations` / `--max-age-days` work both before and after the subcommand.
 
-**Age cutoff.** `max_age_days` in `targets.yaml` (default 30) drops older jobs at
+**Age cutoff.** `max_age_days` in `targets.yaml` (20; the code default if absent is 30) drops older jobs at
 ingest, skips them during enrichment, and seeds the UI filter. It saves **no requests**
 — Wellfound does not order results by date, so every page is still fetched (ADR-006).
 Widening it later needs no network: the raw pages stay in `cache/`, so

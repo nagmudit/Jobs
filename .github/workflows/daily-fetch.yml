@@ -17,9 +17,14 @@ name: Daily fetch
 
 on:
   schedule:
-    # 08:30 UTC == 14:00 IST. GitHub cron has no timezone, and scheduled runs
-    # are best-effort -- 5-20 min late under load is normal.
-    - cron: "30 8 * * *"
+    # HOURLY, but only one trigger a day fetches: the `gate` job asks
+    # scripts/daily_gate.py, which picks each day's start time (00:00-20:00
+    # UTC, a different time daily) and allows at most one fetch attempt per UTC
+    # day. Hourly because GitHub delays scheduled runs by hours and sometimes
+    # drops them (the old 08:30 cron started at 12:36 and 13:03); the next
+    # trigger picks up a lost one. Every other trigger ends in seconds.
+    # Why a varying time: docs/plans/active/per-host-halt.md (2026-09-19).
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       roles:
@@ -36,9 +41,52 @@ concurrency:
 
 permissions:
   contents: write        # publish the corpus as a release asset
+  actions: read          # the gate counts today's earlier runs
 
 jobs:
+  # Decides whether THIS trigger fetches. Cheap: a checkout of one script,
+  # a couple of API calls, and -- only on the one trigger that goes -- a wait
+  # of up to an hour for the day's start minute.
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    outputs:
+      go: ${{ steps.decide.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/daily_gate.py
+          sparse-checkout-cone-mode: false
+
+      # A run whose `fetch` job did anything other than skip counts as today's
+      # attempt -- including a failed or manual one. A failed fetch is never
+      # retried the same day: that would be a retry path (AGENTS.md).
+      - name: Count today's fetch attempts
+        id: attempts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          today=$(date -u +%F)
+          n=0
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/daily-fetch.yml/runs?created=%3E%3D$today&per_page=100"                         --jq ".workflow_runs[] | select(.id != $GITHUB_RUN_ID) | .id"); do
+            c=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs"                   --jq '[.jobs[] | select(.name == "fetch" and .conclusion != "skipped")] | length')
+            n=$((n + c))
+          done
+          echo "Fetch attempts already made today ($today UTC): $n"
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+
+      - name: Decide
+        id: decide
+        run: |
+          python3 scripts/daily_gate.py --event "${{ github.event_name }}"             --attempted "${{ steps.attempts.outputs.n }}" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Wait for today's start minute
+        if: steps.decide.outputs.go == 'true' && steps.decide.outputs.delay != '0'
+        run: sleep "${{ steps.decide.outputs.delay }}"
+
   fetch:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 300     # a cold all-sources sweep is ~180 min at 3-5s spacing
 
@@ -106,7 +154,7 @@ jobs:
           fi
           exit "$rc"
 
-      # Drop jobs past the age cutoff (targets.yaml max_age_days, 30). The
+      # Drop jobs past the age cutoff (targets.yaml max_age_days, 20). The
       # corpus grows every day, and Vercel caps a function at 225 MB (the corpus is
       # bundled gzipped for that reason; see docs/engineering/deployment.md).
       #

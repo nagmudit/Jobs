@@ -131,6 +131,33 @@ Write each one first and watch it fail.
     step.
   - `_blocked()` takes the exception rather than origin and reason separately; its
     message names the origin.
+- 2026-09-19: **first live run under ADR-016 behaved as designed.** Scheduled run
+  35443320514: `himalayas.app` answered 403 to robots.txt again. The other six
+  sources were fetched; the corpus was published and deployed; only the final
+  "Fail if any host was blocked" step went red (exit 1). 0 mitigations elsewhere.
+  **Himalayas is intermittent from GitHub runners, not banned:**
+
+  | Run | Trigger (UTC) | Himalayas |
+  |---|---|---|
+  | 2026-09-17 13:39 | schedule | fetched |
+  | 2026-09-18 13:03 | schedule | robots 403 (this plan's trigger) |
+  | 2026-09-18 19:51 | manual | fetched |
+  | 2026-09-19 12:36 | schedule | robots 403 |
+
+  Both refusals came at the scheduled time and both successes did not, but two
+  data points are not a pattern. The likelier cause is Himalayas' edge refusing some
+  runner IP ranges. Nothing to change in code. **Not** to be worked around (no
+  proxy, no retry), per the conduct rules. If it keeps failing: disable
+  `himalayas` for CI only and fetch it locally, or move the schedule. That is a
+  user decision.
+- 2026-09-19: **user chose to vary the schedule.** From 2026-09-20 the daily fetch
+  triggers hourly, and `scripts/daily_gate.py` picks each day's start time
+  (00:00–20:00 UTC, a different time daily), with at most one fetch attempt per
+  UTC day (`tests/test_daily_gate.py`, both properties verified failable). See
+  `docs/engineering/deployment.md` → Timing. **Next:** after about two weeks, compare
+  Himalayas' outcomes against start times. If refusals don't track the time of
+  day, it is the runner's IP address, and the remaining choice is to fetch
+  Himalayas from a local machine only.
 
 ## Validation
 

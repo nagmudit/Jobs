@@ -396,8 +396,8 @@ def cmd_sync(args, cfg: Config) -> int:
 
     Deliberately does NO network. Download it yourself -- the repo is public:
 
-        gh release download corpus --pattern jobs.db --dir /tmp
-        python -m src.cli sync /tmp/jobs.db --apply
+        gh release download corpus --pattern corpus.db --dir /tmp
+        python -m src.cli sync /tmp/corpus.db --apply
 
     Keeping the download out of Python is what keeps `src/fetch.py` the only
     module that can reach the network (AGENTS.md).

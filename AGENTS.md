@@ -59,13 +59,14 @@ probe module.
 
 ## Commands
 
-Run from `jobsearch/` unless noted. Full list in `docs/engineering/commands.md`.
+Run from `jobsearch/` unless noted. Full list in `docs/engineering/commands.md`;
+by-task cheat sheet in `docs/quick-reference.md`.
 
 | Task | Command |
 |------|---------|
 | Install | `pip install -r requirements.txt` |
 | Test | `python -m pytest tests -q` |
-| **Fetch a role (main workflow)** | `python -m src.cli fetch --roles ai-engineer` |
+| **Fetch a role (main workflow)** | `python -m src.cli fetch --roles artificial-intelligence-engineer` |
 | Crawl (Wellfound only) | `python -m src.cli crawl` |
 | Ingest (APIs, no role) | `python -m src.cli ingest` |
 | Serve | `python -m src.cli serve` |

@@ -78,7 +78,10 @@ cache_ttl_hours: 6
 #
 # Raising it later does not require a re-crawl -- the raw pages stay in cache/.
 # Re-ingest with:  python -m src.cli crawl --no-resume --max-age-days 90
-max_age_days: 30
+#
+# 20 since 2026-09-19 (was 30), the user's choice: fresher listings, and a
+# smaller published corpus. The daily workflow prunes to this value.
+max_age_days: 20
 
 # Other platforms. Each has its own shape; see src/sources/.
 # Wellfound uses the roles x locations above and is always enabled.

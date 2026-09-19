@@ -6,6 +6,8 @@ The repository is the source of truth. Start here, read only what your task touc
 
 | Doc | Read it when | Status |
 |---|---|---|
+| [`../README.md`](../README.md) | What this is, its features, quick start (public-facing) | current |
+| [quick-reference.md](quick-reference.md) | You need a command, fast | current |
 | [`../AGENTS.md`](../AGENTS.md) | Always, first. Contract + conduct rules | current |
 | [architecture/repository-map.md](architecture/repository-map.md) | Finding where code lives, and the traps | current |
 | [engineering/commands.md](engineering/commands.md) | Running, testing, crawling, serving | current |
@@ -45,7 +47,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-003](architecture/decisions/ADR-003-assertions-raise.md) | Silent-failure guards raise, never warn |
 | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md) | Overlapping slices; breadth vs. depth tiers |
 | [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md) | Crawl by role only; filter location locally |
-| [ADR-006](architecture/decisions/ADR-006-age-cutoff.md) | 30-day age cutoff at ingest; never an early stop |
+| [ADR-006](architecture/decisions/ADR-006-age-cutoff.md) | Age cutoff at ingest (20 days, configurable); never an early stop |
 | [ADR-007](architecture/decisions/ADR-007-multi-source.md) | robots is per-origin; what multi-source would cost |
 | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md) | Multi-source built: namespaced ids, layered views, ingesters |
 | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md) | One role-driven fetch; only Wellfound filters server-side |

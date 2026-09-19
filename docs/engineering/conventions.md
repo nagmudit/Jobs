@@ -34,7 +34,7 @@ you cannot work without; this carries the rest. **Read both before changing
   (`anywhere`/`remote`/a city) is what we asked Wellfound to pre-filter on, recorded
   in `job_provenance.location`. A *place* (Pune, San Francisco) comes from
   `locationNames` and lives in `job_location`. The UI filters on places. See ADR-005.
-- **The age cutoff never ends a slice early.** `max_age_days` (default 30) filters
+- **The age cutoff never ends a slice early.** `max_age_days` (20 in `targets.yaml`; code default 30) filters
   jobs at ingest, in enrichment, and in the UI. It must NOT stop paging: Wellfound
   does not order results by date, so a page of only-stale jobs is followed by pages
   with fresh ones. Early termination would silently lose them. See ADR-006.

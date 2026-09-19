@@ -750,6 +750,14 @@ journeys:
     blast_radius: A wrong answer typed into a real application
     release_blocking: true
 
+  - id: CJ-068
+    name: The daily fetch makes at most one attempt per UTC day, and a delayed trigger does not lose the day
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: Hourly triggers each running a full fetch would multiply our load on every source
+    release_blocking: true
+
 tests:
   - id: INT-001
     name: Silent role fallback and role mismatch both raise
@@ -1558,6 +1566,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_assist_match.py
     command: python -m pytest tests/test_assist_match.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: SCHED-001
+    name: Daily gate -- one attempt per day, per-day slot, late trigger goes, manual dispatch
+    journey: CJ-068
+    priority: P0
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_daily_gate.py
+    command: python -m pytest tests/test_daily_gate.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

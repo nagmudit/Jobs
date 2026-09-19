@@ -4,7 +4,7 @@
 unverified** — no real Actions schedule has run and no Vercel deploy has happened.
 Treat the first push as the test.
 
-A daily fetch at 14:00 without the user's PC, at no cost.
+A daily fetch, at a different time each day, without the user's PC, at no cost.
 
 ## Why the work is split
 
@@ -14,7 +14,7 @@ place for SQLite. GitHub Actions has no such limit. So Actions crawls and publis
 corpus; Vercel only serves it.
 
 ```
-14:00 IST ─► GitHub Actions
+once a day ─► GitHub Actions (time varies; see Timing)
               1. download yesterday's corpus.db   (release asset, tag `corpus`)
               2. python -m src.cli fetch           (3-5s spacing, concurrency 1)
               3. python -m src.cli prune --apply   (drops jobs past max_age_days)
@@ -147,7 +147,7 @@ verified by building a clean virtualenv from this file and running a cold start 
 the real corpus.
 
 **5. Run it once by hand** — Actions → Daily fetch → Run workflow — rather than waiting
-for 14:00.
+for the day's scheduled start. A manual run counts as that day's fetch.
 
 ## What is public
 
@@ -208,8 +208,25 @@ already current, so a rebuild alone is enough.
 
 ## Timing
 
-`cron: "30 8 * * *"` is **08:30 UTC = 14:00 IST**. GitHub cron has no timezone. Scheduled
-runs are best-effort; 5–20 minutes late under load is normal.
+**The start time varies daily** (since 2026-09-20). The workflow triggers hourly
+(`cron: "7 * * * *"`). A `gate` job runs `scripts/daily_gate.py`, which derives the
+day's start time from the date, somewhere between 00:00 and 20:00 UTC at a random
+minute. The first trigger at or after that time runs the fetch; every other trigger
+ends in seconds. To see today's start time, run `python scripts/daily_gate.py
+--event schedule --attempted 0`.
+
+- **At most one fetch attempt per UTC day**, manual runs included. The gate counts
+  today's runs whose `fetch` job did not skip. A failed fetch is not retried the same
+  day.
+- **Why hourly and not one cron:** GitHub delays scheduled runs, sometimes by hours
+  (the old 08:30 UTC cron started at 12:36 and 13:03), and drops them under load. With
+  hourly triggers, the next one picks up a lost day.
+- **Why a varying time:** Himalayas refused two scheduled runs and served two others
+  ([per-host-halt](../plans/active/per-host-halt.md)). Spreading start times shows
+  whether the refusal follows the time of day. It is not a way past a refusal: a
+  host that refuses is still skipped for the rest of that run (ADR-016).
+- The Actions tab shows ~24 runs a day as a result. Only one has a `fetch` job that
+  did not skip.
 
 ## Keeping under the bundle limit
 
@@ -226,7 +243,7 @@ Still bounded by `/tmp`, which holds the decompressed corpus plus its WAL. Verce
 documents a size limit for `/tmp` (512 MB at the time of writing; **not verified
 here**). Watch the "Corpus published" size in the daily run's summary.
 
-The corpus grows every day. The workflow prunes jobs past `max_age_days` (30) and
+The corpus grows every day. The workflow prunes jobs past `max_age_days` (20) and
 `export` runs `VACUUM`.
 
 **The VACUUM is the part that matters.** SQLite does not hand deleted pages back to the

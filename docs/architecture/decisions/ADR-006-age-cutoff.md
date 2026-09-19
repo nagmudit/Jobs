@@ -1,5 +1,9 @@
 # ADR-006: A 30-day age cutoff, applied at ingest — but never as an early stop
 
+> **2026-09-19:** the configured value is now **20 days** (`targets.yaml`), by the
+> user's choice. The mechanism below is unchanged; only the number moved. The code's
+> fallback when the key is absent is still 30.
+
 **Status:** accepted · **Date:** 2026-09-04
 
 ## Context
