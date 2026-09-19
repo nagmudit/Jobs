@@ -41,6 +41,10 @@ blocked host is listed under `BLOCKED` on stderr. Offline-tested 2026-09-18 in
 | Widen the age cutoff | `python -m src.cli crawl --no-resume --max-age-days 90` | ⚠️ not run |
 | Serve UI | `python -m src.cli serve` | ✅ ran on :8013, UI + all API routes |
 | Serve UI read-only (as hosted) | `JOBSEARCH_READONLY=1 python -m src.cli serve` | ✅ ran, 4 crawl routes 404 |
+| Check the assist profile | `python -m src.cli profile check` | ✅ ran 2026-09-19, drift then clean |
+| Pin a resume | `python -m src.cli profile pin <file.pdf>` | ✅ ran 2026-09-19 |
+| Pending screening questions | `python -m src.cli answers pending` | ✅ ran 2026-09-19 |
+| **Check Assist on live forms** (fake profile) | `python ../scripts/check_assist.py --pick` | ✅ ran 2026-09-19, 9 forms: every ATS host, uploads verified |
 | **Check the UI in a real browser** | `python scripts/check_layout.py` (needs a running `serve` + playwright) | ✅ ran 2026-09-12, 13 checks |
 | Adopt a downloaded corpus (dry run) | `python -m src.cli sync /tmp/corpus.db` | ✅ ran |
 | Adopt a downloaded corpus | `python -m src.cli sync /tmp/corpus.db --apply` | ✅ ran on a copy, 2 marks carried |

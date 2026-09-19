@@ -92,6 +92,12 @@ class EventIn(BaseModel):
     status: str = "opened"
 
 
+class AssistIn(BaseModel):
+    # A job id, never a URL: the page opened is that job's own apply_url, so the
+    # endpoint cannot be pointed at an arbitrary site. ADR-017.
+    job_id: str
+
+
 class ConfirmIn(BaseModel):
     job_id: str
     applied: bool
@@ -433,7 +439,7 @@ class CrawlJob:
             self.lock.release()
 
 
-def create_app(cfg: Config) -> FastAPI:
+def create_app(cfg: Config, assistant: Any = None) -> FastAPI:
     app = FastAPI(title="jobsearch")
     enrich_lock = threading.Lock()
     job = CrawlJob()
@@ -533,6 +539,8 @@ def create_app(cfg: Config) -> FastAPI:
             "delay_range": list(cfg.delay_range),
             "max_age_days": cfg.max_age_days,
             "readonly": readonly,
+            # The UI shows Assist only when this is set. Hosted: never.
+            "assist": _assist_meta(),
         }
 
     @app.post("/api/facets")
@@ -732,6 +740,55 @@ def create_app(cfg: Config) -> FastAPI:
             return enrich_ids(f, conn, e.ids, max_age_days=cfg.max_age_days)
         finally:
             enrich_lock.release()
+
+    # Assisted apply (ADR-017): local only, one job per click, never submits.
+    # Built lazily so a missing profile or Playwright costs nothing until used.
+    assist_state: dict[str, Any] = {"a": assistant}
+
+    def _assistant():
+        from ..assist.browser import Assistant
+
+        if assist_state["a"] is None:
+            assist_state["a"] = Assistant(cfg.assist_profile_dir, cfg.assist_hosts)
+        return assist_state["a"]
+
+    def _assist_meta() -> dict | None:
+        if readonly or not cfg.assist_profile_dir or not cfg.assist_hosts:
+            return None
+        from ..assist import browser
+
+        return {"hosts": cfg.assist_hosts,
+                "playwright": assistant is not None or browser.available()}
+
+    @mutating("/api/assist")
+    def assist(a: AssistIn):
+        """Open this job's application form in the visible browser and pre-fill
+        it. The user reviews and submits; this never does."""
+        from ..assist.browser import AssistUnavailable
+        from ..assist.profile import ProfileDrift, ProfileError
+
+        if not cfg.assist_profile_dir or not cfg.assist_hosts:
+            raise HTTPException(409, "assist is not configured (assist: in targets.yaml)")
+        conn = db()
+        row = conn.execute("SELECT apply_url FROM jobs WHERE source_job_id = ?",
+                           (a.job_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, f"unknown job {a.job_id!r}")
+        helper = _assistant()
+        try:
+            target, resume = helper.prepare(a.job_id, row["apply_url"])
+        except ProfileDrift as e:
+            raise HTTPException(409, {"kind": "drift", "message": str(e)})
+        except (ProfileError, AssistUnavailable) as e:
+            raise HTTPException(409, {"kind": "unavailable", "message": str(e)})
+        result = helper.assist(a.job_id, target, resume)
+        if result.get("status") == "filled":
+            # `opened`, not `applied`: the human has not submitted anything yet.
+            # The tray asks "did you apply?" as for any Apply click, and a yes
+            # carries this resume tag onto the application.
+            S.record_event(conn, a.job_id, "opened", resume=resume.tag)
+            conn.commit()
+        return result
 
     @app.post("/api/event")
     def event(e: EventIn):

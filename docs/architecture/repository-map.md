@@ -56,6 +56,9 @@ targets.yaml → config → crawl ─┬→ fetch ──→ (network, rate-limit
 | `sources/himalayas.py` | `/jobs/api` offset paging + core view | `assertions`, `store` |
 | `sources/vickybytes.py` | One `/api/opportunities` call + core view; runs only under a declared robots grant (ADR-013) | `assertions`, `store`, `relevance` |
 | `enrich.py` | Detail pages: JSON-LD + rendered comp | `fetch`, `store` |
+| `assist/profile.py` | Profile/answers loading, resume pin + drift, unanswered inbox | — |
+| `assist/match.py` | Form fields -> fill plan. Pure, strict, offline | `assist.profile` |
+| `assist/browser.py` | **The second egress (ADR-017).** Headed Chrome; fill only, never click/submit | `assist.match`, `assist.profile` |
 | `cli.py` | Argument parsing and command dispatch | everything |
 | `web/app.py` | FastAPI; all filtering in SQL | `store`, `enrich`, `fetch` |
 | `web/static/index.html` | The entire UI. Vanilla JS, no build step | — |
@@ -97,7 +100,7 @@ Six probe modules (P1–P6) behind `python -m src.run --probe <id>`, plus `REPOR
 
 | Rule | Enforced? |
 |---|---|
-| All egress via `Fetcher.get` | **Convention only** — no test, no lint |
+| All egress via `Fetcher.get` | **Convention only** — no test, no lint. Sole exemption: `assist/browser.py`, whose limits ARE tested (ADR-017) |
 | `delay_range` floor ≥ 3.0 s | Enforced in `config.py`, raises at load |
 | robots.txt honoured, per origin | Enforced in `fetch.py`, raises `RobotsDisallowed` |
 | Unreadable robots.txt blocks the host | Enforced in `fetch.py`, raises `RuntimeError` |

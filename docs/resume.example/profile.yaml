@@ -1,0 +1,57 @@
+# Who you are, structured from your resume. FAKE DATA -- this is the committed
+# template. Your real copy lives in docs/resume/ (gitignored), next to the PDF.
+#
+# Hand-written, never rewritten by the tool, so comments are safe here.
+# When the resume changes: update this file to match it, then run
+#   python -m src.cli profile pin <new.pdf>
+# See docs/engineering/resume-and-answers.md.
+#
+# Blank values are fine -- a blank is left blank on the form, never guessed.
+# Unknown keys are refused, so a typo cannot silently disable a field.
+schema: 1
+
+basics:
+  first_name: Ada
+  last_name: Example
+  preferred_name:            # filled into "first name" instead, if set
+  email: ada@example.com
+  phone: "+1 555 010 0199"   # quoted: YAML reads a bare +1... as a number
+  headline: Software Engineer
+  location: Springfield, USA # what "Location" / "Current location" gets
+  city: Springfield
+  country: USA
+
+links:
+  linkedin: https://www.linkedin.com/in/ada-example
+  github: https://github.com/ada-example
+  website:
+  portfolio:
+  twitter:
+
+# What "Current company" / "Current title" fields get.
+current:
+  company: Example Corp
+  title: Software Engineer
+
+# The rest is not typed into forms today. It is kept so the profile is a
+# complete, reviewable copy of the resume -- and so a diff against a new PDF
+# shows exactly what changed.
+work:
+  - company: Example Corp
+    title: Software Engineer
+    start: 2024-01
+    end:                     # blank = present
+    location: Springfield, USA
+    highlights:
+      - Built the thing that did the other thing.
+
+education:
+  - institution: Example University
+    degree: Bachelor of Science
+    field: Computer Science
+    start: 2019
+    end: 2023
+
+skills:
+  languages: [Python, TypeScript, SQL]
+  tools: [PostgreSQL, Docker]

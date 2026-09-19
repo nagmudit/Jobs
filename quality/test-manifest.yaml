@@ -60,6 +60,16 @@ capabilities:
     priority: P1
     description: SQL-side filtering, sorting, pagination, working apply URLs.
 
+  - id: CAP-ASSIST
+    name: Assisted apply
+    priority: P1
+    description: >
+      Pre-fills an ATS form in a visible browser from the user's pinned resume,
+      profile and answers; the user submits (ADR-017). Its conduct half -- never
+      clicks or submits, headed, no stealth, exact host allowlist -- is P0 and
+      filed under CAP-CONDUCT, because it is the one exemption from "all egress
+      via Fetcher.get".
+
 # ---------------------------------------------------------------------------
 # Journeys. System-facing ones are listed explicitly because nobody clicks
 # them and they are where this repo will actually break.
@@ -716,6 +726,30 @@ journeys:
 # Tests. Only P0/P1 journey coverage is catalogued; the rest of the suite is
 # deliberately out of scope per references/manifest.md.
 # ---------------------------------------------------------------------------
+  - id: CJ-065
+    name: Assist never clicks, submits, runs headless, or leaves the host allowlist
+    capability: CAP-CONDUCT
+    priority: P0
+    facing: system
+    blast_radius: A submitted application or a defeated challenge; irreversible, public to the employer
+    release_blocking: true
+
+  - id: CJ-066
+    name: A changed resume refuses to fill until the profile is re-pinned
+    capability: CAP-ASSIST
+    priority: P1
+    facing: user
+    blast_radius: New PDF sent beside stale typed fields; a self-contradicting application
+    release_blocking: true
+
+  - id: CJ-067
+    name: Only exact, fresh, offered answers are filled; the rest is left blank and inboxed
+    capability: CAP-ASSIST
+    priority: P1
+    facing: user
+    blast_radius: A wrong answer typed into a real application
+    release_blocking: true
+
 tests:
   - id: INT-001
     name: Silent role fallback and role mismatch both raise
@@ -1488,6 +1522,42 @@ tests:
     status: implemented
     location: jobsearch/tests/test_hosted.py
     command: python -m pytest tests/test_hosted.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: ASSIST-001
+    name: Browser conduct guards, route, resume tag carried and stripped
+    journey: CJ-065
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_assist_browser.py
+    command: python -m pytest tests/test_assist_browser.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: ASSIST-002
+    name: Profile validation, resume pin and drift, unanswered inbox, assist config
+    journey: CJ-066
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_assist_profile.py
+    command: python -m pytest tests/test_assist_profile.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: ASSIST-003
+    name: Matcher strictness -- exact match, ambiguity, options, staleness, label wins
+    journey: CJ-067
+    priority: P1
+    level: unit
+    status: implemented
+    location: jobsearch/tests/test_assist_match.py
+    command: python -m pytest tests/test_assist_match.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

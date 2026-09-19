@@ -218,3 +218,25 @@ role_map:
     remoteok: devops            # 100 jobs, 3% relevant
     keywords: [devops, sre, site reliability, platform engineer, infrastructure]
     categories: [DevOps, Infrastructure]
+
+# ---------------------------------------------------------------------------
+# Assisted apply (ADR-017). The browser pre-fills an application form and the
+# user reviews and submits it. It NEVER submits, never touches a CAPTCHA, and
+# only ever opens the apply_url of the job row that was clicked.
+#
+# profile_dir: where the resume PDF, profile.yaml, answers.yaml and the tool's
+#   unanswered.yaml live. Relative to jobsearch/. GITIGNORED -- personal data
+#   never enters this public repo. Override with JOBSEARCH_PROFILE_DIR.
+#   Templates with fake data: docs/resume.example/.
+# hosts: exact hostnames whose forms may be pre-filled. No suffixes, no
+#   patterns. Wellfound and Himalayas are deliberately absent: they need the
+#   user's logged-in account, and scripting that account is how it gets lost.
+# ---------------------------------------------------------------------------
+assist:
+  profile_dir: ../docs/resume
+  hosts:
+    - job-boards.greenhouse.io
+    - boards.greenhouse.io
+    - jobs.ashbyhq.com
+    - jobs.lever.co
+    - apply.workable.com

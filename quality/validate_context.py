@@ -59,10 +59,13 @@ def git_ignored(paths: set[str]) -> set[str]:
         return set()
     probes = sorted({q for p in paths for q in (p, p + "/")})
     try:
+        # Bytes, not text=True: on Windows a text-mode pipe writes "\n" as
+        # "\r\n", git then matches "path\r" against nothing, and only the last
+        # (unterminated) probe was ever judged correctly.
         proc = subprocess.run(
             ["git", "check-ignore", "--stdin"],
-            cwd=ROOT, input=chr(10).join(probes),
-            capture_output=True, text=True, timeout=30)
+            cwd=ROOT, input=(chr(10).join(probes) + chr(10)).encode("utf-8"),
+            capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return set()
     # Exit 0 = some matched, 1 = none matched, 128 = not a repo / git error.
@@ -71,7 +74,8 @@ def git_ignored(paths: set[str]) -> set[str]:
     # check-ignore echoes the paths back exactly as fed, so these are
     # already the forward-slash forms the docs use.
     hits = {line.strip().rstrip("/")
-            for line in proc.stdout.splitlines() if line.strip()}
+            for line in proc.stdout.decode("utf-8", "replace").splitlines()
+            if line.strip()}
     return {p for p in paths if p in hits}
 
 

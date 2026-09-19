@@ -108,7 +108,10 @@ CREATE TABLE IF NOT EXISTS status_event (
   source_job_id TEXT NOT NULL,
   status        TEXT NOT NULL,
   note          TEXT,
-  at            TEXT NOT NULL
+  at            TEXT NOT NULL,
+  -- Which resume went with it: "<file>@<sha8>", set by Assist on `opened` and
+  -- carried onto `applied`. NULL for anything not sent through Assist. ADR-017.
+  resume        TEXT
 );
 
 CREATE TABLE IF NOT EXISTS job_location (
@@ -204,6 +207,7 @@ ADD_COLUMNS: list[tuple[str, str, str]] = [
     ("job_raw", "source", "TEXT NOT NULL DEFAULT 'wellfound'"),
     ("job_raw", "native_id", "TEXT"),
     ("company_raw", "source", "TEXT NOT NULL DEFAULT 'wellfound'"),
+    ("status_event", "resume", "TEXT"),
 ]
 
 # The derivation. Everything source-specific lives in jobs_core; this layer adds
@@ -669,7 +673,7 @@ WORKFLOW_STATUSES = ("opened", "skipped", "nudged")
 
 
 def record_event(conn, job_id: str, status: str, note: str | None = None,
-                 at: str | None = None) -> None:
+                 at: str | None = None, resume: str | None = None) -> None:
     """Append to the history WITHOUT changing current state.
 
     `at` lets a confirmation be filed under the moment the posting was actually
@@ -677,8 +681,8 @@ def record_event(conn, job_id: str, status: str, note: str | None = None,
     application; re-dating it to now would quietly move it into the wrong week.
     """
     conn.execute(
-        "INSERT INTO status_event (source_job_id,status,note,at) VALUES (?,?,?,?)",
-        (job_id, status, note, at or now()))
+        "INSERT INTO status_event (source_job_id,status,note,at,resume) "
+        "VALUES (?,?,?,?,?)", (job_id, status, note, at or now(), resume))
 
 
 def set_status(conn, job_id: str, status: str, note: str | None = None,
@@ -797,7 +801,7 @@ def application_stats(conn) -> dict[str, Any]:
 def export_events(conn) -> list[dict[str, Any]]:
     """The history, for carrying across a corpus replacement."""
     return [dict(r) for r in conn.execute(
-        "SELECT source_job_id, status, note, at FROM status_event ORDER BY id")]
+        "SELECT source_job_id, status, note, at, resume FROM status_event ORDER BY id")]
 
 
 def import_events(conn, rows: list[dict[str, Any]]) -> int:
@@ -811,8 +815,9 @@ def import_events(conn, rows: list[dict[str, Any]]) -> int:
         if not r.get("source_job_id") or not r.get("status") or not r.get("at"):
             continue
         conn.execute(
-            "INSERT INTO status_event (source_job_id,status,note,at) VALUES (?,?,?,?)",
-            (r["source_job_id"], r["status"], r.get("note"), r["at"]))
+            "INSERT INTO status_event (source_job_id,status,note,at,resume) "
+            "VALUES (?,?,?,?,?)",
+            (r["source_job_id"], r["status"], r.get("note"), r["at"], r.get("resume")))
         n += 1
     return n
 
@@ -887,15 +892,18 @@ def confirm_application(conn, job_id: str, applied: bool) -> None:
     if not applied:
         record_event(conn, job_id, "skipped")
         return
-    opened_at = conn.execute(
-        "SELECT MAX(at) FROM status_event WHERE source_job_id = ? AND status = 'opened'",
-        (job_id,)).fetchone()[0]
+    # The LATEST open: its time dates the application, and its resume (set when
+    # it went through Assist) is the PDF that was actually attached.
+    last = conn.execute(
+        "SELECT at, resume FROM status_event WHERE source_job_id = ? "
+        "AND status = 'opened' ORDER BY at DESC, id DESC LIMIT 1", (job_id,)).fetchone()
     # set_status for the current state, then re-date the event it just wrote.
     set_status(conn, job_id, "applied")
-    if opened_at:
+    if last:
         conn.execute(
-            "UPDATE status_event SET at = ? WHERE id = (SELECT MAX(id) FROM status_event"
-            " WHERE source_job_id = ? AND status = 'applied')", (opened_at, job_id))
+            "UPDATE status_event SET at = ?, resume = ? WHERE id = (SELECT MAX(id) "
+            "FROM status_event WHERE source_job_id = ? AND status = 'applied')",
+            (last[0], last[1], job_id))
 
 
 def export_user_state(conn) -> list[dict[str, Any]]:

@@ -92,5 +92,12 @@ you cannot work without; this carries the rest. **Read both before changing
   in `NULLIF`. Skipping that makes every "has salary" filter and fill-rate wrong.
 - **Unparsed beats wrongly parsed.** `src/derive.py` returns `NULL` for anything it
   doesn't recognise and always keeps the raw string alongside.
+- **Assist never guesses and never acts.** `src/assist/match.py` fills only from an
+  exact normalised match, an offered option, a fresh answer and a visible label;
+  anything else is left blank for the human. `src/assist/browser.py` may only fill,
+  select, check and attach — no click, key press or submit — headed, with no stealth.
+  Both are pinned by tests; see ADR-017.
+- **Nothing personal in the repo.** Resume, profile and answers live in the
+  gitignored `docs/resume/`; tests and examples use `docs/resume.example/` (fake).
 - `user_state` is keyed separately from `job_raw` so shortlist/applied/hidden survive
   re-crawls that rewrite job rows. Don't merge those tables.

@@ -1,0 +1,72 @@
+# Screening answers. FAKE DATA -- committed template. Your real copy lives in
+# docs/resume/ (gitignored). Hand-written; the tool never rewrites it.
+#
+# HOW A QUESTION MATCHES. The form's question text is normalised -- lowercased,
+# accents and punctuation removed, a trailing "(required)" dropped -- and then:
+#   match:     the question must EQUAL one of these (normalised the same way)
+#   contains:  the question must CONTAIN one of these
+# No fuzzy matching. If two entries match one question, NEITHER is used and the
+# field is left blank as "ambiguous" -- tighten one of them.
+#
+# answer:        text, a number, true/false (typed as Yes/No), or a list for
+#                multi-selects. Blank = a known question you have not answered
+#                yet; it is left blank on the form and listed by
+#                `python -m src.cli answers pending`.
+# options:       for dropdowns/radios. The answer must equal an offered option.
+#                When forms phrase it differently, list their phrasings under
+#                the answer: {"No": ["I will not require sponsorship"]}.
+# free_text:     true to allow filling a multi-line text box. Off by default so
+#                a one-line answer never lands in a "why us" box.
+# reviewed / expires_days: for answers that go stale (salary, notice period).
+#                Past `reviewed + expires_days` the answer is NOT filled until
+#                you review it and bump `reviewed`.
+#
+# YAML: write questions as `- ` list items, one per line (as below). Inside
+# [brackets] a `?` breaks parsing; in any form, quote text containing ": ".
+#
+# NEW QUESTIONS. Anything Assist cannot match lands in unanswered.yaml with the
+# exact question text and options. Copy the text into a `match:` here, write
+# the answer, and it is filled from then on.
+schema: 1
+
+answers:
+  - id: work_auth_us
+    match:
+      - Are you legally authorized to work in the United States?
+    answer: "Yes"
+    options:
+      "Yes": ["Yes, I am authorized to work in the US"]
+
+  - id: sponsorship
+    contains:
+      - require sponsorship
+      - require visa sponsorship
+    answer: "No"
+
+  - id: notice_period
+    contains: [notice period]
+    answer: 2 weeks
+    reviewed: 2026-09-01
+    expires_days: 60
+
+  - id: expected_salary
+    contains: [salary expectations, expected salary, expected compensation]
+    answer:                  # blank on purpose: left blank on the form
+    expires_days: 90
+
+  - id: why_us
+    match:
+      - Why do you want to work here?
+    answer: |
+      Only an example. Leave free-text answers blank unless you would really
+      send the same words to every company.
+    free_text: true
+
+  - id: eeo_gender
+    match: [Gender]
+    answer: Decline to self-identify
+    options:
+      Decline to self-identify:
+        - I don't wish to answer
+        - Decline To Self Identify
+        - Prefer not to say

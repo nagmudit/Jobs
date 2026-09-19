@@ -37,3 +37,7 @@ wellfound-probe/results/*.log
 Thumbs.db
 
 .agents/
+# Personal data for assisted apply: resume, profile, answers. The repo is public.
+docs/resume/
+# Assisted apply browser profile: cookies and site data. ADR-017.
+jobsearch/browser-profile

@@ -63,6 +63,41 @@ def _validated_overrides(raw: Any) -> list[dict]:
     return out
 
 
+# Hosts are matched EXACTLY against the apply_url's host -- never a suffix, never
+# a pattern. `greenhouse.io` would also admit any subdomain someone points at a
+# company site; each ATS form host is listed on its own. See ADR-017.
+_HOST_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789.-")
+
+
+def _validated_assist(raw: Any) -> dict:
+    """Check the `assist:` section at LOAD time. See ADR-017.
+
+    Absent means assist is simply unconfigured -- the hosted deployment and CI
+    never need it. A present-but-malformed section raises, because a host list
+    that silently parsed to something wider than written would let the browser
+    fill forms on sites nobody chose.
+    """
+    if not raw:
+        return {"profile_dir": None, "hosts": []}
+    if not isinstance(raw, dict):
+        raise ValueError("assist must be a mapping with profile_dir and hosts")
+    hosts: list[str] = []
+    for i, h in enumerate(raw.get("hosts") or []):
+        h = str(h).strip().lower()
+        if not h or set(h) - _HOST_CHARS or h.startswith((".", "-")) or "." not in h:
+            raise ValueError(
+                f"assist.hosts[{i}] {h!r} must be a bare hostname such as "
+                f"jobs.lever.co -- no scheme, path, port or wildcard. ADR-017.")
+        hosts.append(h)
+    pd = raw.get("profile_dir")
+    profile_dir = None
+    if pd:
+        profile_dir = Path(str(pd)).expanduser()
+        if not profile_dir.is_absolute():
+            profile_dir = (ROOT / profile_dir).resolve()
+    return {"profile_dir": profile_dir, "hosts": hosts}
+
+
 def _env_path(var: str, default: Path) -> Path:
     """Let the corpus and cache live outside the checkout.
 
@@ -103,6 +138,11 @@ class Config:
     # them. Empty by default: robots.txt governs everything unless a human
     # granted an exception and it was written down here. See ADR-013.
     robots_overrides: list[dict] = field(default_factory=list)
+    # Assisted apply (ADR-017). profile_dir holds the user's resume, profile and
+    # answers -- gitignored, never in the repo. hosts is the exact-match list of
+    # ATS form hosts the browser may pre-fill. Empty = assist unavailable.
+    assist_profile_dir: Path | None = None
+    assist_hosts: list[str] = field(default_factory=list)
 
     # default_factory, not a bare default: the env is read per-Config, so a
     # test (or a systemd unit) can set it without reimporting the module.
@@ -158,6 +198,11 @@ class Config:
             cfg.max_age_days = max_age_days if max_age_days > 0 else None
 
         cfg.robots_overrides = _validated_overrides(raw.get("robots_overrides"))
+        assist = _validated_assist(raw.get("assist"))
+        env_dir = os.environ.get("JOBSEARCH_PROFILE_DIR")
+        cfg.assist_profile_dir = (Path(env_dir).expanduser() if env_dir
+                                  else assist["profile_dir"])
+        cfg.assist_hosts = assist["hosts"]
 
         if cfg.delay_range[0] < 3.0:
             raise ValueError(

@@ -22,6 +22,7 @@ The repository is the source of truth. Start here, read only what your task touc
 | ATS boards (Greenhouse, Ashby, Workable) | [ADR-010](architecture/decisions/ADR-010-ats-boards-company-scoped.md), `jobsearch/src/ats.py` |
 | Why a re-run finds new jobs (cache TTL) | [ADR-011](architecture/decisions/ADR-011-cache-freshness.md), `jobsearch/src/fetch.py` |
 | Conventions for changing `src/` | [conventions](engineering/conventions.md) |
+| Assisted apply, the resume, screening answers | [ADR-017](architecture/decisions/ADR-017-assisted-apply.md), [engineering/resume-and-answers.md](engineering/resume-and-answers.md), `jobsearch/src/assist/` |
 | Comparing salaries across currencies | [ADR-012](architecture/decisions/ADR-012-cross-currency-salary.md), `jobsearch/src/derive.py` |
 | Which platforms are readable at all | [research/job-platform-survey.md](research/job-platform-survey.md) |
 | Crawling, pagination, slices | [ADR-004](architecture/decisions/ADR-004-slicing-and-two-tiers.md), [ADR-005](architecture/decisions/ADR-005-crawl-wide-filter-locally.md), `jobsearch/src/crawl.py` |
@@ -55,6 +56,7 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
 | [ADR-014](architecture/decisions/ADR-014-rotating-user-agents.md) | The User-Agent is a rotating pool; what that does and does not change |
 | [ADR-015](architecture/decisions/ADR-015-stored-derivation.md) | Derived columns are stored in `job_derived`, kept exact by triggers; `jobs` stays the view |
 | [ADR-016](architecture/decisions/ADR-016-per-host-halt.md) | A mitigation or unreadable robots.txt stops that host for the rest of the run, not the whole run |
+| [ADR-017](architecture/decisions/ADR-017-assisted-apply.md) | Assisted apply: pre-fill in a visible browser, the user submits; no CAPTCHA circumvention |
 
 ## Quality
 
@@ -78,6 +80,10 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
   in a table and stop sending descriptions with every page of rows. Amends ADR-002.
 - [per-host-halt.md](plans/active/per-host-halt.md) — a host that refuses us is
   skipped for the rest of the run instead of ending it. ADR-016.
+- [assisted-apply.md](plans/active/assisted-apply.md) — pre-fill ATS forms from a
+  pinned resume and a growing answers file. ADR-017. Live-checked on every ATS
+  host. **Open:** custom widgets are shown, not filled; not yet used with the
+  real profile.
 
 [plans/completed/](plans/completed/) — what was done and what it left behind.
 

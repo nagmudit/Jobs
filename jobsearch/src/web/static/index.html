@@ -182,6 +182,8 @@ th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);
 /* 3 buttons + 2 gaps + cell padding. Measured, not guessed: at 150px the third
    button ran 31px past the table edge. */
 .c-acts{width:172px}
+/* Assist adds a fourth button on ATS rows; measured the same way. */
+html[data-assist="on"] .c-acts{width:240px}
 /* top:0 -- the pane is the scroll container now, not the viewport. */
 th{position:sticky;top:0;background:var(--panel);z-index:10;
   font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);
@@ -253,6 +255,9 @@ a:hover{text-decoration-color:currentColor}
 .sbtn.apply{background:var(--accent);color:var(--on-accent);
   border-color:var(--accent);font-weight:650}
 .sbtn.apply:hover{filter:brightness(1.25);background:var(--accent)}
+/* Assist is the secondary path: outlined, so Apply stays the obvious one. */
+.sbtn.assist{border-color:var(--accent);color:var(--ink)}
+.sbtn.assist[disabled]{opacity:.6;cursor:progress}
 /* The global td rule clips with an ellipsis, which was truncating the Apply
    button to "Ap...". Actions opt out of it. */
 td.acts{white-space:nowrap;overflow:visible;text-overflow:clip}
@@ -602,6 +607,8 @@ function rowHtml(r) {
                                 : String(r.expires_at || '').slice(0,10)) : '—'}</td>
     <td class="acts">
       <div class="row-actions">
+        ${canAssist(r) ? `<button class="sbtn assist" type="button"
+          title="Open the application form in the assist browser and pre-fill it from your profile. You review, and you submit.">Assist</button>` : ''}
         <a class="sbtn apply" href="${esc(r.apply_url)}" target="_blank"
            rel="noopener">${ico('i-open')}Apply</a>
         <button class="sbtn" data-st="shortlisted" aria-label="Shortlist"
@@ -610,6 +617,18 @@ function rowHtml(r) {
           title="Hide">${ico('i-hide')}</button>
       </div>
     </td></tr>`;
+}
+
+/* Mirrors the server's form_url closely enough to decide whether to SHOW the
+   button; the server re-checks every request against the exact allowlist, so a
+   disagreement here costs a refused click, never a form on the wrong site. */
+function canAssist(r) {
+  const a = state.meta && state.meta.assist;
+  if (!a || !a.playwright) return false;
+  let host = '';
+  try { host = new URL(r.apply_url).hostname.toLowerCase(); } catch (e) {}
+  return a.hosts.includes(host) ||
+    (r.source === 'greenhouse' && a.hosts.includes('job-boards.greenhouse.io'));
 }
 
 async function loadRows() {
@@ -639,6 +658,32 @@ function wireRows() {
     if (apply) apply.addEventListener('click', () => {
       post('/api/event', {job_id: id, status: 'opened'}).then(loadPending).catch(() => {});
     });
+    /* Assist (ADR-017): the server opens the form in a visible browser and
+       pre-fills it. It records `opened` itself, so the tray asks "did you
+       apply?" exactly as for a plain Apply click. Nothing is ever submitted. */
+    const assist = tr.querySelector('.assist');
+    if (assist) assist.onclick = async () => {
+      assist.disabled = true;
+      assist.textContent = 'Filling…';
+      try {
+        const r = await post('/api/assist', {job_id: id});
+        if (r.status === 'filled') {
+          msg(`Filled ${r.filled} · ${r.left.length} for you (${r.required_left} required)` +
+              `${r.widget ? ' · CAPTCHA on form' : ''} — review and submit in the browser`);
+        } else {
+          msg(r.message || r.status);
+        }
+        loadPending();
+      } catch (e) {
+        const d = e && e.detail;
+        msg(d && d.kind === 'drift'
+          ? 'Resume changed: update profile.yaml, then run `profile pin` (see `profile check`)'
+          : (d && d.message) || (typeof d === 'string' ? d : 'Assist failed'));
+      } finally {
+        assist.disabled = false;
+        assist.textContent = 'Assist';
+      }
+    };
     tr.querySelector('.exp').onclick = e => {
       e.preventDefault();
       const nx = tr.nextElementSibling;
@@ -1015,6 +1060,7 @@ function setHeaderOffset() {
 async function loadMeta() {
   const m = await fetch('/api/meta').then(r => r.json());
   state.meta = m;
+  document.documentElement.dataset.assist = m.assist && m.assist.playwright ? 'on' : 'off';
   /* The hosted deployment cannot crawl -- a fetch is 75-180 minutes against
      serverless timeouts, and the crawl routes are not registered there at all.
      Hiding the panel keeps the UI honest rather than offering a button that

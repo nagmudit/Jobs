@@ -21,6 +21,7 @@ from pathlib import Path
 
 from . import assertions as A
 from . import store as S
+from .assist.profile import ProfileError
 from .config import Config, TARGETS_PATH
 from .crawl import crawl, validate_role
 from .enrich import enrich_ids
@@ -518,6 +519,80 @@ def cmd_serve(args, cfg: Config) -> int:
     return 0
 
 
+def _profile_dir(cfg: Config) -> Path:
+    if not cfg.assist_profile_dir:
+        raise SystemExit("assist.profile_dir is not set in targets.yaml (ADR-017).")
+    return cfg.assist_profile_dir
+
+
+def cmd_profile(args, cfg: Config) -> int:
+    """`profile check` validates everything Assist reads and reports drift;
+    `profile pin <pdf>` records that profile.yaml now matches that PDF."""
+    from .assist import profile as P
+
+    d = _profile_dir(cfg)
+    prof = P.load_profile(d)
+    answers = P.load_answers(d)
+    if args.action == "pin":
+        if not args.pdf:
+            raise SystemExit("usage: profile pin <file.pdf>")
+        # Show what is being vouched for. Pinning is the user saying "the
+        # profile matches this PDF", so they should be looking at it.
+        print("profile.yaml says:")
+        for k in ("full_name", "email", "phone", "location", "current_title",
+                  "current_company", "linkedin", "github"):
+            print(f"  {k:<16} {prof.value(k) or '(blank)'}")
+        work = prof.raw.get("work") or []
+        if work:
+            w = work[0]
+            print(f"  {'latest role':<16} {w.get('title')} @ {w.get('company')} "
+                  f"({w.get('start')} - {w.get('end') or 'present'})")
+        r = P.pin(d, args.pdf)
+        print(f"\nPinned {r.tag}. Assist will attach this PDF.")
+        return 0
+    problems = P.drift(d)
+    print(f"profile dir   {d}")
+    print(f"profile.yaml  ok ({prof.value('full_name')})")
+    print(f"answers.yaml  ok ({len(answers)} entries, "
+          f"{sum(1 for a in answers if a.blank)} blank)")
+    if problems:
+        print("resume        DRIFT -- Assist will refuse to fill:")
+        for p_ in problems:
+            print(f"  - {p_}")
+        print("Update profile.yaml to match the new resume, then "
+              "`python -m src.cli profile pin <pdf>`.")
+        return 2
+    print(f"resume        ok ({P.current_resume(d).tag})")
+    return 0
+
+
+def cmd_answers(args, cfg: Config) -> int:
+    """What answers.yaml needs a human for: questions seen on real forms that
+    nothing matched, answers still blank, and answers past their review date."""
+    from .assist import profile as P
+
+    d = _profile_dir(cfg)
+    todo = P.pending(d)
+    un, blank, stale = todo["unanswered"], todo["blank"], todo["stale"]
+    if un:
+        print(f"Seen on forms, no answer matches ({len(un)}) -- add a `match:` "
+              f"with this exact text to answers.yaml:")
+        for q in un:
+            opts = f"  options: {q['options']}" if q.get("options") else ""
+            print(f"  [{q['seen']}x {','.join(q['ats'])}] {q['question']}"
+                  f"  ({q['type']}{', ' + q['reason'] if q.get('reason') else ''}){opts}")
+    if blank:
+        print(f"Known questions still blank ({len(blank)}): {', '.join(blank)}")
+    if stale:
+        print(f"Past their review date, not being filled ({len(stale)}):")
+        for s_ in stale:
+            print(f"  {s_['id']}: reviewed {s_['reviewed'] or 'never'}, "
+                  f"expires after {s_['expires_days']} days -- update `reviewed:`")
+    if not (un or blank or stale):
+        print("Nothing pending.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="jobsearch", description="Wellfound job corpus tool")
     ap.add_argument("--targets", default=None, help="path to targets.yaml")
@@ -586,6 +661,16 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("stats", help="corpus size, fill rates, slice truncation")
     p.set_defaults(fn=cmd_stats)
 
+    p = sub.add_parser("profile", help="check the assist profile, or pin a new resume "
+                                       "(ADR-017)")
+    p.add_argument("action", choices=["check", "pin"])
+    p.add_argument("pdf", nargs="?", help="for pin: the PDF's file name in profile_dir")
+    p.set_defaults(fn=cmd_profile)
+
+    p = sub.add_parser("answers", help="questions answers.yaml still needs a human for")
+    p.add_argument("action", choices=["pending"])
+    p.set_defaults(fn=cmd_answers)
+
     p = sub.add_parser("serve", help="local web UI")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
@@ -602,6 +687,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.fn(args, cfg)
     except A.CorpusIntegrityError as e:
+        print(f"\n!! {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
+    except ProfileError as e:
+        # A profile problem is the user's file to fix, not a crash to debug.
         print(f"\n!! {type(e).__name__}: {e}", file=sys.stderr)
         return 2
     except Exception:
