@@ -758,6 +758,14 @@ journeys:
     blast_radius: Hourly triggers each running a full fetch would multiply our load on every source
     release_blocking: true
 
+  - id: CJ-069
+    name: A page crawled yesterday is fetched again today, and a slice that fetched nothing says so
+    capability: CAP-CRAWL
+    priority: P0
+    facing: system
+    blast_radius: A source silently stops being fetched while every run reports success; its jobs then age out of the corpus
+    release_blocking: true
+
 tests:
   - id: INT-001
     name: Silent role fallback and role mismatch both raise
@@ -1578,6 +1586,18 @@ tests:
     status: implemented
     location: jobsearch/tests/test_daily_gate.py
     command: python -m pytest tests/test_daily_gate.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CRAWL-020
+    name: Page-done marks expire with the listing TTL; pages_fetched reports real requests
+    journey: CJ-069
+    priority: P0
+    level: integration
+    status: implemented
+    location: jobsearch/tests/test_resume_freshness.py
+    command: python -m pytest tests/test_resume_freshness.py -q
     triggers: [pull_request]
     merge_blocking: true
     owner: mudit

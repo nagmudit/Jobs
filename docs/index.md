@@ -22,6 +22,7 @@ The repository is the source of truth. Start here, read only what your task touc
 | Adding another job platform | [ADR-008](architecture/decisions/ADR-008-multi-source-implemented.md), `jobsearch/src/sources/` |
 | Fetching a role from every source | [ADR-009](architecture/decisions/ADR-009-role-fetch-across-sources.md), `jobsearch/src/roles.py` |
 | ATS boards (Greenhouse, Ashby, Workable) | [ADR-010](architecture/decisions/ADR-010-ats-boards-company-scoped.md), `jobsearch/src/ats.py` |
+| A crawl that fetches nothing and looks fine | [ADR-011](architecture/decisions/ADR-011-cache-freshness.md) addendum, [plan](plans/active/wellfound-resume-freeze.md), `crawl_unit` |
 | Why a re-run finds new jobs (cache TTL) | [ADR-011](architecture/decisions/ADR-011-cache-freshness.md), `jobsearch/src/fetch.py` |
 | Conventions for changing `src/` | [conventions](engineering/conventions.md) |
 | Assisted apply, the resume, screening answers | [ADR-017](architecture/decisions/ADR-017-assisted-apply.md), [engineering/resume-and-answers.md](engineering/resume-and-answers.md), `jobsearch/src/assist/` |
@@ -82,6 +83,9 @@ Accepted ADRs constrain future work. Read the one covering your area before chan
   in a table and stop sending descriptions with every page of rows. Amends ADR-002.
 - [per-host-halt.md](plans/active/per-host-halt.md) — a host that refuses us is
   skipped for the rest of the run instead of ending it. ADR-016.
+- [wellfound-resume-freeze.md](plans/active/wellfound-resume-freeze.md) — Wellfound
+  went unfetched for 15 days because the "page done" mark never expired, and every
+  run reported success. Fixed; **open:** confirm on the next daily run.
 - [assisted-apply.md](plans/active/assisted-apply.md) — pre-fill ATS forms from a
   pinned resume and a growing answers file. ADR-017. Live-checked on every ATS
   host. **Open:** custom widgets are shown, not filled; not yet used with the

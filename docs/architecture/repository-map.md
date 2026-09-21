@@ -122,6 +122,12 @@ Things that will mislead you if nobody says them:
   ADR-015 so does every write to `job_raw`, `company_raw`, `job_detail` or
   `job_provenance`, because their triggers derive. Use `store.connect()`, or
   `derive.register(conn)` first.
+- **A "done" page is skipped without any request** — `crawl_unit` short-circuits
+  `crawl_slice` before robots, cache and every assertion. The mark expires with
+  `cache_ttl_hours`; it used to be permanent, which froze Wellfound for fifteen days
+  while the logs looked healthy. `pages_fetched` (not `pages_walked`, which counts
+  skips) is what shows a slice did real work. See ADR-011 and
+  `docs/plans/active/wellfound-resume-freeze.md`.
 - **`location: remote` is not a location.** It maps to `/role/r/{role}`, a different
   page type whose GraphQL args carry `remote: true` instead of a location member.
   Handled in `fetch.search_url`.

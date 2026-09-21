@@ -158,6 +158,35 @@ Write each one first and watch it fail.
   Himalayas' outcomes against start times. If refusals don't track the time of
   day, it is the runner's IP address, and the remaining choice is to fetch
   Himalayas from a local machine only.
+- 2026-09-21: **it is the runner's IP address, not the time of day.** Run
+  35529948020 started at **18:42 UTC** — the new varying schedule's evening slot,
+  nothing like the old 12:xx window — and `himalayas.app` still answered 403 to
+  robots.txt. From the user's home connection the same request through `Fetcher`
+  succeeds (robots.txt read, `/jobs/api` returned 3,418 bytes, checked
+  2026-09-21). So Himalayas is refusing GitHub runner ranges intermittently, and
+  neither our User-Agent nor our pacing is the trigger.
+
+  | Run (UTC) | Trigger | Himalayas |
+  |---|---|---|
+  | 2026-09-17 13:39 | schedule | fetched |
+  | 2026-09-18 13:03 | schedule | robots 403 |
+  | 2026-09-18 19:51 | manual | fetched |
+  | 2026-09-19 12:36 | schedule | robots 403 |
+  | 2026-09-20 18:42 | schedule (varying slot) | robots 403 |
+
+  **The gate works:** the other runs that day ended in 8-44 s without fetching,
+  and exactly one fetched.
+
+  **Decision (user, 2026-09-21): wait and watch.** No code change. The daily run
+  keeps fetching the other seven sources, publishing and deploying; Himalayas
+  refreshes on the days it is served.
+
+  **What raises the stakes:** Himalayas is ~87% of the corpus (13,225 of 15,155
+  on 2026-09-21) and `max_age_days` is now 20. A fortnight of refusals would age
+  most of the published corpus out, leaving ~1,900 jobs. Watch the daily job
+  count; if Himalayas is refused most days for a week, choose between a
+  self-hosted runner on the user's machine (their IP is served) and dropping
+  Himalayas from CI in favour of a local fetch.
 
 ## Validation
 

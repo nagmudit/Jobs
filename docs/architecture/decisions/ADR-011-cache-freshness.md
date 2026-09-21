@@ -2,6 +2,14 @@
 
 **Status:** accepted · **Date:** 2026-09-05
 
+> **2026-09-21 addendum — the rule covers the page-done mark too.** The HTTP cache
+> was given a TTL here, but `crawl_unit`'s "this page is done" mark was left
+> permanent, and it short-circuits the crawl *before* the cache is consulted. A
+> restored corpus therefore froze Wellfound for fifteen days while every run
+> reported success. `store.page_done` now takes the same `cache_ttl_hours` window:
+> a stale listing and a stale page mark are the same fact. See
+> [the incident plan](../../plans/active/wellfound-resume-freeze.md).
+
 ## Context
 
 `Fetcher` caches every response to `cache/` keyed by a URL hash. That rule came from the

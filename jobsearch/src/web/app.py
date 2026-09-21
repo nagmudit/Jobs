@@ -424,7 +424,8 @@ class CrawlJob:
                 self.state["done"].append(
                     {"role": role, "jobs": res.jobs_seen, "new": res.jobs_new,
                      "stale": res.jobs_stale_skipped,
-                     "pages": res.pages_walked, "ended": res.ended_reason,
+                     "pages": res.pages_walked, "fetched": res.pages_fetched,
+                     "ended": res.ended_reason,
                      "claimed": res.total_claimed})
             # crawl_slice() is called directly here rather than crawl(), so the
             # re-derivation that crawl() performs must happen explicitly.

@@ -37,6 +37,10 @@ class SliceResult:
     total_claimed: int | None = None
     companies_claimed: int | None = None
     pages_walked: int = 0
+    # Requests actually made. `pages_walked` counts skipped pages too, so only
+    # this distinguishes a working slice from a frozen one -- which is what hid
+    # the 2026-09-06 Wellfound freeze for two weeks.
+    pages_fetched: int = 0
     jobs_seen: int = 0
     jobs_new: int = 0
     companies_seen: int = 0
@@ -114,11 +118,16 @@ def crawl_slice(
     for page_no in range(1, max_pages + 1):
         url = search_url(role, location, page_no)
 
-        if resume and S.page_done(conn, slice_key, page_no):
-            # Already ingested in a previous run; skip the request entirely.
+        # A page counts as done only while a cached listing would still count
+        # as fresh (ADR-011). The mark used to be permanent, and a restored
+        # corpus therefore froze the whole source; see
+        # docs/plans/active/wellfound-resume-freeze.md.
+        if resume and S.page_done(conn, slice_key, page_no,
+                                  max_age=getattr(fetcher, "listing_ttl", None)):
             res.pages_walked += 1
             continue
 
+        res.pages_fetched += 1
         resp = fetcher.get(url, max_age=fetcher.listing_ttl)  # raises MitigationDetected -> caller halts
         if not resp.ok:
             res.ended_reason = f"http_{resp.status}"
@@ -184,7 +193,11 @@ def crawl_slice(
     else:
         res.ended_reason = "max_pages"
 
-    if res.ended_reason == "unknown":
+    if res.pages_fetched == 0 and res.pages_walked:
+        # Every page was still fresh, so nothing was requested. Saying
+        # "exhausted" here is how a frozen source passes for a working one.
+        res.ended_reason = "resumed_fresh"
+    elif res.ended_reason == "unknown":
         res.ended_reason = "exhausted"
 
     # Count from provenance rather than from this run's loop. On a resumed run

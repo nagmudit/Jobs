@@ -100,6 +100,10 @@ def fetch_role(
                 "stale_skipped": r.jobs_stale_skipped, "filtered_out": 0,
                 "pages": r.pages_walked, "claimed": r.total_claimed,
                 "ended_reason": r.ended_reason,
+                # `seen` counts stored rows, so it looks identical whether the
+                # pages were fetched or skipped. This is the number that tells
+                # them apart (docs/plans/active/wellfound-resume-freeze.md).
+                "fetched": r.pages_fetched,
             }
 
         # ATS boards: company-scoped, so expand rather than search.
@@ -252,9 +256,11 @@ def describe(results: list[dict[str, Any]]) -> str:
             lines.append(f"  {r['source']:10} skipped — {r.get('reason','')}")
             continue
         scanned = r["seen"] + r["filtered_out"] + r["stale_skipped"]
+        pages = (f" {r['fetched']}/{r['pages']} pages fetched"
+                 if r.get("fetched") is not None else "")
         lines.append(
             f"  {r['source']:10} {r['seen']:>4} kept / {scanned:>5} scanned "
             f"({r['new']} new, {r['filtered_out']} off-role, "
             f"{r['stale_skipped']} too old) "
-            f"[{r['filter_mode']}]")
+            f"[{r['filter_mode']}]{pages}")
     return "\n".join(lines)

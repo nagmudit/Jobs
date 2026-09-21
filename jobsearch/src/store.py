@@ -647,10 +647,34 @@ def mark_page(conn, slice_key: str, page: int, status: str, n_jobs: int) -> None
         (slice_key, page, status, n_jobs, now()))
 
 
-def page_done(conn, slice_key: str, page: int) -> bool:
-    r = conn.execute("SELECT status FROM crawl_unit WHERE slice_key=? AND page=?",
-                     (slice_key, page)).fetchone()
-    return r is not None and r["status"] == "done"
+def page_done(conn, slice_key: str, page: int,
+              max_age: float | None = None) -> bool:
+    """Has this page been ingested recently enough to skip?
+
+    `max_age` (seconds) is the SAME window a cached listing gets, and for the
+    same reason (ADR-011): a search page goes stale, so a page marked done
+    yesterday is not done today. Without it, the daily workflow -- which
+    restores the previous corpus, marks and all -- skipped every Wellfound page
+    for fifteen days and reported success. See
+    docs/plans/active/wellfound-resume-freeze.md.
+
+    None means the mark never expires, matching `cache_ttl_hours: 0`.
+
+    An unparsable or missing timestamp counts as STALE: re-fetching costs
+    requests, skipping costs a silently frozen source.
+    """
+    r = conn.execute(
+        "SELECT status, updated_at FROM crawl_unit WHERE slice_key=? AND page=?",
+        (slice_key, page)).fetchone()
+    if r is None or r["status"] != "done":
+        return False
+    if max_age is None:
+        return True
+    try:
+        marked = datetime.fromisoformat(r["updated_at"])
+    except (TypeError, ValueError):
+        return False
+    return (datetime.now(timezone.utc) - marked).total_seconds() < max_age
 
 
 # The funnel, in order. `hidden` sits outside it -- "stop showing me this" is not

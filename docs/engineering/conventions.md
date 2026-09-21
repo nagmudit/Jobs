@@ -34,6 +34,11 @@ you cannot work without; this carries the rest. **Read both before changing
   (`anywhere`/`remote`/a city) is what we asked Wellfound to pre-filter on, recorded
   in `job_provenance.location`. A *place* (Pune, San Francisco) comes from
   `locationNames` and lives in `job_location`. The UI filters on places. See ADR-005.
+- **A resumed page goes stale like a cached one.** `crawl_slice` skips a page marked
+  `done` in `crawl_unit`, before any request, assertion or cache check. That mark
+  expires with `cache_ttl_hours` (ADR-011) — making it permanent again silently
+  freezes the source, as it did to Wellfound for fifteen days. Judge a slice by
+  `pages_fetched`, never `pages_walked`.
 - **The age cutoff never ends a slice early.** `max_age_days` (20 in `targets.yaml`; code default 30) filters
   jobs at ingest, in enrichment, and in the UI. It must NOT stop paging: Wellfound
   does not order results by date, so a page of only-stale jobs is followed by pages
