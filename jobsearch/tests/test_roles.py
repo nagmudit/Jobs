@@ -170,12 +170,16 @@ def test_off_role_is_counted_separately_from_too_old(tmp_path):
     import time
 
     conn = S.connect(tmp_path / "t4.db")
+    # Relative to now, not RO_JOB's literal epoch: that one is 2026-09-02, and
+    # against a 30-day cutoff it turned "keep" into "too old" on 2026-10-02 with
+    # no code change (CI red from the next daily run).
+    fresh = int(time.time()) - 86400
     old = int(time.time()) - 400 * 86400
     payload = json.dumps([
         RO_LEGAL,
-        RO_JOB,                                                   # keep
+        dict(RO_JOB, epoch=fresh),                                # keep
         dict(RO_JOB, id="2", position="ML Engineer", epoch=old),  # too old
-        dict(RO_JOB, id="3", position="Valet Driver"),            # off-role
+        dict(RO_JOB, id="3", position="Valet Driver", epoch=fresh),  # off-role
     ])
 
     class F:

@@ -113,9 +113,21 @@ def parse(payload: str, url: str) -> dict[str, Any]:
     return {"organization": organization, "teams": teams, "jobs": jobs}
 
 
+class PostingNotFound(RuntimeError):
+    """BoardNotFound's shape, one level down: a closed posting is HTTP 200 with
+    `organization`, `posting` and `jobBoard` all null (verified live 2026-10-05).
+
+    The board is a listing, cached for `cache_ttl_hours`, so it can still list a
+    posting that has closed since. That raised SchemaDrift and halted the whole
+    2026-09-25 daily run on one stale posting.
+    """
+
+
 def parse_detail(payload: str, url: str) -> dict[str, Any]:
     data = _app_data(payload, url)
     posting = data.get("posting")
+    if posting is None and data.get("organization") is None:
+        raise PostingNotFound(f"{url}: no such Ashby posting (HTTP 200, nulled payload)")
     if not isinstance(posting, dict):
         raise A.SchemaDrift(f"{url}: expected a posting object")
 
@@ -263,7 +275,11 @@ def expand_company(
         detail_resp = fetcher.get(durl)
         if not detail_resp.ok:
             continue
-        detail = parse_detail(detail_resp.text, durl)
+        try:
+            detail = parse_detail(detail_resp.text, durl)
+        except PostingNotFound:
+            continue  # closed since the cached board listed it
+
         date_posted = detail["linked_data"].get("datePosted")
         if cutoff_ts and date_posted:
             try:

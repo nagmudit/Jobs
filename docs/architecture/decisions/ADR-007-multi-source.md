@@ -89,6 +89,27 @@ exists regardless of whether multi-source ever ships, and because it is cheap.
 - ADR-006's 30-day age heuristic should **not** be applied blindly to Himalayas or WWR:
   both publish a real expiry date, which is a better signal than inferred age.
 
+## Addendum 2026-10-05: a robots.txt served with 404
+
+From 2026-09-28 `himalayas.app/robots.txt` answers **HTTP 404 with its real rules
+in the body** (`User-Agent: *`, `Allow: /`, `Disallow: /apply`, the `?page=`
+families, sitemaps). This was checked from a home connection as well as from the
+runner, so it is not a block on the runner. Every daily run from 2026-09-28 to
+10-04 refused Himalayas as "unreadable" and went red.
+
+**Decision:** a 404 or 410 robots.txt whose body has a `User-agent:` line is
+parsed and enforced exactly like a 200 (`fetch.py::_rules_served_as_not_found`).
+Everything else that is not 2xx still raises `RobotsUnreadable`: 401, 403, 5xx,
+a transport failure, or a 404 with an HTML or empty body.
+
+- This is **stricter than RFC 9309**. That RFC lets a crawler treat any 4xx
+  robots.txt as "no rules, crawl anything". We honour the rules the site
+  actually serves instead.
+- It is **not** an override and it does not crawl blind: rules are read, and
+  the site's own disallows still refuse (`tests/test_host_block.py`).
+- A refusal (401/403) stays a refusal whatever its body says. naukri.com's 403
+  is still refused.
+
 ## Related
 
 `jobsearch/src/fetch.py::_load_robots` · `jobsearch/tests/test_robots_multiorigin.py` ·

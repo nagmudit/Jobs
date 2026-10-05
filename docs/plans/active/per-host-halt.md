@@ -1,7 +1,7 @@
 ---
 status: active
 created: 2026-09-18
-last_updated: 2026-09-18
+last_updated: 2026-10-05
 areas: [jobsearch/src/fetch.py, jobsearch/src/roles.py, jobsearch/src/cli.py, jobsearch/src/web/app.py, jobsearch/src/web/static/index.html, .github/workflows/daily-fetch.yml, jobsearch/tests]
 ---
 
@@ -187,6 +187,49 @@ Write each one first and watch it fail.
   count; if Himalayas is refused most days for a week, choose between a
   self-hosted runner on the user's machine (their IP is served) and dropping
   Himalayas from CI in favour of a local fetch.
+
+- 2026-10-05: **the daily run had been red since 2026-09-25. There were three
+  separate causes, and none of them was the old runner-IP 403.** Read from the
+  run logs (`gh run view --log`) for 09-25, 09-28 to 10-04, and the pasted logs
+  in `daily-fetch-error-logs/`:
+
+  | Run(s) | What happened | Exit |
+  |---|---|---|
+  | 2026-09-25 | Ashby `coder/2f80acad-...`: `SchemaDrift: expected a posting object`; halted in role 9 of 10 | 2 |
+  | 2026-09-28, 09-29, 10-01 to 10-04 | `himalayas.app/robots.txt` **404**, every role | 3 |
+  | 2026-09-30 | Himalayas 404, then Wellfound `ReadTimeout` on `/role/frontend-engineer?page=11`, traceback | 1 |
+
+  Root causes, each checked with one live request on 2026-10-05:
+  - **Himalayas** now serves its real robots.txt (rules and sitemaps) with
+    status **404**, from a home connection too. It is not refusing us: the site
+    is misconfigured. Fix: a 404/410 whose body has a `User-agent:` line is
+    parsed and enforced, and any other non-2xx still blocks. See the ADR-007
+    addendum. The real body allows `/jobs/api?limit=20&offset=N` and still
+    disallows `?page=` and `/apply` (checked offline through `Fetcher.allowed`).
+  - **Ashby** answers a closed posting with HTTP 200 and `organization`, `posting`
+    and `jobBoard` all null, the same as `BoardNotFound`. The cached board (6 h)
+    still listed it. Fix: `PostingNotFound`, skipped per posting. A detail page
+    with an organization but no posting is still `SchemaDrift`.
+  - **Transport failures** were this plan's "Out of scope" item. Now decided:
+    `TransportFailure` blocks the origin for the run, other hosts carry on, and
+    the run exits 3. Transport failures are no longer cached. See the ADR-016
+    addendum.
+  - Also: the `ci.yml` suite had been red since 2026-10-03.
+    `test_off_role_is_counted_separately_from_too_old` used `RO_JOB`'s literal
+    epoch (2026-09-02), which aged past its 30-day cutoff. It now uses a
+    relative timestamp.
+
+  Tests: 11 new (`test_host_block.py`: 9 functions, one of them parametrised
+  six ways; `test_ashby.py`: 2), written first. The 6 that pin new behaviour
+  were red before the fix. Eight mutations (404 rules ignored, any status
+  accepted, any 404 body accepted, transport not blocked, transport cached,
+  `fetch_role` not catching, Ashby not skipping, Ashby too broad) each turned
+  1-3 of them red.
+
+  **Not run:** the real daily workflow. The next scheduled run should show
+  Himalayas fetched, with `fetch` exiting 0 unless a host really refuses us.
+  Himalayas' 404 is their bug and may be fixed back to 200; both cases are
+  handled.
 
 ## Validation
 

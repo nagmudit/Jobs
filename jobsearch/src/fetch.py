@@ -78,6 +78,17 @@ class RobotsUnreadable(RuntimeError):
     and blocked for the rest of the run (ADR-016)."""
 
 
+class TransportFailure(RuntimeError):
+    """No response at all: a timeout, DNS, a reset connection.
+
+    Not a refusal, but it may be one (a tarpit looks exactly like this), and the
+    only way to find out is the retry the conduct rules forbid. So it blocks its
+    origin for the rest of the run like a mitigation does, and every other host
+    carries on. It used to end the whole run (2026-09-30, a Wellfound
+    ReadTimeout). See the ADR-016 addendum.
+    """
+
+
 class HostBlocked(RuntimeError):
     """This origin refused us earlier in the run, so nothing more is sent to it.
 
@@ -106,6 +117,22 @@ def _is_mitigation(status: int | None, headers: dict) -> bool:
     a retry-through-mitigation by another name.
     """
     return bool((headers or {}).get("cf-mitigated")) or status in (403, 429, 503)
+
+
+def _rules_served_as_not_found(resp: Response) -> bool:
+    """A robots.txt answered 404/410 whose body is nonetheless a rule set.
+
+    himalayas.app has done exactly this since 2026-09-28: its real rules, with
+    status 404. RFC 9309 lets a crawler treat any 4xx robots.txt as "no rules,
+    crawl anything"; we stay stricter and honour the rules it actually serves.
+    Only "not found" qualifies -- 401/403 are refusals and 5xx is an outage,
+    whatever the body says -- and only a body with a `User-agent:` line, so an
+    HTML error page still counts as unreadable (ADR-007 addendum).
+    """
+    if resp.status not in (404, 410):
+        return False
+    return any(line.split("#", 1)[0].strip().lower().startswith("user-agent:")
+               for line in resp.text.splitlines())
 
 
 class Fetcher:
@@ -146,7 +173,8 @@ class Fetcher:
         self.robots_overrides = list(robots_overrides or [])
         self._announced: set[str] = set()
         # Origins that refused us in this run -> why. Filled by get() on the
-        # first mitigation or unreadable robots.txt, and checked before anything
+        # first mitigation, unreadable robots.txt or transport failure, and
+        # checked before anything
         # else on every later call, so a blocked host gets no further request of
         # any kind while other hosts carry on (ADR-016). Lives exactly as long as
         # this Fetcher; across runs the sticky cached refusal takes over (ADR-011).
@@ -215,7 +243,7 @@ class Fetcher:
         if origin in self._robots:
             return self._robots[origin]
         resp = self._raw_get(f"{origin}/robots.txt", max_age=ROBOTS_TTL)
-        if not resp.ok:
+        if not resp.ok and not _rules_served_as_not_found(resp):
             raise RobotsUnreadable(
                 f"{origin}: could not read robots.txt (HTTP {resp.status}); "
                 f"refusing to crawl blind"
@@ -331,6 +359,10 @@ class Fetcher:
                 fetched_at=datetime.now(timezone.utc).isoformat(),
                 error=f"{type(e).__name__}: {e}",
             )
+            # Not cached: there is no response to keep as evidence, and a cached
+            # failure was replayed -- forever, on a detail page with no max_age.
+            # Within the run the origin is blocked anyway (`get`).
+            return resp
         self._store(resp)
         return resp
 
@@ -352,7 +384,7 @@ class Fetcher:
             raise HostBlocked(origin, self.blocked[origin])
         try:
             return self._get(url, refresh, max_age)
-        except (RobotsUnreadable, A.MitigationDetected) as e:
+        except (RobotsUnreadable, A.MitigationDetected, TransportFailure) as e:
             self.blocked[origin] = f"{type(e).__name__}: {e}"
             raise
 
@@ -368,7 +400,7 @@ class Fetcher:
             self.on_response(resp)
 
         if resp.error:
-            raise RuntimeError(f"{url}: transport failure: {resp.error}")
+            raise TransportFailure(f"{url}: transport failure: {resp.error}")
         # Cached non-2xx responses are replayed as evidence, not re-requested.
         A.check_mitigation(resp.status, resp.headers, url, resp.text)
         return resp

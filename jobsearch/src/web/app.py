@@ -36,7 +36,7 @@ from .. import assertions as A
 from .. import store as S
 from ..config import Config
 from ..enrich import enrich_ids
-from ..fetch import Fetcher, HostBlocked, RobotsUnreadable
+from ..fetch import Fetcher, HostBlocked, RobotsUnreadable, TransportFailure
 from ..roles import ATS_PROVIDERS
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -378,7 +378,7 @@ class CrawlJob:
                             f, conn, target, cutoff_ts=cfg.cutoff_ts(),
                             max_pages=cfg.source_max_pages(name),
                             on_page=lambda d, _n=name: self._note_event(d, source=_n))
-                    except (HostBlocked, RobotsUnreadable, A.MitigationDetected):
+                    except (HostBlocked, RobotsUnreadable, TransportFailure, A.MitigationDetected):
                         # Recorded in f.blocked; the other sources carry on.
                         continue
                     self.state["jobs_new"] += r["new"]

@@ -263,3 +263,35 @@ def test_real_schema_drift_still_raises():
            "</script></html>")
     with pytest.raises(A.SchemaDrift, match="jobPostings"):
         AB.parse(bad, "u")
+
+
+# --- a posting closed since the board was read is not schema drift ------------
+
+
+def test_closed_posting_is_skipped_not_raised(conn):
+    """2026-09-25: jobs.ashbyhq.com/coder/2f80acad-... halted the daily run with
+    SchemaDrift "expected a posting object". Ashby answers a closed posting with
+    HTTP 200 and `organization`, `posting` and `jobBoard` all null (verified live
+    2026-10-05) -- BoardNotFound's shape, one level down. The board is cached for
+    `cache_ttl_hours`, so it can list a posting that has closed since. That is a
+    per-posting miss, and the board's other postings must still be stored."""
+    gone = dict(BOARD_JOB, id="closed-1")
+    board_url = ASH.board_url("Ashby")
+    f = Fetch({board_url: _board([gone, BOARD_JOB]),
+               ASH.detail_url("Ashby", "closed-1"): NOT_FOUND_APP_DATA,
+               ASH.detail_url("Ashby", BOARD_JOB["id"]): _detail()})
+
+    r = ASH.expand_company(f, conn, "ashbyhq", "Ashby", keywords=[], role="r")
+
+    assert r["seen"] == 1
+    assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 1
+    with pytest.raises(ASH.PostingNotFound):
+        ASH.parse_detail(NOT_FOUND_APP_DATA, "u")
+
+
+def test_a_detail_page_missing_only_its_posting_is_still_drift():
+    """Only the fully-nulled page is "gone". An organization with no posting is
+    a shape we do not recognise."""
+    half = _page({"organization": {"name": "Ashby"}, "posting": None, "jobBoard": None})
+    with pytest.raises(A.SchemaDrift, match="expected a posting object"):
+        ASH.parse_detail(half, "u")

@@ -61,7 +61,7 @@ candidates against the live site.
 Long fetches can run in the background. Re-running within 6 hours is cheap, because
 listings are cached (`cache_ttl_hours`).
 
-Fetch exit codes: `0` done · `3` done, but a site refused us and was skipped ·
+Fetch exit codes: `0` done · `3` done, but a site refused us (or timed out) and was skipped ·
 `2` stopped on a data-integrity error.
 
 ## Keep the corpus tidy

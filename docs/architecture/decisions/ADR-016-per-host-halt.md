@@ -93,6 +93,27 @@ robots.txt. Every other origin carries on.
 - **Retry the host later in the same run.** Rejected: that is the
   backoff-and-continue path the conduct rules forbid.
 
+## Addendum 2026-10-05: a transport failure is a host block too
+
+The decision above left "a transport failure on an ordinary request still
+raises as it does today" for a separate decision. On 2026-09-30 that was forced:
+a Wellfound `ReadTimeout` on `/role/frontend-engineer?page=11` escaped
+`cmd_fetch` as a bare `RuntimeError`. The run exited 1 with a traceback, the
+last three roles never ran on any host, and the Vercel deploy was skipped.
+
+**Decision:** a transport failure (timeout, DNS, reset connection) raises
+`TransportFailure` and blocks its origin for the rest of the run, exactly like a
+mitigation. Every other origin carries on, and `fetch` exits 3.
+
+- **Why block rather than just skip the request:** a timeout may be a tarpit,
+  and the only way to tell is to try again, which is the retry the conduct
+  rules forbid. Blocking costs at most that host's remaining work for the day.
+- **Transport failures are no longer written to the cache.** There is no
+  response to keep as evidence. A cached one was replayed for 6 h on a listing
+  and forever on a detail page (no `max_age`). Combined with this block, that
+  would have refused the host on every later local run. Mitigations are
+  unaffected: they are real responses and stay sticky (ADR-011).
+
 ## Related
 
 `jobsearch/src/fetch.py` · `jobsearch/src/roles.py` · `jobsearch/src/cli.py`

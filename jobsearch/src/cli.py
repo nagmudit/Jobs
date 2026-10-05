@@ -25,7 +25,7 @@ from .assist.profile import ProfileError
 from .config import Config, TARGETS_PATH
 from .crawl import crawl, validate_role
 from .enrich import enrich_ids
-from .fetch import Fetcher, HostBlocked, RobotsUnreadable, search_url
+from .fetch import Fetcher, HostBlocked, RobotsUnreadable, TransportFailure, search_url
 
 
 def _wire(cfg: Config):
@@ -317,7 +317,7 @@ def cmd_ingest(args, cfg: Config) -> int:
                     on_page=lambda d: print(
                         f"    p{d['page']:<3} got={d['jobs']:<4} kept={d['kept']:<5} "
                         f"stale={d['stale_skipped']}"))
-            except (HostBlocked, RobotsUnreadable, A.MitigationDetected) as e:
+            except (HostBlocked, RobotsUnreadable, TransportFailure, A.MitigationDetected) as e:
                 # Scoped to this host (ADR-016). The Fetcher refuses it for the
                 # rest of the run; the other sources carry on.
                 print(f"    !! BLOCKED: {e}", file=sys.stderr)

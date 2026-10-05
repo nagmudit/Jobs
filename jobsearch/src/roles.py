@@ -35,7 +35,7 @@ from typing import Any, Callable
 from . import assertions as A
 from . import store as S
 from .config import Config
-from .fetch import HostBlocked, RobotsUnreadable
+from .fetch import HostBlocked, RobotsUnreadable, TransportFailure
 
 WELLFOUND = "wellfound"
 
@@ -145,7 +145,7 @@ def fetch_role(
     for name in names:
         try:
             out.append(one(name))
-        except (HostBlocked, RobotsUnreadable, A.MitigationDetected) as e:
+        except (HostBlocked, RobotsUnreadable, TransportFailure, A.MitigationDetected) as e:
             out.append(_blocked(name, role, e))
 
     S.rebuild_locations(conn)

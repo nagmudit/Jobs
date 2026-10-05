@@ -122,8 +122,8 @@ jobs:
 
       # Exit codes (src/cli.py):
       #   0  clean.
-      #   3  finished, but some host refused us (a mitigation, or an unreadable
-      #      robots.txt). That host got no further request this run and every
+      #   3  finished, but some host refused us (a mitigation, an unreadable
+      #      robots.txt, or a timeout). That host got no further request this run and every
       #      other host was fetched (ADR-016). This step passes so the corpus
       #      is published AND deployed; the last step then fails the job, so
       #      GitHub still emails about it.

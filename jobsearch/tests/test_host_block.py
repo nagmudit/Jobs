@@ -50,6 +50,8 @@ class Net:
             if url.startswith(prefix):
                 status, hdrs, body = resp
                 break
+        if isinstance(body, BaseException):
+            raise body                       # a transport failure, e.g. ReadTimeout
         requested = url
 
         class R:
@@ -136,6 +138,114 @@ def test_the_refusal_is_still_logged_before_the_block(net):
     with pytest.raises(A.MitigationDetected):
         f.get("https://a.test/jobs")
     assert [r.cf_ray for r in seen] == ["evidence-9"]
+
+
+# --- robots.txt served with a 404 (himalayas.app, from 2026-09-28) -------------
+
+# The head of what himalayas.app served on 2026-10-05 -- with HTTP 404.
+HIMALAYAS_ROBOTS = (
+    "User-Agent: *\nAllow: /\nDisallow: /apply\n"
+    "Disallow: /jobs?page=\nDisallow: /jobs*&page=\nDisallow: /jobs/*?page=\n"
+    "Sitemap: https://himalayas.app/sitemap-jobs.xml.gz\n"
+)
+
+
+def test_a_robots_txt_served_with_404_is_read_and_enforced(net):
+    """The 2026-09-28..10-04 daily failures: himalayas.app returns its real
+    rules with status 404. Those rules are read and enforced -- not ignored
+    (RFC 9309 would allow everything on a 4xx), and not refused."""
+    Net.routes = {"https://himalayas.app/robots.txt": (404, {}, HIMALAYAS_ROBOTS),
+                  "https://himalayas.app/": (200, {}, "{}")}
+    f = _fetcher(net)
+    assert f.get("https://himalayas.app/jobs/api?limit=20&offset=20").ok
+    with pytest.raises(F.RobotsDisallowed):
+        f.get("https://himalayas.app/jobs?page=2")
+    with pytest.raises(F.RobotsDisallowed):
+        f.get("https://himalayas.app/apply/123")
+    assert not f.blocked
+
+
+@pytest.mark.parametrize("status,body", [
+    (404, "<html>Not found</html>"),     # an error page is not a rule set
+    (404, ""),
+    (410, "Gone"),
+    (401, HIMALAYAS_ROBOTS),             # a refusal stays a refusal, whatever it says
+    (403, HIMALAYAS_ROBOTS),
+    (500, HIMALAYAS_ROBOTS),
+])
+def test_a_non_2xx_robots_txt_without_usable_rules_still_blocks(net, status, body):
+    Net.routes = {"https://a.test/robots.txt": (status, {}, body)}
+    f = _fetcher(net)
+    with pytest.raises(RobotsUnreadable, match="refusing to crawl blind"):
+        f.get("https://a.test/jobs")
+    assert "https://a.test" in f.blocked
+
+
+# --- transport failures (wellfound.com ReadTimeout, 2026-09-30) ----------------
+
+
+def test_a_transport_failure_blocks_its_host_and_spares_the_others(net):
+    """A timeout is not a refusal, but it may be a tarpit, and retrying it is
+    the retry path the conduct rules forbid. So: that host gets nothing more
+    this run; every other host carries on. It used to end the whole run."""
+    Net.routes = {"https://a.test/robots.txt": (200, {}, OPEN),
+                  "https://a.test/": (200, {}, F.httpx.ReadTimeout("timed out")),
+                  "https://b.test/robots.txt": (200, {}, OPEN),
+                  "https://b.test/": (200, {}, "fine")}
+    f = _fetcher(net)
+    with pytest.raises(F.TransportFailure, match="transport failure: ReadTimeout"):
+        f.get("https://a.test/role/x?page=11")
+    before = len(Net.calls)
+    with pytest.raises(HostBlocked):
+        f.get("https://a.test/role/x?page=12")
+    assert len(Net.calls) == before, "a host that timed out was contacted again"
+    assert f.get("https://b.test/jobs").ok
+    assert set(f.blocked) == {"https://a.test"}
+
+
+def test_a_transport_failure_is_not_cached(net):
+    """A timeout has no response to keep as evidence. Cached, it was replayed:
+    for 6 h on a listing and FOREVER on a detail page, which with the block
+    above would refuse that host on every later local run."""
+    Net.routes = {"https://a.test/robots.txt": (200, {}, OPEN),
+                  "https://a.test/": (200, {}, F.httpx.ReadTimeout("timed out"))}
+    with pytest.raises(F.TransportFailure):
+        _fetcher(net).get("https://a.test/jobs/1")
+
+    Net.routes["https://a.test/"] = (200, {}, "back")
+    resp = _fetcher(net).get("https://a.test/jobs/1")      # the next run
+    assert resp.ok and not resp.from_cache
+
+
+def test_fetch_role_continues_past_a_transport_failure(net):
+    from src import roles as R
+    from src.config import Config
+
+    _replay_2026_09_18()
+    Net.routes["https://himalayas.app/robots.txt"] = (200, {}, OPEN)
+    Net.routes["https://himalayas.app/jobs/api"] = (
+        200, {}, F.httpx.ReadTimeout("The read operation timed out"))
+    cfg = Config.load()
+    conn = S.connect(net / "t.db")
+    res = R.fetch_role(_fetcher(net), conn, cfg, "artificial-intelligence-engineer",
+                       sources=["himalayas", "remoteok"])
+    by = {r["source"]: r for r in res}
+    assert by["himalayas"]["filter_mode"] == "blocked"
+    assert by["remoteok"]["seen"] == 1
+
+
+def test_fetch_exits_3_on_a_transport_failure_not_a_traceback(net, monkeypatch, capsys):
+    """2026-09-30: a Wellfound ReadTimeout escaped cmd_fetch as a traceback,
+    exit 1, and the Vercel deploy was skipped. It is now a host block."""
+    _replay_2026_09_18()
+    Net.routes["https://himalayas.app/robots.txt"] = (200, {}, OPEN)
+    Net.routes["https://himalayas.app/jobs/api"] = (
+        200, {}, F.httpx.ReadTimeout("The read operation timed out"))
+    rc = _cli(net, monkeypatch, "fetch", "--roles", "artificial-intelligence-engineer",
+              "--sources", "himalayas,remoteok")
+    assert rc == 3
+    assert "TransportFailure" in capsys.readouterr().err
+    assert calls_to("remoteok.com")
 
 
 def test_a_path_disallow_is_not_a_host_block(net):

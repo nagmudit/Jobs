@@ -1346,7 +1346,7 @@ tests:
     owner: mudit
 
   - id: STORE-010
-    name: Ashby hosted-board and JSON-LD fields map without guesses
+    name: Ashby hosted-board and JSON-LD fields map without guesses; a closed posting is skipped, not drift
     journey: CJ-042
     priority: P1
     level: integration
@@ -1507,7 +1507,7 @@ tests:
     owner: mudit
 
   - id: CONDUCT-015
-    name: A mitigation or unreadable robots.txt blocks the origin; later calls send nothing
+    name: A mitigation, unreadable robots.txt or transport failure blocks the origin; later calls send nothing
     journey: CJ-063
     priority: P0
     level: unit
@@ -1523,6 +1523,18 @@ tests:
     journey: CJ-063
     priority: P0
     level: integration
+    status: implemented
+    location: jobsearch/tests/test_host_block.py
+    command: python -m pytest tests/test_host_block.py -q
+    triggers: [pull_request]
+    merge_blocking: true
+    owner: mudit
+
+  - id: CONDUCT-017
+    name: A robots.txt served 404 with real rules is read and enforced; any other non-2xx still blocks
+    journey: CJ-001
+    priority: P0
+    level: unit
     status: implemented
     location: jobsearch/tests/test_host_block.py
     command: python -m pytest tests/test_host_block.py -q

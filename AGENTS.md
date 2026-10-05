@@ -113,7 +113,8 @@ for everyone using it.
   owner for permission the way ADR-013 did. Empty the list to revert.
 - **Stop all traffic to a host on its first mitigation.** `cf-ray` and `cf-mitigated`
   are logged for every response. A non-`None` mitigation or a 403/429/503 raises
-  `MitigationDetected`, and that origin gets **no further request of any kind** for the
+  `MitigationDetected` (a timeout or other transport failure raises
+  `TransportFailure`), and that origin gets **no further request of any kind** for the
   rest of the run — enforced in `Fetcher.get`, which raises `HostBlocked` before
   robots, throttle, cache or transport. Other hosts carry on; the run exits 3 and the
   daily job still fails. Never retry through it, never add a backoff-and-continue
@@ -135,7 +136,9 @@ for everyone using it.
   judged by its own rules. Never collapse that cache — doing so lets one site's
   robots.txt permit a fetch another site forbids. A host whose robots.txt cannot be
   read raises (`RobotsUnreadable`), is never crawled, and is blocked for the rest of
-  the run like a mitigation. See ADR-007, ADR-016.
+  the run like a mitigation. The one exception is a 404/410 whose body is a real
+  rule set: those rules are read and enforced. 401/403/5xx never count as readable.
+  See ADR-007 (2026-10-05 addendum), ADR-016.
 
 ## Conventions
 
